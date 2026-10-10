@@ -1,7 +1,7 @@
 // Which database a script talks to. Scripts never guess: the target is named
 // on the command line, and its endpoint id is printed before anything runs.
 // Writing to production needs `--target production` *and* a matching
-// NEON_PRODUCTION_ENDPOINT_ID (ADR-048).
+// NEON_PRODUCTION_ENDPOINT_ID (ADR-049).
 
 export const TARGET_NAMES = ["app", "local", "branch", "production"] as const;
 export type TargetName = (typeof TARGET_NAMES)[number];

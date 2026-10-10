@@ -72,8 +72,9 @@ Rules:
 | ADR-044 | Statement parsing: CSV and PDF, by code only | Accepted |
 | ADR-045 | Gemini summary on the website (refines ADR-019) | Accepted |
 | ADR-046 | Styling: plain CSS first, Tailwind as a fallback | Accepted |
-| ADR-047 | Nessie as it behaves today (refines ADR-033) | Proposed |
-| ADR-048 | Synthetic data batches and the batch-testing branch | Accepted |
+| ADR-047 | Better Auth Infrastructure dashboard | Proposed |
+| ADR-048 | Nessie as it behaves today (refines ADR-033) | Proposed |
+| ADR-049 | Synthetic data batches and the batch-testing branch | Accepted |
 
 ---
 
@@ -288,6 +289,29 @@ Rules:
 - **Consequences:** Better Auth owns a table named `account` for login
   providers, so bank and card accounts use the table name
   `financial_account`.
+
+### ADR-047: Better Auth Infrastructure dashboard
+
+- **Status:** Proposed (2026-10-10), proposed by Simon
+- **Context:** Better Auth (ADR-006) runs inside the app and keeps users and
+  sessions in our database, so there is nowhere to watch sign-ups, sign-ins
+  and sessions without querying the database. Better Auth sells a hosted
+  dashboard, Better Auth Infrastructure, that shows this activity.
+- **Decision:**
+  - Connect the app to Better Auth Infrastructure with the `dash()` server
+    plugin and `dashClient()` from `@better-auth/infra`.
+  - The key is `BETTER_AUTH_API_KEY`, optional. Without it the server plugin
+    is left out, so local tests, CI and Playwright never call the service
+    (Playwright sets it to empty).
+  - Activity tracking (`lastActiveAt`) stays off, so the user table does not
+    change. `sentinel()` (paid plan) is not used.
+- **Alternatives considered:** Querying the `user` and `session` tables in
+  the Neon console or Drizzle Studio; no new vendor, but no activity history.
+- **Consequences:** A new external vendor. Auth events about real users
+  (user ids, emails, sign-in times, IP-based location, user agent) are sent
+  to dash.better-auth.com. No financial data is sent. Confirm with the team,
+  and check Better Auth's data handling, before production users sign up.
+  Removing it is one plugin and one variable.
 
 ### ADR-007: Workspaces and roles
 
@@ -655,7 +679,7 @@ Rules:
     interactive documentation at kickoff and kept in `NESSIE_BASE_URL`.
 - **Consequences:** Nessie holds sandbox data only; real data never enters it.
 
-### ADR-047: Nessie as it behaves today (refines ADR-033)
+### ADR-048: Nessie as it behaves today (refines ADR-033)
 
 - **Status:** Proposed (2026-10-10), from Jacob's live probe of the API.
 - **Context:** ADR-033 was written from Nessie's old documentation. On
@@ -701,7 +725,7 @@ Rules:
   - **Never call `DELETE /data`.** The key is shared by the whole team.
 - **Consequences:**
   - The demo seed (F-21) and the "Connect Capital One sandbox" button
-    (F-23) both create their Nessie history themselves; ADR-048's generator
+    (F-23) both create their Nessie history themselves; ADR-049's generator
     supplies it in whole-dollar mode.
   - TEST-04 gains rows for the client rules above.
   - **Leftovers on the team key:** one customer ("Synthetic
@@ -716,14 +740,14 @@ Rules:
     match the team key, so it is probably the sample key that ships with
     Capital One's SDK, but treat it as exposed (see HANDOFF.md).
 
-### ADR-048: Synthetic data batches and the batch-testing branch
+### ADR-049: Synthetic data batches and the batch-testing branch
 
 - **Status:** Accepted (2026-10-10), decided by Jacob (schema and marker).
 - **Context:**
   - **What we need:** realistic customers to build and test against, as a
     population (a mix of personas) rather than one demo user, over months of
     history.
-  - **Why not Nessie:** it generates nothing (ADR-047).
+  - **Why not Nessie:** it generates nothing (ADR-048).
   - **Why not let a language model write the transactions:** it cannot keep
     one person's rent and paycheck consistent across hundreds of rows, and
     it gets cents and signs wrong.

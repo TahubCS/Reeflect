@@ -1,4 +1,4 @@
-// Synthetic data batches (ADR-048). A batch is a recipe (spec + seed +
+// Synthetic data batches (ADR-049). A batch is a recipe (spec + seed +
 // generator version), so loading it again anywhere gives the same people and
 // transactions. Its workspaces are ordinary workspaces in the same tables as
 // everyone else's; a `synthetic_workspace` row is the marker. No row = real.

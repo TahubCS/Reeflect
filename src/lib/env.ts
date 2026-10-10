@@ -16,6 +16,15 @@ const envSchema = z.object({
   BETTER_AUTH_SECRET: z.string().min(32),
   /** The app's public origin, e.g. http://localhost:3000. */
   BETTER_AUTH_URL: z.url(),
+  /**
+   * Better Auth Infrastructure dashboard key (ADR-047). Optional: without it
+   * the dash plugin is left out, so tests and CI never call the service. An
+   * empty value counts as unset.
+   */
+  BETTER_AUTH_API_KEY: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined),
 });
 
 export type Env = z.infer<typeof envSchema>;

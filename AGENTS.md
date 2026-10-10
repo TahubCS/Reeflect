@@ -155,7 +155,7 @@ Do not build, suggest, or scaffold any of the following:
   only (ADR-033).
 - The Nessie key travels in the URL query string: never log request URLs or
   raw errors from the Nessie client without redaction.
-- Nessie starts empty and drops cents on everything but bills (ADR-047).
+- Nessie starts empty and drops cents on everything but bills (ADR-048).
   Send whole dollars and always send `status`; compute balances yourself.
 - Never call Nessie's `DELETE /data`: it wipes the whole shared key.
 - Never put a key in `public/`: it is served to everyone.
@@ -196,7 +196,7 @@ fails if this table and `package.json` differ.
 | `pnpm scan:bundle` | After `pnpm build`, scan the client bundle for secrets and server-only env values |
 | `pnpm db:generate` | Drizzle Kit: generate a migration from schema changes |
 | `pnpm db:migrate` | Apply migrations (uses `DATABASE_URL_UNPOOLED` when set) |
-| `pnpm db:migrate:to` | Apply migrations to a named database: `local`, `branch` or `production` (ADR-048) |
+| `pnpm db:migrate:to` | Apply migrations to a named database: `local`, `branch` or `production` (ADR-049) |
 | `pnpm db:whoami` | Show which database a target is and which migrations it has; no secrets printed |
 | `pnpm batch` | Synthetic batches: `load`, `list`, `report`, `delete`, `promote` (`docs/SYNTHETIC.md`) |
 

@@ -1,4 +1,4 @@
-// The expander (ADR-048): spec + seed → accounts and transactions. Pure and
+// The expander (ADR-049): spec + seed → accounts and transactions. Pure and
 // deterministic: the same spec, seed and GENERATOR_VERSION give the same
 // output on any machine, so a batch tried on the batch-testing branch can be
 // replayed into production. Each month draws from its own random streams, so
@@ -89,7 +89,7 @@ export type Expansion = {
 
 export type ExpandOptions = {
   seed: string;
-  /** Cut every amount to whole dollars, as Nessie stores them (ADR-047). */
+  /** Cut every amount to whole dollars, as Nessie stores them (ADR-048). */
   wholeDollars?: boolean;
 };
 

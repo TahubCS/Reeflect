@@ -1,4 +1,4 @@
-// Synthetic data generator (ADR-048). Used by the batch scripts, and later by
+// Synthetic data generator (ADR-049). Used by the batch scripts, and later by
 // `pnpm db:seed` (F-21) and the statement fixtures (TEST-08).
 export {
   checkExpansion,

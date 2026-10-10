@@ -362,7 +362,7 @@ describe("expandSpec schedules and card plans", () => {
   });
 });
 
-describe("expandSpec in whole-dollar mode (Nessie, ADR-047)", () => {
+describe("expandSpec in whole-dollar mode (Nessie, ADR-048)", () => {
   const whole = expandSpec(spec(), { seed: SEED, wholeDollars: true });
 
   it("emits no cents and no zero amounts", () => {

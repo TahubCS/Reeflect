@@ -1,6 +1,6 @@
 # SYNTHETIC
 
-Synthetic customers for building and testing Reeflect (ADR-048). Read this
+Synthetic customers for building and testing Reeflect (ADR-049). Read this
 before asking an agent for a batch, or when you are the agent writing one.
 
 **The agent decides who the people are. Code decides what happens to their
@@ -164,7 +164,7 @@ How the generator behaves:
 ## Later
 
 - **Nessie demo customers** use the same spec format in whole-dollar mode
-  (`wholeDollars`), because Nessie drops cents (ADR-047). They arrive with
+  (`wholeDollars`), because Nessie drops cents (ADR-048). They arrive with
   `pnpm db:seed` (F-21).
 - **Statement fixtures** (TEST-08) will be rendered from the same expansion.
 - **The insights page** will read synthetic workspaces only, with a minimum

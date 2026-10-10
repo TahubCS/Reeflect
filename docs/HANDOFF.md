@@ -53,7 +53,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-13 Drill-down | B | Unassigned | — | Scaffolded on sample data (HO-019) |
 | F-18 Themes and accessibility | B | Unassigned | — | Not started |
 | F-19 Delete data | B | Unassigned | — | Not started |
-| F-21 Demo seed (incl. Nessie) | A | Jacob Heminway | `database/migration` | Synthetic generator and batch scripts built (HO-025); Nessie seeding not started |
+| F-21 Demo seed (incl. Nessie) | A | Jacob Heminway | `database/migration` | Synthetic generator and batch scripts built (HO-026); Nessie seeding not started |
 | F-23 Nessie import and sync | A | Unassigned | — | Not started |
 | F-24 Phone linking | C | Unassigned | — | Not started |
 | F-25 "How am I doing?" + week-ahead image | C | Unassigned | — | Not started |
@@ -950,14 +950,43 @@ recommendation, not a decision.
 
 ---
 
-## HO-025: Synthetic batch generator, batch-testing branch, Nessie probe
+## HO-025: Better Auth Infrastructure dashboard connected
+
+- **Date:** 2026-10-10 17:30 (EDT)
+- **Author:** Simon Ormond with Claude
+- **Branch / PR:** `feat/better-auth-additions` / not opened
+
+### What changed
+- New ADR-047 (Proposed): the app reports auth activity to Better Auth's
+  hosted dashboard through `@better-auth/infra`.
+- `src/lib/auth/auth.ts` adds `dash()` only when `BETTER_AUTH_API_KEY` is
+  set; `nextCookies()` stays last. `src/lib/auth/client.ts` adds
+  `dashClient()`. Activity tracking is off, so there is no migration.
+- `BETTER_AUTH_API_KEY` is optional in `src/lib/env.ts` (empty counts as
+  unset), listed in `.env.example` and ARCHITECTURE ARCH-09.
+- `playwright.config.ts` sets the key to empty for the test server, so test
+  sign-ups never reach the dashboard.
+- Tests: env parsing of the key; the plugin is present with a key and absent
+  without one.
+
+### What's next
+- Add `BETTER_AUTH_API_KEY` to Vercel (Production) and redeploy, then sign
+  in once and check the event shows on the dashboard.
+- Team to confirm ADR-047.
+
+### Open problems
+- Real users' emails and sign-in details go to a third party; see ADR-047.
+
+---
+
+## HO-026: Synthetic batch generator, batch-testing branch, Nessie probe
 
 - **Date:** 2026-10-10 16:50 (EDT)
 - **Author:** Jacob Heminway with Claude (Claude Code)
 - **Branch / PR:** `database/migration` (uncommitted) / not opened
 
 ### What changed
-- **ADR-047 (Proposed): Nessie as it behaves today**, from a live probe.
+- **ADR-048 (Proposed): Nessie as it behaves today**, from a live probe.
   - Nessie starts empty; it does not generate demo data.
   - Back-dated dates are kept.
   - Cents are dropped except on bills.
@@ -965,7 +994,7 @@ recommendation, not a decision.
   - A purchase without `status` breaks that account's purchase list.
   - Transfers have no payee.
   - Customers cannot be deleted.
-- **ADR-048 (Accepted): synthetic data batches.**
+- **ADR-049 (Accepted): synthetic data batches.**
   - An agent writes a population spec following the new
     [docs/SYNTHETIC.md](SYNTHETIC.md).
   - Seeded code in `src/features/synthetic` expands it.
@@ -1014,7 +1043,7 @@ recommendation, not a decision.
    `pnpm batch promote 01a1279d-200f-7bbd-93ee-2d5a0501553e --target production --yes`
    once production is migrated.
 4. A way to view a synthetic workspace in the app (they have no members),
-   then the Nessie client and `pnpm db:seed` (F-21, ADR-047).
+   then the Nessie client and `pnpm db:seed` (F-21, ADR-048).
 5. Playwright coverage arrives with the first page that shows synthetic data.
 
 ### Open problems
@@ -1042,7 +1071,7 @@ recommendation, not a decision.
   - **Also:** `pnpm scan:bundle` does not scan `public/`.
 - **The browser SDK targets the old API shape** (no `status`, old transfer
   fields), and using it means putting a key in the browser (ADR-033,
-  ADR-047).
+  ADR-048).
 - **Leftovers on the team Nessie key** from the probe: one customer and one
   merchant, named "Synthetic … probe". They cannot be deleted.
 - **Rounding drift in money code.** ADR-008 and TEST-04 say round half to

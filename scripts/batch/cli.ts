@@ -1,5 +1,5 @@
 // `pnpm batch <command>`: load, list, report, delete and promote synthetic
-// batches (ADR-048, docs/SYNTHETIC.md). The database is `--target`
+// batches (ADR-049, docs/SYNTHETIC.md). The database is `--target`
 // (default: the batch-testing branch); every command prints which one first.
 //
 //   pnpm batch load <spec.json> [--seed s] [--as-of YYYY-MM-DD] [--label …] [--notes …] [--dry-run]

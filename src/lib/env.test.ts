@@ -54,6 +54,20 @@ describe("parseEnv", () => {
     expect(attempt).not.toThrow(short);
   });
 
+  it("treats the dashboard key as optional, and empty as unset", () => {
+    expect(
+      parseEnv({ DATABASE_URL: POOLED, ...AUTH }).BETTER_AUTH_API_KEY,
+    ).toBe(undefined);
+    expect(
+      parseEnv({ DATABASE_URL: POOLED, ...AUTH, BETTER_AUTH_API_KEY: "  " })
+        .BETTER_AUTH_API_KEY,
+    ).toBe(undefined);
+    expect(
+      parseEnv({ DATABASE_URL: POOLED, ...AUTH, BETTER_AUTH_API_KEY: "ba_key" })
+        .BETTER_AUTH_API_KEY,
+    ).toBe("ba_key");
+  });
+
   it("rejects a malformed auth URL", () => {
     expect(() =>
       parseEnv({ DATABASE_URL: POOLED, ...AUTH, BETTER_AUTH_URL: "localhost" }),

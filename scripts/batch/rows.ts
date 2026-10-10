@@ -1,6 +1,6 @@
 // Expansion → database rows. Each synthetic person becomes an ordinary
 // workspace with accounts and transactions, plus a `synthetic_workspace`
-// marker naming the batch (ADR-048).
+// marker naming the batch (ADR-049).
 import type { Expansion } from "@/features/synthetic";
 import type {
   financialAccount,

@@ -1,4 +1,4 @@
-// The population spec (ADR-048): who the synthetic people are. An agent
+// The population spec (ADR-049): who the synthetic people are. An agent
 // writes it by following docs/SYNTHETIC.md; this schema is the source of
 // truth for its shape. Amounts are integer cents, always positive here; the
 // expander applies the signs (ADR-008).

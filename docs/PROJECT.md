@@ -101,7 +101,7 @@ Priorities follow ADR-043. Lanes: A = Data, B = Web, C = Agent.
 | F-18 | Themes and accessibility | P0 | B | Light and dark themes, WCAG 2.2 AA, reduced motion, text labels, responsive from 360px. | ADR-018 |
 | F-19 | Delete data | P0 | B | Delete a workspace or an account and all its data. | ADR-025 |
 | F-20 | Audit log | Later | A | Security-relevant events, including phone linking and unlinking. | ADR-025 |
-| F-21 | Demo seed | P0 | A | `pnpm db:seed` builds the demo workspace, including its Nessie customer and history, from the synthetic generator. | ADR-033, ADR-048 |
+| F-21 | Demo seed | P0 | A | `pnpm db:seed` builds the demo workspace, including its Nessie customer and history, from the synthetic generator. | ADR-033, ADR-049 |
 | F-22 | Bill due-date reminders | P1 | A + C | Remind 7 days before car payments, mortgage, rent, loans and card minimums are due; low-balance warning; no reminder if already paid. In-app and by iMessage. | ADR-030, ADR-038 |
 | F-23 | Nessie import and sync | P0 | A | "Connect Capital One sandbox" creates a Nessie customer and accounts; sync maps purchases, deposits, withdrawals, transfers, bills and loans. | ADR-033 |
 | F-24 | Phone linking | P0 | C | Link an iPhone by texting a one-time code; unlink on the website or by texting STOP; opt in to proactive messages. | ADR-034, ADR-038 |
@@ -176,6 +176,6 @@ Freemium subscription plus licensing the product to banks and credit unions
 | Agent | Reeflect's iMessage interface (Photon Spectrum + Gemini) |
 | Worker | The long-running process that connects the agent to Photon (ADR-032) |
 | Brain | The Next.js code that decides what the agent says (`src/features/agent/`) |
-| Nessie | Capital One's hackathon sandbox banking API. It starts empty: we create its customers and transactions (ADR-033, ADR-047) |
-| Synthetic batch | A set of invented customers made by the generator from a spec and a seed, loaded and deleted as a unit (ADR-048) |
+| Nessie | Capital One's hackathon sandbox banking API. It starts empty: we create its customers and transactions (ADR-033, ADR-048) |
+| Synthetic batch | A set of invented customers made by the generator from a spec and a seed, loaded and deleted as a unit (ADR-049) |
 | Messaging identity | A verified link between a phone handle and a Reeflect user (ADR-034) |

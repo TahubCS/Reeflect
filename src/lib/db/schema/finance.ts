@@ -25,7 +25,7 @@ export const ACCOUNT_TYPES = [
   "loan",
 ] as const;
 
-/** Where a row came from. `synthetic` rows are made by the batch generator (ADR-048). */
+/** Where a row came from. `synthetic` rows are made by the batch generator (ADR-049). */
 export const DATA_SOURCES = [
   "manual",
   "text",

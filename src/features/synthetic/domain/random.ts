@@ -1,5 +1,5 @@
 // Seeded randomness. The same seed parts always give the same sequence, on
-// any machine, so a batch can be replayed exactly (ADR-048). Not for security.
+// any machine, so a batch can be replayed exactly (ADR-049). Not for security.
 
 export type Random = {
   /** A number in [0, 1). */
