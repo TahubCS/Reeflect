@@ -103,6 +103,10 @@ strong {
   font-size: 0.875rem;
 }
 
+.sample-note {
+  text-align: right;
+}
+
 /* Hero: the one number that matters, and the sum behind it */
 
 .hero {

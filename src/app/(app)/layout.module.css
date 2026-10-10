@@ -1,0 +1,56 @@
+/* The header shared by every signed-in page. Uses the tokens in
+   src/app/globals.css (ADR-046). */
+
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.5rem;
+  margin: 0 clamp(1rem, 3vw, 3.5rem);
+  padding: 1rem 0 0.875rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.wordmark {
+  color: var(--ink);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.account {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  margin-left: auto;
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+}
+
+/* A long address is cut short so the links keep their room. */
+.email {
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loading {
+  padding: 2rem clamp(1rem, 3vw, 3.5rem);
+  color: var(--ink-soft);
+}
+
+/* Phones: the links take their own row under the wordmark and account. */
+@media (max-width: 40rem) {
+  .top nav {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .email {
+    display: none;
+  }
+}

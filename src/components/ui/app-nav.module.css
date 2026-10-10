@@ -1,0 +1,30 @@
+/* Uses the tokens in src/app/globals.css (ADR-046). */
+
+.nav {
+  display: flex;
+  flex: 0 1 auto;
+  gap: 0.25rem;
+  min-width: 0;
+  /* On narrow screens the links stay on one row and scroll sideways. */
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.link {
+  flex: none;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-size: 0.9375rem;
+  text-decoration: none;
+}
+
+.link:hover {
+  color: var(--ink);
+}
+
+.link[aria-current="page"] {
+  background: var(--tint);
+  color: var(--ink);
+  font-weight: 600;
+}
