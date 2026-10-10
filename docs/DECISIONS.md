@@ -1,0 +1,871 @@
+# DECISIONS
+
+Architecture Decision Records: what the team decided and what follows from it.
+
+This file was consolidated on 2026-10-10, at the start of hacking, so that
+each record states the decision as it stands today. The decisions themselves
+did not change. Numbers were kept so existing references still work.
+
+**Retired numbers, never reused:** ADR-016 and ADR-017 (the aquarium, replaced
+by ADR-042) and ADR-039 (free-tier Gemini limits, replaced by ADR-040).
+
+## How to use this file
+
+| Status | Meaning for agents |
+|---|---|
+| Accepted | Confirmed by the team. Follow it. |
+| Proposed | Recommended and awaiting team confirmation. Follow it as the plan, but confirm with the user before work that is expensive to reverse. |
+| Superseded by ADR-xxx | No longer applies. Follow the newer record. |
+
+Rules:
+- From here on, never edit the Decision of an Accepted ADR. Write a new ADR
+  that supersedes it and change only the old one's status line.
+- New ADRs take the next free number (ADR-043 is next). Use the template at
+  the bottom.
+- When the team confirms a Proposed ADR, change its status to Accepted and add
+  the date.
+
+## Index
+
+| ADR | Title | Status |
+|---|---|---|
+| ADR-001 | Product scope: everyday personal finance | Accepted |
+| ADR-002 | Product name Reeflect; single `APP_NAME` constant | Accepted |
+| ADR-003 | Next.js App Router, TypeScript strict, pnpm | Accepted |
+| ADR-004 | Hosting on Vercel | Accepted |
+| ADR-005 | PostgreSQL (Neon) with Drizzle ORM | Accepted |
+| ADR-006 | Better Auth for authentication | Accepted |
+| ADR-007 | Workspaces: Personal and Household, with roles | Accepted |
+| ADR-008 | Money as integer cents; USD only | Accepted |
+| ADR-009 | Data sources share one transaction shape | Accepted |
+| ADR-010 | Import guardrails: identity, duplicates, reconciliation | Accepted |
+| ADR-011 | PDF statement parsing pipeline | Accepted |
+| ADR-012 | Bank linking through Plaid; no raw credentials | Accepted |
+| ADR-013 | Categorization by keyword rules with manual override | Accepted |
+| ADR-014 | Recurring charge detection | Accepted |
+| ADR-015 | Calendar-month budgets; preset editable categories | Accepted |
+| ADR-018 | Themes, accessibility, responsive design | Accepted |
+| ADR-019 | AI features; AI never produces numbers | Accepted |
+| ADR-020 | Transfers and card payments are not spending | Accepted |
+| ADR-021 | Git workflow, branch protection, CI | Accepted |
+| ADR-022 | AGENTS.md as the agent instruction source | Accepted |
+| ADR-023 | Testing policy | Accepted |
+| ADR-024 | Debt and credit tab; no real credit scores | Accepted |
+| ADR-025 | Data retention, deletion, audit log | Accepted |
+| ADR-026 | End-of-month forecast | Accepted |
+| ADR-027 | Frontend previews for features not built in time | Accepted |
+| ADR-028 | Revenue model: freemium plus licensing to banks | Accepted |
+| ADR-029 | No project work before the hacking window | Accepted |
+| ADR-030 | Bill due-date reminders | Accepted |
+| ADR-031 | iMessage agent built on Photon Spectrum | Accepted |
+| ADR-032 | Agent architecture: thin worker plus Next.js brain | Accepted |
+| ADR-033 | Capital One Nessie as a data source | Accepted |
+| ADR-034 | Phone linking, agent identity, judge demo flow | Accepted |
+| ADR-035 | Agent number rules (refines ADR-019) | Proposed |
+| ADR-036 | Prize tracks entered | Accepted |
+| ADR-037 | MVP scope and build order | Proposed (Plaid P1 and bills P1 Accepted) |
+| ADR-038 | Proactive messages: opt-in, quiet hours, lock-screen privacy | Accepted |
+| ADR-040 | Gemini used without tier-driven limits | Accepted |
+| ADR-041 | Keeping the Render worker awake; worker as the job clock | Accepted (job clock Proposed) |
+| ADR-042 | Cash-flow calendar is the home screen | Accepted (six sub-items Proposed) |
+
+---
+
+## Product
+
+### ADR-001: Product scope
+
+- **Status:** Accepted (2026-10-06)
+- **Context:** An earlier idea (a brokerage-fee analyzer) was rejected as too
+  enterprise- and investing-focused. The team wants a tool for everyday people
+  to manage money and see where they stand.
+- **Decision:** Build a personal-finance app for individuals and households.
+  Exact numbers are always on screen. Investing, trading, advice and money
+  movement are out of scope.
+- **Consequences:** Every feature must serve "understand and manage my
+  everyday money." Requests outside that scope are declined or logged as
+  future ideas, not built.
+
+### ADR-002: Product name
+
+- **Status:** Accepted (2026-10-06)
+- **Decision:** The product is named **Reeflect**. The name lives in one
+  constant, `APP_NAME = "Reeflect"` in `src/config/app.ts`; no other file
+  hard-codes it. The hackathon domain is the free Vercel project subdomain.
+- **Trademark finding (2026-10-06):** A USPTO search found a live registered
+  mark, "REEFLECT GLASS PROTOTYPING EXPERTS" (registration 7135033), in
+  classes 012, 021, 040 and 042. Class 042 covers technology and design
+  services, which can include software. Finance apps usually register in
+  classes 009 and 036, which that mark does not cover.
+- **Consequences:** Low risk for the hackathon. Before any public launch or
+  trademark filing, get a trademark attorney's opinion and be ready to rename.
+  Renaming is a one-line change plus assets.
+
+### ADR-028: Revenue model
+
+- **Status:** Accepted (2026-10-06)
+- **Context:** Plaid's developer policy prohibits selling or renting end-user
+  data obtained through Plaid to any third party, including indirectly.
+- **Decision:** Two revenue streams:
+
+| Stream | What | Notes |
+|---|---|---|
+| Freemium subscription | Free: one personal workspace with manual, CSV and PDF imports. Paid: bank linking, household workspaces, forecast, AI features | Plaid charges per connected bank, so bank linking sits in the paid tier |
+| Licensing ("white label") | Banks and credit unions put Reeflect in front of their own customers | Pitch angle for sponsor judges |
+
+  A possible later stream, not built and not pitched as built: opt-in,
+  anonymized, aggregate spending trends from data users upload themselves
+  (never Plaid data), only after legal review.
+- **Consequences:** Feature flags must be able to mark features as paid later.
+  No billing is built for the hackathon. Plaid data is never sold or shared
+  for marketing.
+
+### ADR-036: Prize tracks entered
+
+- **Status:** Accepted (2026-10-06)
+- **Decision:** Enter **Beginner/General**, **Photon AI Agent Track**,
+  **Best Use of Nessie with Capital One**, and **MLH Best Use of Gemini API**.
+  Not entering Frutiger Aero or MLH Best .Tech Domain. HackNC awards at most 4
+  prizes per team.
+- **Consequences:** The demo and the Devpost write-up must clearly show
+  Spectrum, Nessie and Gemini in use (PITCH.md).
+
+### ADR-037: MVP scope and build order
+
+- **Status:** Proposed (confirm at kickoff). Already Accepted: Plaid is P1 and
+  bill reminders are P1.
+- **Decision:** Priorities in PROJECT.md section 5 are:
+  - **P0:** sign-in, personal workspace, accounts, manual entry, CSV, Nessie
+    import and sync, categorization, budgets, subscriptions, the calendar and
+    drill-down, demo seed, delete data, themes and accessibility, quiet hours,
+    the judge demo, and the agent core: worker, phone linking, "how am I
+    doing?", subscription alerts, logging spending by text, category and
+    balance questions.
+  - **P1:** Plaid, bill reminders, forecast, savings goal, receipt photos,
+    weekly recap, audit log.
+  - **Preview or P2:** PDF import, household workspace and group chats, debt
+    tab, monthly recap, AI insights on the website.
+  - **Three lanes:** A Data (Nessie → snapshot), B Web (calendar and pages),
+    C Agent (worker, brain, images). Milestones are in HANDOFF.md.
+- **Consequences:** Features outside P0 that are not finished become previews
+  (ADR-027).
+
+### ADR-042: Cash-flow calendar is the home screen
+
+- **Status:** Accepted (2026-10-07), confirmed by Muhammad after reviewing
+  mockups. The numbered items under "Proposed" await team confirmation.
+- **Context:** An aquarium that pictured the user's finances was mocked up
+  three times before the event and dropped: the fish read as childish for a
+  finance product, and more abstract shapes lost their meaning. The people we
+  most want to reach are not confident with money; they need plain answers
+  more than a metaphor. A calendar answered "what can I spend?" and "what is
+  coming?" directly.
+- **Decision (Accepted):**
+  - The web app's home screen is a cash-flow calendar. There is no aquarium
+    anywhere in the product.
+
+| Part | Shows | Text on screen |
+|---|---|---|
+| Headline | What the user can spend per day until the next payday | "You can spend about $X a day until payday", with the sum behind it: balance today − owed before payday = yours to spend |
+| Month calendar | Each day's activity by name: money in, bills, subscriptions, day-to-day spending; a day total; a bar for how heavy the day's spending was | Item names and amounts; a mark shape per kind (triangle, square, circle, bar) |
+| Balance line | Balance day by day: solid up to today, dotted for what is expected | Selected day and its balance |
+| Day panel | The selected day's items, where each came from (bank, added by the user, texted in), money in, money out, balance | All amounts exact |
+| Filters and layouts | Show one kind at a time; switch between calendar and list | Labelled buttons |
+| Subscriptions | Monthly and yearly cost; keep / planning to cancel; what a year without the marked ones would save | "$X a month, $Y a year" |
+| No-spend day | A past day when nothing went out | "No-spend day" |
+
+  - No shame mechanics: no alarms, no guilt copy, no failure states.
+  - Every visual state has a text equivalent. Colour is never the only signal.
+  - Every number on screen comes from pure functions in
+    `src/features/cashflow/domain/`. Client components do no money math.
+  - Rendering: HTML and CSS, with Motion for small transitions and inline SVG
+    for the balance line. No raster art, no AI-generated art.
+- **Decision (Proposed):**
+  1. **Headline formula.** `perDay = floor(max(0, B − D) / N)`, where B is the
+     liquid balance today, D is the total of bills and subscriptions due
+     before the next payday, and N is the number of days until that payday (at
+     least 1). The next payday is the next expected recurring income. With no
+     expected income, the headline shows the balance only.
+  2. **Agent image.** "How am I doing?" and the weekly recap attach an image
+     of the next 7 days of the calendar.
+  3. **Product line.** "Reeflect lives in your texts; the calendar shows
+     what's coming."
+  4. **Budgets.** The home screen does not use category budgets. Budgets
+     (ADR-015) stay as their own page, and "how am I doing?" answers with
+     balance, what is owed before payday, and the per-day amount.
+  5. **Savings goal.** One line on the home screen with progress toward the
+     goal.
+  6. **Forecast.** ADR-026's formula is drawn as the dotted part of the
+     balance line.
+- **Alternatives considered:** the aquarium with abstract shapes (rejected
+  after two rounds); a plain budget dashboard (familiar but not memorable); a
+  money-flow diagram (striking, but explains the past rather than what to do
+  next).
+- **Consequences:** Recurring income must be detected as well as recurring
+  charges, because the headline depends on the next payday; ADR-014 covers
+  charges only, so this rule is still to be written. The name Reeflect stays
+  (ADR-002), although its reef pun no longer has a visual to point at.
+
+---
+
+## Platform
+
+### ADR-003: Framework and language
+
+- **Status:** Accepted (2026-10-06)
+- **Decision:** Next.js App Router, TypeScript in strict mode, pnpm, ESLint +
+  Prettier. One codebase for UI and server (server actions and route
+  handlers).
+- **Consequences:** No separate backend service, except the agent worker
+  (ADR-032). Long-running work must fit serverless limits.
+
+### ADR-004: Hosting
+
+- **Status:** Accepted (2026-10-06)
+- **Decision:** Deploy on Vercel, with a preview deployment per pull request.
+- **Consequences:** The database is an external managed service (ADR-005).
+  Serverless functions need a pooled database connection.
+
+### ADR-005: Database and ORM
+
+- **Status:** Accepted (2026-10-06)
+- **Decision:** PostgreSQL on Neon (free tier, pooled connection string),
+  accessed only through Drizzle ORM. Schema in `src/lib/db/schema/`.
+  Migrations are generated by `drizzle-kit generate`, applied by
+  `drizzle-kit migrate`, and committed with the PR that changes the schema.
+  Local development and CI use PostgreSQL in Docker.
+- **Alternatives considered:** MariaDB (harder to host with Vercel, unfamiliar
+  to the team); SQLite (poor fit for multi-user serverless hosting).
+- **Consequences:** Use Drizzle's `pg-core` column types. Money columns are
+  `bigint` with `mode: 'number'` (ADR-008).
+
+### ADR-006: Authentication
+
+- **Status:** Accepted (2026-10-06)
+- **Decision:** Better Auth with the Drizzle adapter. Email and password in
+  P0; Google sign-in in P2. Sessions use secure, HTTP-only cookies managed by
+  Better Auth.
+- **Consequences:** Better Auth owns a table named `account` for login
+  providers, so bank and card accounts use the table name
+  `financial_account`.
+
+### ADR-007: Workspaces and roles
+
+- **Status:** Accepted (2026-10-06)
+- **Decision:**
+  - Every user gets a **Personal** workspace on sign-up (single member).
+  - Users can create **Household** workspaces and invite members by a
+    copyable invite link (no email service in the MVP).
+  - Roles: `owner` (manage members, delete workspace), `editor` (add and edit
+    data, import), `viewer` (read only).
+  - Implemented with Better Auth's organization plugin; a workspace is an
+    organization.
+  - Each financial account belongs to exactly one workspace. A personal
+    account stays private unless the user creates it in, or moves it to, the
+    household workspace.
+  - The active workspace id is in the URL (`/w/[workspaceId]/...`) and is
+    re-checked on the server for every request.
+- **Consequences:** Every financial table has `workspace_id`. A
+  cross-workspace read is a critical security bug and is tested on every
+  route (TEST-06).
+
+### ADR-008: Money representation and currency
+
+- **Status:** Accepted (2026-10-06)
+- **Decision:**
+  - Money is integer cents. Database: `bigint`, Drizzle `mode: 'number'`.
+    TypeScript: branded type `Cents`. All values must satisfy
+    `Number.isSafeInteger`.
+  - All money operations live in `src/lib/money`: parse, add, subtract,
+    multiply by a ratio with explicit rounding (round half to even), split
+    without losing cents, compare, format as USD.
+  - Sign convention: positive = into the account, negative = out of the
+    account, for every account type.
+  - USD only. Imports in any other currency are rejected with a clear message.
+- **Consequences:** No floating-point money anywhere. A lint rule or code
+  review flags `parseFloat`, `toFixed`, `* 100` and `/ 100` outside
+  `src/lib/money`.
+
+### ADR-018: Themes, accessibility, responsive design
+
+- **Status:** Accepted (2026-10-06)
+- **Decision:** Light and dark themes from the same tokens. WCAG 2.2 AA
+  contrast. `prefers-reduced-motion` turns transitions off and shows state
+  statically. Every visual state has a text label. Layouts work from 360px
+  phones to wide desktops.
+- **Consequences:** Playwright runs axe accessibility checks and a
+  reduced-motion run (TEST-07).
+
+---
+
+## Data and imports
+
+### ADR-009: Data sources
+
+- **Status:** Accepted (2026-10-06)
+- **Decision:** Five sources, all producing the same internal transaction
+  shape: manual entry, CSV upload, PDF statement upload, Plaid (ADR-012) and
+  Capital One's Nessie sandbox (ADR-033). Every non-manual source creates an
+  `import_batch`.
+- **Consequences:** Downstream features (categorization, budgets, the
+  calendar) never care which source a transaction came from.
+
+### ADR-010: Import guardrails
+
+- **Status:** Accepted (2026-10-06)
+- **Context:** Data from one account must never be mixed into another, and
+  PDFs must be checked against the account the user says they belong to.
+- **Decision:** Every import goes through these checks before commit:
+
+| Check | CSV | PDF | Aggregator | On failure |
+|---|---|---|---|---|
+| Target account chosen by user | Required | Required | Set by link | Block |
+| Identity match: institution name and last 4 digits match the target account | Only if present in file | Required | Implicit | Block, show both values, let the user pick the right account |
+| First import to a new account: user confirms extracted identity | Yes | Yes | No | Block until confirmed |
+| Account type compatibility (e.g. card statement into a checking account) | Heuristic | Required | Implicit | Block |
+| Currency is USD | Required | Required | Required | Block |
+| Duplicate file (same SHA-256 already imported to this account) | Required | Required | n/a | Block with message |
+| Duplicate transactions: fingerprint = account + date + amount + normalized description + occurrence index | Required | Required | Use aggregator transaction id | Skip duplicates, show count |
+| Period overlap with earlier imports | Required | Required | n/a | Dedupe by fingerprint, show overlap |
+| Period gap since last import | Warn | Warn | n/a | Warn, allow |
+| Balance reconciliation: opening + sum of transactions = closing, to the cent | If running balance column exists | Required | n/a | Block commit; show the difference |
+| Running-balance continuity with previous import | If present | Required | n/a | Warn |
+
+- **Consequences:** Imports run in two steps: `preview` (parse and check, no
+  writes) and `commit` (writes inside one database transaction). Nothing is
+  written if any blocking check fails.
+
+### ADR-011: PDF statement parsing
+
+- **Status:** Accepted (2026-10-06). The feature is shown as a preview at
+  HackNC (ADR-037).
+- **Decision:**
+  1. Accept only `application/pdf` with valid magic bytes, ≤ 10 MB, ≤ 50
+     pages. Reject encrypted or image-only PDFs with a clear message.
+  2. Extract the text layer with word positions on the server (Node runtime).
+  3. Parse with a per-institution template (anchors such as "Beginning
+     Balance"). The first version ships one institution's layout.
+  4. Later fallback for unknown layouts: an AI model receives word ids and
+     text and returns which ids hold which fields. Values are always read from
+     the text by code (ADR-019).
+  5. Run the import guardrails (ADR-010), including mandatory reconciliation.
+  6. Delete the raw file after extraction; keep only its SHA-256 (ADR-025).
+- **Consequences:** Unsupported layouts fail clearly rather than guess. Each
+  template is covered by synthetic fixture PDFs in `tests/fixtures/pdf/`.
+
+### ADR-012: Bank linking through Plaid
+
+- **Status:** Accepted (2026-10-06). Priority P1 (ADR-037).
+- **Decision:**
+  - Users authenticate with their bank inside Plaid Link (Plaid's own UI). The
+    app never sees, stores or transmits bank credentials.
+  - **Environments:**
+
+| Environment | Data | Use |
+|---|---|---|
+| Sandbox | Test institutions; default login `user_good` / `pass_good` | Development, nightly CI tests, the live demo |
+| Trial plan (free; up to 10 real connections) | Real bank data | Private testing by team members only; never on stage, never in fixtures |
+| Production (paid) | Real data | Out of scope for the hackathon |
+
+  - **Products:** Transactions. Liabilities for the debt tab (P2). Plaid's
+    recurring-transactions data is an extra signal for ADR-014, not a
+    replacement.
+  - **Flow:** see ARCH-11.
+  - **Security:**
+    - Access tokens are encrypted with AES-256-GCM, key from
+      `ENCRYPTION_KEY`; never sent to the browser, never logged.
+    - Plaid client id and secret are server-only environment variables.
+    - Webhooks are verified before any processing; unverified webhooks are
+      rejected without writes.
+    - Only `editor` or `owner` roles can link or unlink banks.
+    - Unlinking calls Plaid to remove the item, then deletes the stored token.
+  - **Data mapping:** Plaid amounts are converted to integer cents and to our
+    sign convention (ADR-008) in one tested function. Plaid transaction ids
+    become `external_id` and drive de-duplication (ADR-010).
+- **Consequences:** A Plaid outage must not break the other sources.
+  Plaid-dependent E2E tests are tagged `@external` and run nightly. The
+  client SDK is loaded only on pages that link banks.
+
+### ADR-013: Categorization
+
+- **Status:** Accepted (2026-10-06)
+- **Decision:** Keyword rules match the normalized merchant name (lowercased,
+  store numbers and reference codes stripped). Match types: `contains`,
+  `starts_with`, `exact`; the highest priority wins. The user can override
+  any transaction's category and optionally save the override as a rule.
+  Unmatched transactions go to "Uncategorized".
+- **Consequences:** AI suggestions (ADR-019) only propose rules; a user must
+  confirm before a rule is created.
+
+### ADR-014: Recurring charge detection
+
+- **Status:** Accepted (2026-10-06)
+- **Context:** "Same merchant seen more than twice" alone would turn regular
+  grocery or coffee visits into subscriptions.
+- **Decision:** A merchant becomes a recurring series when all of these hold:
+  1. Same normalized merchant on the same account, at least 3 charges in the
+     last 120 days.
+  2. Consecutive charges are 25–35 days apart (monthly) or 6–8 days apart
+     (weekly).
+  3. Each amount is within ±15% of the series median.
+
+  A price change beyond ±15% on an existing series is flagged as a price
+  change rather than breaking the series. Aggregator-provided recurring data
+  is an extra signal, not a replacement. Users can mark a merchant as
+  recurring by hand.
+- **Consequences:** Some subscriptions appear only after their third charge.
+  Agents must not implement the looser "same merchant more than twice" rule.
+  ADR-030 splits a series into `subscription` or `bill`.
+
+### ADR-015: Budgets and categories
+
+- **Status:** Accepted (2026-10-06)
+- **Decision:** Budgets are per category per calendar month, in the
+  workspace's time zone. Workspaces start with 6–8 preset categories the user
+  can rename.
+- **Consequences:** A budget change applies to the current month from the
+  moment it is saved; earlier months keep their budgets. Budgets have their
+  own page and are not on the home screen (ADR-042, Proposed item 4).
+
+### ADR-020: Transfers and credit-card payments
+
+- **Status:** Accepted (2026-10-06)
+- **Context:** With checking and a credit card both linked, a card purchase is
+  spending, and the later payment from checking to the card would be counted
+  again.
+- **Decision:** Two transactions in the same workspace are paired as a
+  transfer when their amounts are equal and opposite, they are on different
+  accounts, and their dates are within 3 days. Card payments are transfers.
+  Aggregator transfer categories are an extra signal. Paired transfers are
+  excluded from spending, income and budgets. Users can unpair, or mark a
+  transaction as a transfer by hand. Money sent to accounts outside the
+  workspace counts as spending unless the user marks it.
+- **Consequences:** Spending totals are correct across linked accounts.
+  Pairing logic has dedicated unit tests.
+
+### ADR-024: Debt and credit tab
+
+- **Status:** Accepted (2026-10-06). Shown as a preview at HackNC (ADR-037).
+- **Decision:** A separate tab shows credit cards and loans: balance, APR,
+  minimum payment, due date. Data comes from Nessie loans, Plaid Liabilities
+  in sandbox, or mock data. A credit score, if shown, is mock data labelled
+  "Sample", because real scores require credit-bureau agreements.
+- **Consequences:** Debt does not change the liquid balance, which is checking
+  plus savings only.
+
+### ADR-025: Data retention, deletion, audit log
+
+- **Status:** Accepted (2026-10-06)
+- **Decision:**
+  - Raw uploaded files are deleted right after extraction; the SHA-256 is kept
+    for duplicate detection.
+  - Deleting a financial account deletes its transactions and import batches.
+    Deleting a workspace deletes everything in it and revokes its aggregator
+    connections.
+  - Security-relevant events are written to `audit_event` (P1): sign-in,
+    invite created or accepted, role change, import committed, bank or phone
+    linked or unlinked, deletions. Audit rows contain ids, not financial
+    details.
+- **Consequences:** No file storage bucket is needed in the MVP.
+
+### ADR-026: End-of-month forecast
+
+- **Status:** Accepted (2026-10-06). Priority P1.
+- **Decision:** Projected month-end liquid balance =
+  current liquid balance
+  \+ expected recurring income not yet received this month
+  − expected recurring bills not yet paid this month
+  − (average daily discretionary spending so far this month × days left).
+  It is drawn as the dotted part of the calendar's balance line and labelled
+  "Estimate: $X by month end." Deterministic; no AI.
+- **Consequences:** Depends on recurring detection (ADR-014). Early in a month
+  with little data, the label says the estimate is rough.
+
+### ADR-030: Bill due-date reminders
+
+- **Status:** Accepted (2026-10-06). Priority P1.
+- **Context:** Users should be reminded before recurring obligations such as
+  car payments and mortgages are due. These are obligations with due dates,
+  not optional spending.
+- **Decision:**
+  - **Two kinds of recurring series.** `recurring_series.kind` is
+    `subscription` or `bill`. Series in the Housing, Transportation/Loans,
+    Utilities or Credit-card-payment categories, or linked to a loan or
+    credit-card liability, default to `bill`; everything else defaults to
+    `subscription`. The user can change the kind. Only bills get reminders.
+  - **Users can add a bill by hand** (name, amount, due day, account), so
+    reminders work before three charges have been seen.
+  - **Due-date sources, most trusted first:**
+
+| Source | Example | Label shown |
+|---|---|---|
+| Lender data | Plaid Liabilities next payment due date; Nessie bills | "Due October 15" |
+| User-entered | Manual bill or user correction | "Due October 15" |
+| Predicted | Last charge date + the series' usual interval | "Expected around October 15" |
+
+  - **Month-end rule:** a bill due on the 29th, 30th or 31st falls on the last
+    day of shorter months.
+  - **Reminder timing:** one reminder 7 days before the due date, in the
+    workspace's time zone, sent once per bill per cycle.
+  - **Already paid:** if a matching payment (same series, within ±15% of the
+    usual amount) posts before the due date, the reminder is cancelled or not
+    sent.
+  - **Low balance warning:** if the liquid balance is below the amount due at
+    reminder time, the reminder adds: "Your balance is $X, which is less than
+    this payment."
+  - **Autopay:** the user can mark a bill as autopay; the reminder then reads
+    "will be withdrawn automatically" and still includes the low-balance
+    warning.
+  - **Copy rules:** calm and factual, no alarms or threats (ADR-042). The app
+    never pays the bill (ADR-001). All amounts and dates come from code
+    (ADR-019).
+  - **Delivery:** an in-app "Upcoming bills" list with a notification badge,
+    and an iMessage reminder under the rules of ADR-038.
+- **Consequences:** Adds `kind`, due-date fields and a `reminder` table
+  (ARCH-03), a scheduled job (ARCH-12, ADR-041), and tests in TEST-04 and
+  TEST-07.
+
+### ADR-033: Capital One Nessie as a data source
+
+- **Status:** Accepted (2026-10-06)
+- **Context:** Nessie is Capital One's hackathon API with mock customer,
+  account, purchase, deposit, bill and loan data. It lets developers create
+  purchases, simulate paychecks and schedule bills.
+- **Decision:**
+  - Nessie is the **primary data source for the demo**.
+  - **Connection:** a "Connect Capital One sandbox" button on the accounts
+    page creates a Nessie customer with checking, savings and credit-card
+    accounts for that workspace and stores the Nessie customer id.
+    `pnpm db:seed` also creates a rich Nessie history for the demo workspace.
+  - **Mapping:**
+
+| Nessie object | Reeflect |
+|---|---|
+| Account (Checking, Savings, Credit Card) | `financial_account` with `source = 'nessie'` and `nessie_account_id` |
+| Purchase | Negative transaction on that account |
+| Deposit | Positive transaction (income) |
+| Withdrawal | Negative transaction |
+| Transfer | Pair of transactions, handled by ADR-020 |
+| Bill (payment amount, payment date, recurring day 1–31) | `recurring_series` of kind `bill` with a lender due date (ADR-030) |
+| Loan (amount, monthly payment) | `liability` for the debt tab (ADR-024) |
+
+  - **Money:** Nessie amounts are dollars as numbers. One function,
+    `fromDollarNumber` in `src/lib/money`, converts them to cents and rejects
+    values with more than two decimal places after rounding checks.
+  - **Sync:** no push notifications are assumed. Sync runs on "Sync now", on
+    dashboard load when the last sync is over 5 minutes old, and before the
+    agent answers a question.
+  - **Secrets:** Nessie takes the API key as a URL query parameter, so the
+    Nessie HTTP client must redact query strings in all logs and errors.
+  - The base URL and exact field names are confirmed against Nessie's own
+    interactive documentation at kickoff and kept in `NESSIE_BASE_URL`.
+- **Consequences:** Nessie holds sandbox data only; real data never enters it.
+
+---
+
+## AI and the agent
+
+### ADR-019: AI features
+
+- **Status:** Accepted (2026-10-06)
+- **Decision:**
+  - **AI never produces a number shown to the user.** For questions, the
+    model calls server tools that run deterministic queries. For narratives,
+    the model writes text with placeholders such as `{dining_overspend}` that
+    code fills in. A post-check (the digit scan) rejects any output
+    containing digits not inserted by code. The only exceptions are in
+    ADR-035.
+  - Send the minimum data: merchant strings and computed aggregates. Never
+    send account numbers, names or raw files.
+  - Provider: **Google Gemini API** through the `@google/genai` SDK,
+    server-side only, wrapped behind `src/lib/ai` so it can be swapped. Key in
+    `GEMINI_API_KEY`.
+  - **Tier rule:** on Gemini's free tier, Google may use prompts and responses
+    to improve its products, including human review. The free tier may be
+    used only with sandbox or synthetic data. Before any real user's data is
+    sent to Gemini, the key must come from a billing-enabled project.
+  - Website AI features (category suggestions, "Ask Reeflect") are P2 and
+    reuse the agent brain.
+- **Consequences:** AI features degrade gracefully: if the model is
+  unavailable, everything except the AI panels works.
+
+### ADR-031: iMessage agent built on Photon Spectrum
+
+- **Status:** Accepted (2026-10-06)
+- **Context:** Photon builds Spectrum, an open-source SDK and cloud platform
+  that runs AI agents inside messaging apps. Its thesis is that people prefer
+  agents inside the apps they already use.
+- **Decision:**
+  - Reeflect has an iMessage agent built with `spectrum-ts`. The web app
+    remains the full view.
+  - **Channels:** iMessage only for now. Spectrum's terminal provider is used
+    for development and tests. WhatsApp and Telegram are planned expansion.
+  - **Fallback if no iMessage line is available at HackNC:** run the same
+    agent through Spectrum's Telegram provider (a free bot) and present it as
+    "the same agent, on Telegram for today; iMessage is the target channel."
+    Only the provider list changes.
+  - **Name and voice:** the agent is called **Reeflect**. Friendly, short,
+    plain sentences; emoji used sparingly.
+  - **Topic limit:** the agent declines non-finance topics with a short,
+    polite redirect to what it can help with.
+  - The agent reasons with the Gemini API and function calling (ADR-019,
+    ADR-035, ADR-040). Its tools call the same repository functions as the
+    website, with the same authorization.
+  - The agent never moves money, pays bills or cancels subscriptions
+    (ADR-001). Replies such as "cancel" only record the user's intent.
+  - Photon's coding-agent skill is installed at kickoff:
+    `npx skills add photon-hq/skills`.
+- **Consequences:** Adds the agent feature folder, the worker (ADR-032), new
+  tables (ARCH-03) and agent tests (TESTING).
+
+### ADR-032: Agent architecture: thin worker plus Next.js brain
+
+- **Status:** Accepted (2026-10-06)
+- **Context:** Spectrum's main pattern is a continuously running message
+  loop. Its webhooks deliver inbound messages only; replying needs a
+  long-lived SDK instance, which is unreliable on serverless functions.
+- **Decision:**
+  - **Worker** (`agent-worker/`, a pnpm workspace package): a small
+    long-running Node or Bun process that holds the Spectrum connection. It
+    receives messages, shows typing indicators, forwards each turn to
+    Next.js, and sends replies, images and reactions. It contains no business
+    logic and no database access.
+  - **Brain** (Next.js, `src/features/agent/`): identity lookup, Gemini,
+    tools, reply composition, images. Endpoint `POST /api/agent/turn`.
+  - **Worker → Next.js:** HTTPS with a shared `AGENT_SERVICE_TOKEN` header; an
+    unknown or missing token returns 404.
+  - **Next.js → worker** (proactive messages): the worker exposes
+    `POST /send` on a small HTTP server, protected by the same token.
+  - **Hosting:** the worker runs on **Render** as a web service; Next.js runs
+    on Vercel. ADR-041 covers keeping the worker awake.
+- **Alternatives considered:** Spectrum webhooks into a Next.js route (fewer
+  deployments, but unreliable replies on serverless).
+- **Consequences:** The repository is a pnpm workspace. Root `lint`,
+  `typecheck` and `test:unit` scripts must cover `agent-worker/` and
+  `packages/` too.
+
+### ADR-034: Phone linking, agent identity, judge demo flow
+
+- **Status:** Accepted (2026-10-06)
+- **Decision:**
+  - A text only acts as a Reeflect user after that user links their phone:
+    the website shows a one-time code ("Text `LINK 4821` to Reeflect"), valid
+    for 10 minutes and usable once. The code is stored hashed.
+  - The worker forwards the sender handle and Spectrum space id; Next.js
+    stores them in `messaging_identity` against the user.
+  - Unlinked handles receive only a short sign-up message. No financial data
+    is ever sent to an unlinked handle.
+  - In a direct chat the agent uses the user's **Personal** workspace.
+    Household group chats are P2 and use only the household workspace.
+  - Users can unlink from the website or by texting `STOP`.
+  - **Judge demo flow ("Try it"), demo mode only:**
+
+| Step | What happens |
+|---|---|
+| Before judging | `pnpm demo:judges` creates 5 judge workspaces, each with its own Nessie sandbox customer and history. No team member's data is involved. |
+| On screen | A QR code that opens Messages to Reeflect's number with the text `TRY` pre-filled |
+| Judge sends TRY | Only when `DEMO_MODE=true`: the brain links that phone handle to the next free judge workspace for 2 hours and replies with a welcome and that workspace's summary |
+| Judge chats | Everything works as for a normal linked user, on sandbox data only |
+| Limits | At most 5 judge links at once; each expires after 2 hours; when none are free, the reply says the demo is full |
+| After judging | `pnpm demo:reset` unlinks all judge handles and deletes the judge workspaces |
+| Outside demo mode | `TRY` is ignored; only the normal one-time-code linking works |
+
+- **Consequences:** Adds the `messaging_identity` and `agent_link_code`
+  tables, a `DEMO_MODE` flag, two demo scripts, and identity tests (TEST-04,
+  TEST-06).
+
+### ADR-035: Agent number rules (refines ADR-019)
+
+- **Status:** Proposed
+- **Decision:** ADR-019 holds, with two narrow, user-controlled exceptions:
+  1. **Logging from text.** For "12 lunch", code extracts the amount from the
+     user's own message; Gemini only proposes the category. If the amount is
+     ambiguous, the agent asks rather than guesses.
+  2. **Receipt photos (P1).** Gemini may read the total and merchant, but
+     nothing is saved until the user confirms ("$23.40 at Trader Joe's in
+     Groceries? Reply yes or 👍").
+
+  All other numbers in replies come from tools and are inserted by code. The
+  digit scan (ARCH-07) runs on every reply.
+- **Consequences:** `logSpending` rejects any amount that does not appear in
+  the user's message text.
+
+### ADR-038: Proactive messages
+
+- **Status:** Accepted (2026-10-06)
+- **Decision:**
+  - Proactive texts (subscription alerts, bill reminders, weekly recap) are
+    sent only after the user opts in during phone linking. Each type can be
+    turned off.
+  - **Quiet hours:** default 9 PM to 9 AM in the workspace time zone; messages
+    wait until quiet hours end. Users can change them in both places:
+
+| Where | How |
+|---|---|
+| Website | Settings → Notifications: start and end time pickers |
+| iMessage | A message such as "Reeflect, register new quiet hours 11PM to 7 AM". Parsed by code, not AI; accepts forms like "11pm to 7am", "11 PM - 7 AM", "23:00 to 07:00". Reeflect confirms: "Quiet hours set: 11:00 PM to 7:00 AM. Reply UNDO to go back." Unclear input gets an example instead of a guess. |
+
+    Ranges may cross midnight. Start and end cannot be equal.
+  - At most 3 proactive messages per user per day.
+  - **Lock-screen privacy.** Reeflect cannot tell whether a phone is unlocked;
+    iOS decides what the lock screen shows. So:
+    1. The **text** of every proactive message contains no amounts: "Your car
+       payment is coming up in 7 days. Open Messages to see the details."
+    2. The **amounts** are in an image card attached to the same message,
+       which the user sees once they open the conversation.
+    3. **Test at kickoff** whether the iOS lock-screen notification shows a
+       readable thumbnail of the image. If it does, replace step 2 with
+       "Reply DETAILS to see the amounts."
+    4. Phone linking shows a tip: in iOS Settings, set notification previews
+       to "When Unlocked" for extra privacy.
+
+    Replies to the user's own questions include amounts directly.
+- **Consequences:** Adds notification preferences (website and iMessage
+  command), a quiet-hours parser with tests, image cards for proactive
+  messages, and a daily-cap check in the brain.
+
+### ADR-040: Gemini used without tier-driven limits
+
+- **Status:** Accepted (2026-10-06)
+- **Context:** The team will enable Gemini's paid tier after the hackathon and
+  does not want the free tier to shape the product.
+- **Decision:**
+  - Design and build every feature as if on the paid tier. Gemini may be used
+    wherever it improves the experience: understanding any free-form message,
+    choosing tools, categorizing, reading receipts, and writing replies and
+    recaps. Use the model that does these best, set in `GEMINI_MODEL`.
+  - Code still handles the following itself, for security and correctness
+    rather than cost: link codes, TRY, STOP and UNDO (ADR-034); extracting
+    amounts from the user's text (ADR-035); and parsing quiet-hours times
+    (ADR-038). Gemini may recognize these intents, but code validates and
+    executes them.
+  - Every Gemini call has a fallback reply on error or timeout.
+  - **During the hackathon** the key is on the free tier, so only sandbox and
+    synthetic data are sent (ADR-019). Switching to a paid key afterwards
+    needs no code change.
+- **Consequences:** No free-tier workarounds in the design. Free-tier rate
+  limits may still occur during judging; the error fallback covers them, and
+  the team load-tests the demo path at hour 20 (HANDOFF.md).
+
+### ADR-041: Keeping the Render worker awake; worker as the job clock
+
+- **Status:** Accepted (2026-10-06) for keep-awake; the job clock is Proposed
+- **Context:** Render's free web services spin down after 15 minutes without
+  inbound traffic and take about a minute to wake. The worker's Photon
+  connection is outbound, so it does not count as traffic. Vercel's Hobby
+  plan only allows cron jobs that run once per day.
+- **Decision:**
+  - **Keep-awake (Accepted):** the worker exposes `GET` and `HEAD /health`.
+    It pings its own public URL every 10 minutes, and a free external uptime
+    monitor (for example UptimeRobot or cron-job.org) pings it every 5 to 10
+    minutes as a backup that also wakes it after a restart.
+  - **Limits to respect:** Render's free instance hours are shared across the
+    workspace (750 per month), enough for one always-on service only; keep no
+    other free Render services running. If the worker still misses messages
+    in testing, switch to Render's Starter instance (about $7 a month).
+  - **Job clock (Proposed):** the worker calls `POST /api/jobs/tick` on
+    Next.js every 5 minutes with the service token. The tick runs stale
+    Nessie syncs, new subscription alerts, release of messages held by quiet
+    hours, and bill-reminder checks. All tick work is idempotent.
+  - One daily Vercel Cron job remains as a backup for bill reminders.
+- **Consequences:** ARCH-12 and ARCH-13 use the tick instead of frequent
+  Vercel Cron. A test confirms the worker answers a text after 30 minutes of
+  idle time.
+
+---
+
+## Process
+
+### ADR-021: Git workflow, branch protection, CI
+
+- **Status:** Accepted (2026-10-06)
+- **Decision:**
+  - No commits to `main`. All work happens on branches and merges by pull
+    request.
+  - Agents check the branch first and, if on `main`, ask the user for a branch
+    name or permission to create one (AGENTS.md section 3).
+  - GitHub ruleset on `main`: require a pull request, 1 approval, dismiss
+    stale approvals, last push approved, conversation resolution, required
+    status checks (strict), linear history, no force push, no deletion, squash
+    merges. Defined in `.github/rulesets/main.json`.
+  - CI (`.github/workflows/ci.yml`): lint + format + typecheck, unit tests,
+    E2E tests, build, dependency audit. CodeQL runs in its own workflow.
+  - A local git hook (lefthook) refuses commits on `main` as a second line of
+    defence.
+- **Consequences:** Required check names in the ruleset must match CI job
+  names exactly. Change both together.
+
+### ADR-022: Agent instructions
+
+- **Status:** Accepted (2026-10-06)
+- **Decision:** `AGENTS.md` at the repository root is the single source of
+  instructions. `CLAUDE.md` contains only `@AGENTS.md`. `GEMINI.md` contains
+  only `@./AGENTS.md`. GitHub Copilot and Codex read `AGENTS.md` directly.
+  CodeRabbit detects `AGENTS.md` automatically and gets extra path rules from
+  `.coderabbit.yaml`.
+- **Consequences:** Never put rules only in `CLAUDE.md` or `GEMINI.md`.
+
+### ADR-023: Testing policy
+
+- **Status:** Accepted (2026-10-06)
+- **Decision:** Vitest and Playwright carry equal weight: no feature is done
+  without both. This means equal importance, not equal test counts. Details,
+  coverage thresholds and required security tests are in `TESTING.md`.
+- **Consequences:** CI blocks merges on any failing or skipped required test.
+
+### ADR-027: Frontend previews for features not built in time
+
+- **Status:** Accepted (2026-10-06)
+- **Context:** Not every feature will be finished in 24 hours. The team builds
+  real features in priority order and shows the rest as frontend-only
+  previews.
+- **Decision:**
+  - A preview lives in `src/features/<feature>/preview/` and uses only static
+    fixtures from `preview/data.ts`. It never calls the database, Plaid, the
+    AI provider, or any real server action.
+  - Previews are switched on by the `NEXT_PUBLIC_ENABLE_PREVIEWS` flag. With
+    the flag off, preview routes and entry points do not render.
+  - Every preview screen shows a small "Preview" badge, and preview data is
+    visibly sample data (for example, "Sample Coffee Co.").
+  - Real features never import from any `preview/` folder.
+  - When a feature is built for real, its preview folder is deleted in the
+    same PR.
+  - Each preview gets one Playwright smoke test (renders, no console errors,
+    badge visible). Previews are excluded from coverage thresholds and from
+    the workspace isolation matrix because they touch no data.
+- **Consequences:** The demo can show the full product vision while the
+  codebase stays honest about what works. PITCH.md describes previews as
+  previews.
+
+### ADR-029: No project work before the hacking window
+
+- **Status:** Accepted (2026-10-06)
+- **Context:** Hackathon rules (MLH default rules unless HackNC states
+  otherwise) require project work to happen during the event. Ideas and
+  planning beforehand are allowed.
+- **Decision:**
+  - Before the hacking window: only ideation, these planning documents,
+    creating third-party accounts and keys, and testing generic tooling in a
+    throwaway repository.
+  - At kickoff: create the real repository, commit the docs and
+    configuration, scaffold the app, and start building. No mockup code from
+    the throwaway repository is copied in.
+  - Disclose in the Devpost submission that planning documents and CI
+    configuration templates were prepared before the event. If HackNC's rules
+    or organizers say otherwise, follow them.
+- **Consequences:** The scaffold, ruleset import and first green CI run happen
+  in the first hour of hacking (HANDOFF.md kickoff runbook).
+
+---
+
+## Template
+
+```markdown
+### ADR-0XX: Title
+
+- **Status:** Proposed | Accepted (YYYY-MM-DD) | Superseded by ADR-0YY
+- **Context:** Why a decision is needed.
+- **Decision:** What we will do, precisely.
+- **Alternatives considered:** Optional.
+- **Consequences:** What follows, including costs and follow-up work.
+```
