@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 /** Environment variables marked "Secret: Yes" in docs/ARCHITECTURE.md, ARCH-09. */
 export const SECRET_ENV_NAMES = [
   "DATABASE_URL",
+  "DATABASE_URL_UNPOOLED",
   "BETTER_AUTH_SECRET",
   "ENCRYPTION_KEY",
   "PLAID_SECRET",

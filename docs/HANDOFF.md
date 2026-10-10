@@ -39,7 +39,7 @@ Update this table when work is assigned or finished. Features are listed in
 
 | Feature / bug | Lane | Assigned to | Branch | Status |
 |---|---|---|---|---|
-| Scaffold (Next.js, pnpm workspace, Drizzle, Better Auth, CI, lefthook) | All | Unassigned | — | In progress: Next.js and CI done (HO-016) |
+| Scaffold (Next.js, pnpm workspace, Drizzle, Better Auth, CI, lefthook) | All | Unassigned | — | In progress: Next.js, CI and Drizzle done (HO-017); Better Auth next |
 | F-01 Sign up / sign in | B | Unassigned | — | Not started |
 | F-02 Personal workspace | B | Unassigned | — | Not started |
 | F-03 Financial accounts | A | Unassigned | — | Not started |
@@ -630,3 +630,41 @@ recommendation, not a decision.
   revisited later.
 - `lefthook.yml` and `.env.example` from the templates were not copied.
 - The open problems in HO-014 still stand.
+
+---
+
+## HO-017: Drizzle and the database connection set up
+
+- **Date:** 2026-10-10 13:15 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `main` (uncommitted working tree, by the user's choice) / not opened
+
+### What changed
+- Drizzle ORM with the `pg` driver (ADR-005): `src/lib/db/client.ts`, an
+  empty schema in `src/lib/db/schema/`, and an empty first migration in
+  `src/lib/db/migrations/`. `pnpm db:generate` and `pnpm db:migrate` exist.
+- `src/lib/env.ts` validates `DATABASE_URL` (runtime, Neon's pooled string)
+  and the optional `DATABASE_URL_UNPOOLED` (migrations, Neon's direct string).
+  `src/instrumentation.ts` makes the server refuse to serve without them.
+  `.env.example` added.
+- `GET /api/health` runs one query through the pool (ARCH-09).
+- `docker-compose.yml`: local PostgreSQL on host port 5433. Vitest and
+  Playwright always use it (or the CI service), never `.env.local`.
+- CI: `unit` and `e2e` start PostgreSQL and run `pnpm db:migrate` first.
+- Verified against Neon: `pnpm db:migrate` applied the empty first migration
+  over the direct URL, and `/api/health` answered `ok` over the pooled URL.
+  `.env.example` also lists `NESSIE_API_KEY` (server-side only, ADR-033).
+- Auth stays as ADR-006 (Better Auth as a library, tables in our database).
+  Neon's managed "Neon Auth" is not used: its Organization plugin is only
+  partly supported and it does not exist in local or CI PostgreSQL.
+
+### What's next
+1. Each developer: copy `.env.example` to `.env.local`, paste both Neon
+   connection strings, run `pnpm db:migrate`, then open `/api/health`.
+2. Add `DATABASE_URL` and `DATABASE_URL_UNPOOLED` to the Vercel project.
+3. Better Auth with the Drizzle adapter and organization plugin (F-01, F-02).
+
+### Open problems
+- `pnpm build` and `pnpm dev` now need `DATABASE_URL`; without it the build
+  fails and the server answers 500 with a clear log line.
+- The open problems in HO-016 still stand.
