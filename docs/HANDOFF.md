@@ -1359,6 +1359,9 @@ recommendation, not a decision.
 - **Tests:** Vitest for the code, handle, command parser, protocol, token
   check, linking (against the Docker database), server actions and the
   route; `tests/e2e/agent-link.spec.ts` for the flow in the browser.
+- **Isolation matrix (TEST-06):** the five link actions are registered in
+  `src/features/messaging/server/entry-points.ts` and run by
+  `src/lib/auth/isolation.test.ts`.
 
 ### What's next
 - **Before using the card on a shared database:** apply `0003`. It is on the

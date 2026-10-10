@@ -157,6 +157,8 @@ test("the opt-in is off until chosen, and Disconnect unlinks", async ({
   });
   await expect(optIn).not.toBeChecked();
   await optIn.check();
+  // The box is disabled while the choice is being saved.
+  await expect(optIn).toBeEnabled();
   await page.reload();
   await expect(optIn).toBeChecked();
 

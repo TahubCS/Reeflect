@@ -4,6 +4,7 @@ import {
   createAccount,
   listAccounts,
 } from "@/features/accounts/server/repository";
+import { MESSAGING_ENTRY_POINTS } from "@/features/messaging/server/entry-points";
 import {
   fixtures,
   isNotFound,
@@ -16,7 +17,10 @@ import type { EntryPoint, EntryPointTarget } from "./entry-point";
 // User A is a member of workspace A only. Calling any entry point with
 // workspace B's ids, or with A's workspace and B's object ids, must find
 // nothing and change nothing in B.
-const ENTRY_POINTS: EntryPoint[] = [...ACCOUNT_ENTRY_POINTS];
+const ENTRY_POINTS: EntryPoint[] = [
+  ...ACCOUNT_ENTRY_POINTS,
+  ...MESSAGING_ENTRY_POINTS,
+];
 
 const getSession = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/auth/session", () => ({ getSession }));

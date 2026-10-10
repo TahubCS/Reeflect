@@ -17,7 +17,9 @@ import {
 import { claimLinkCode, findIdentity, getLinkState } from "./link";
 
 // Integration tests against the Docker database (TEST-05). The session and
-// Next's router refresh are the only parts replaced.
+// Next's router refresh are the only parts replaced. Calls from a
+// signed-out visitor or into another user's workspace are covered for every
+// action by the isolation matrix (src/lib/auth/isolation.test.ts).
 
 const signedIn = vi.hoisted(() => ({
   session: null as { user: { id: string } } | null,
@@ -126,25 +128,6 @@ describe("phone link actions", () => {
     () => disconnectAction(workspaceId),
     () => setProactiveOptInAction(workspaceId, true),
   ];
-
-  it("is not found without a session", async () => {
-    const me = await newUser();
-
-    for (const action of everyAction(me.workspaceId)) {
-      await expectNotFound(action());
-    }
-  });
-
-  it("is not found for another user's workspace", async () => {
-    const me = await newUser();
-    const them = await newUser();
-    signedIn.session = { user: { id: me.userId } };
-
-    for (const action of everyAction(them.workspaceId)) {
-      await expectNotFound(action());
-    }
-    expect(await getLinkState(them.userId)).toEqual({ status: "none" });
-  });
 
   it("is not found for a workspace the user owns that is not their Personal one", async () => {
     const me = await newUser();

@@ -171,11 +171,11 @@ The workspace isolation matrix (TEST-06) includes `/api/agent/turn`: a
 linked handle for user A can never cause a tool call against user B's
 workspace, whatever the message text says.
 
-Until that registry exists, the phone-link server actions carry their own
-isolation test (`src/features/messaging/server/actions.test.ts`): every
-action is called with no session, with another user's workspace id and with
-a workspace the user owns that is not their Personal one, and each must be
-not found.
+The phone-link server actions are in the matrix
+(`src/features/messaging/server/entry-points.ts`). They have one rule the
+matrix cannot express, tested in
+`src/features/messaging/server/actions.test.ts`: a workspace the user owns
+that is not their Personal one is also not found (ADR-034).
 
 Skipped tests (`.skip`, `.only`) fail the lint step, through an ESLint rule
 on test files.

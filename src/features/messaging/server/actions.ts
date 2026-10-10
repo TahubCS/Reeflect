@@ -3,9 +3,7 @@
 import { refresh } from "next/cache";
 import { notFound } from "next/navigation";
 import { z } from "zod";
-import { requireWorkspaceAccess } from "@/lib/auth/authz";
-import { ensurePersonalWorkspace } from "@/lib/auth/personal-workspace";
-import { getSession } from "@/lib/auth/session";
+import { ownPersonalWorkspace } from "./access";
 import {
   type NewLinkCode,
   approveLink,
@@ -22,14 +20,7 @@ import {
 async function requireOwnPersonalWorkspace(
   workspaceId: unknown,
 ): Promise<{ userId: string; workspaceId: string }> {
-  const session = await getSession();
-  const access = await requireWorkspaceAccess(session, workspaceId, "owner");
-  // `requireWorkspaceAccess` has already refused a missing session.
-  const userId = session!.user.id;
-  if ((await ensurePersonalWorkspace(userId)) !== access.workspaceId) {
-    notFound();
-  }
-  return { userId, workspaceId: access.workspaceId };
+  return (await ownPersonalWorkspace(workspaceId)) ?? notFound();
 }
 
 export async function createLinkCodeAction(

@@ -1,7 +1,5 @@
-import { requireWorkspaceAccess } from "@/lib/auth/authz";
-import { ensurePersonalWorkspace } from "@/lib/auth/personal-workspace";
-import { getSession } from "@/lib/auth/session";
 import { env } from "@/lib/env";
+import { ownPersonalWorkspace } from "../server/access";
 import { getLinkState } from "../server/link";
 import { PhoneLinkCard } from "./phone-link-card";
 
@@ -15,17 +13,13 @@ export async function MessagesSection({
 }: {
   workspaceId: string;
 }) {
-  const session = await getSession();
-  const access = await requireWorkspaceAccess(session, workspaceId, "owner");
-  const userId = session!.user.id;
-  if ((await ensurePersonalWorkspace(userId)) !== access.workspaceId) {
-    return null;
-  }
+  const own = await ownPersonalWorkspace(workspaceId);
+  if (!own) return null;
 
   return (
     <PhoneLinkCard
-      workspaceId={access.workspaceId}
-      state={await getLinkState(userId)}
+      workspaceId={own.workspaceId}
+      state={await getLinkState(own.userId)}
       agentPhone={env.AGENT_PHONE_NUMBER ?? null}
     />
   );
