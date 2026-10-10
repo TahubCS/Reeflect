@@ -4,6 +4,12 @@ import {
   createAccount,
   listAccounts,
 } from "@/features/accounts/server/repository";
+import { TRANSACTION_ENTRY_POINTS } from "@/features/transactions/server/entry-points";
+import {
+  createTransaction,
+  listTransactions,
+} from "@/features/transactions/server/repository";
+import { cents } from "@/lib/money";
 import {
   fixtures,
   isNotFound,
@@ -16,7 +22,10 @@ import type { EntryPoint, EntryPointTarget } from "./entry-point";
 // User A is a member of workspace A only. Calling any entry point with
 // workspace B's ids, or with A's workspace and B's object ids, must find
 // nothing and change nothing in B.
-const ENTRY_POINTS: EntryPoint[] = [...ACCOUNT_ENTRY_POINTS];
+const ENTRY_POINTS: EntryPoint[] = [
+  ...ACCOUNT_ENTRY_POINTS,
+  ...TRANSACTION_ENTRY_POINTS,
+];
 
 const getSession = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/auth/session", () => ({ getSession }));
@@ -39,17 +48,31 @@ async function outcome(entry: EntryPoint, target: EntryPointTarget) {
 }
 
 async function snapshotB() {
-  return listAccounts(b.workspaceId);
+  return {
+    accounts: await listAccounts(b.workspaceId),
+    transactions: await listTransactions(b.workspaceId),
+  };
 }
 
-async function newAccount(workspaceId: string): Promise<string> {
-  return createAccount(workspaceId, {
+async function newTarget(workspaceId: string): Promise<EntryPointTarget> {
+  const accountId = await createAccount(workspaceId, {
     type: "checking",
     institutionName: "Bank",
     nickname: "Isolation target",
     maskLast4: null,
     balanceCents: null,
   });
+  const transactionId = await createTransaction(workspaceId, {
+    description: "Isolation target",
+    isTransfer: false,
+    ledger: {
+      accountId,
+      postedOn: "2026-01-10",
+      amountCents: cents(-500),
+      status: "posted",
+    },
+  });
+  return { workspaceId, accountId, transactionId: transactionId! };
 }
 
 beforeAll(async () => {
@@ -61,8 +84,8 @@ beforeAll(async () => {
     [ownerB]: "owner",
     [viewerB]: "viewer",
   });
-  a = { workspaceId: workspaceA, accountId: await newAccount(workspaceA) };
-  b = { workspaceId: workspaceB, accountId: await newAccount(workspaceB) };
+  a = await newTarget(workspaceA);
+  b = await newTarget(workspaceB);
 });
 
 afterAll(async () => {
@@ -83,6 +106,12 @@ describe.each(ENTRY_POINTS)("$name", (entry) => {
     const before = await snapshotB();
 
     await outcome(entry, { ...a, accountId: b.accountId });
+    await outcome(entry, { ...a, transactionId: b.transactionId });
+    await outcome(entry, {
+      ...a,
+      accountId: b.accountId,
+      transactionId: b.transactionId,
+    });
 
     expect(await snapshotB()).toEqual(before);
   });
