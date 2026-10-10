@@ -10,7 +10,7 @@ const body = Instrument_Sans({
 });
 
 export const metadata: Metadata = {
-  title: `${APP_NAME} design preview`,
+  title: { default: APP_NAME, template: `%s · ${APP_NAME}` },
   description:
     "See what is coming in, what is going out, and what is yours to spend, day by day.",
 };

@@ -1,0 +1,110 @@
+/* Sign-in, sign-up and sign-out. Uses the tokens in src/app/globals.css
+   (ADR-046), so it follows the calendar's light and dark themes. */
+
+.card {
+  width: 100%;
+  max-width: 26rem;
+  padding: 1.75rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.card h1 {
+  font-size: 1.625rem;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.lede {
+  margin-top: 0.375rem;
+  color: var(--ink-soft);
+}
+
+.fields {
+  display: grid;
+  gap: 0.875rem;
+  margin-top: 1.5rem;
+}
+
+.field > span:first-child {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.field input {
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.field input[aria-invalid="true"] {
+  border-color: var(--bill);
+}
+
+.hint,
+.fieldError {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+}
+
+.hint {
+  color: var(--ink-soft);
+}
+
+.fieldError,
+.failure {
+  color: var(--bill);
+}
+
+.failure {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+}
+
+.submit {
+  width: 100%;
+  margin-top: 1.25rem;
+  padding: 0.625rem;
+  border: 0;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--bg);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submit:active {
+  transform: translateY(1px);
+}
+
+.submit:disabled,
+.signOut:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.switch {
+  margin-top: 1.25rem;
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+}
+
+.switch a {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.signOut {
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.875rem;
+  cursor: pointer;
+}

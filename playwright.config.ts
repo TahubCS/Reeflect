@@ -16,7 +16,15 @@ export default defineConfig({
     baseURL,
     trace: "on-first-retry",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    // Signs up one shared user and saves its session (tests/e2e/signed-in.ts).
+    { name: "setup", testMatch: /.*.setup.ts/ },
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+      dependencies: ["setup"],
+    },
+  ],
   webServer: {
     command: `pnpm start -p ${port}`,
     url: baseURL,
@@ -27,7 +35,7 @@ export default defineConfig({
         process.env.DATABASE_URL ??
         "postgres://test:test@localhost:5433/app_test",
       // The server under test is always on localhost, whatever .env.local says.
-      BETTER_AUTH_URL: "http://localhost:3000",
+      BETTER_AUTH_URL: baseURL,
     },
   },
 });

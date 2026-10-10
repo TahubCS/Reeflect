@@ -1,6 +1,7 @@
 import { type Locator, type Page, expect, test } from "@playwright/test";
+import { SIGNED_IN_STATE, hydrated } from "./support";
 
-// The home page runs on sample data pinned to Wednesday, October 7, 2026, so
+// The dashboard runs on sample data pinned to Wednesday, October 7, 2026, so
 // every figure below is fixed (src/features/cashflow/domain/demo-data.ts).
 
 const headline = (page: Page): Locator =>
@@ -10,9 +11,11 @@ const dayPanel = (page: Page): Locator =>
 const cell = (page: Page, date: string): Locator =>
   page.locator(`button[data-date="${date}"]`);
 
+test.use({ storageState: SIGNED_IN_STATE });
+
 test.beforeEach(async ({ page }) => {
-  await page.goto("/");
-  await page.waitForLoadState("networkidle");
+  await page.goto("/dashboard");
+  await hydrated(page, "button[data-date]");
 });
 
 test("opens on today with the per-day headline and the sum behind it", async ({

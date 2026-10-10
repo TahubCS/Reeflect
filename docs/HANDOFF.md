@@ -40,7 +40,7 @@ Update this table when work is assigned or finished. Features are listed in
 | Feature / bug | Lane | Assigned to | Branch | Status |
 |---|---|---|---|---|
 | Scaffold (Next.js, pnpm workspace, Drizzle, Better Auth, CI, lefthook) | All | Unassigned | — | In progress: Next.js, CI and Drizzle done (HO-017); Better Auth next |
-| F-01 Sign up / sign in | B | Unassigned | — | Not started |
+| F-01 Sign up / sign in | B | Unassigned | — | Pages and API done (HO-018, HO-020); personal workspace on sign-up still to do |
 | F-02 Personal workspace | B | Unassigned | — | Not started |
 | F-03 Financial accounts | A | Unassigned | — | Not started |
 | F-04 Manual transactions | A | Unassigned | — | Not started |
@@ -760,3 +760,45 @@ recommendation, not a decision.
 - The page says "Design preview with made-up numbers" and the title says
   "design preview"; change both when real data is wired in.
 - The open problems in HO-018 still stand.
+
+---
+
+## HO-020: Landing page, sign-up, sign-in; dashboard moved to /dashboard
+
+- **Date:** 2026-10-10 14:10 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `feat/calendar-mock-scaffold` / same PR as HO-019
+
+### What changed
+- Routes: `/` is a landing page; `/sign-up` and `/sign-in` (in
+  `src/app/(auth)/`) use the Better Auth client from HO-018; the calendar
+  moved from `/` to `/dashboard`.
+- `/dashboard` needs a session: a signed-out visitor is redirected to
+  `/sign-in`. The session is read inside a Suspense boundary (Cache
+  Components). A "Signed in as … / Sign out" bar sits above the calendar.
+- `src/features/auth/`: `domain/credentials.ts` validates form input with
+  zod and turns Better Auth errors into plain messages; `ui/` has the form
+  and the sign-out button. No change to `src/lib/auth` or the auth tables.
+- All new pages use CSS Modules with the tokens in `globals.css` (ADR-046).
+- Fix: the Tailwind loader rule in `next.config.ts` was turning every
+  `*.module.css` into global CSS, so CSS Modules had no class names. The
+  rule now skips them.
+- Tests: Vitest for `credentials.ts`; Playwright `auth.spec.ts` (TEST-07)
+  for sign up, sign out, wrong password and sign in through the pages.
+  `auth.setup.ts` signs one shared user up for specs of signed-in pages
+  (`tests/e2e/support.ts`).
+
+### What's next
+- Create the Personal workspace on sign-up and move the calendar under
+  `/w/[workspaceId]` (ADR-007, AGENTS.md section 6). `/dashboard` is a
+  stand-in until then.
+- Send a signed-in visitor from `/sign-in` and `/sign-up` to the dashboard.
+
+### Open problems
+- Sign-in will not work on Vercel preview URLs until `trustedOrigins` is
+  set (HO-018), so the dashboard cannot be opened on a preview.
+- Better Auth limits sign-in to a few tries per 10 seconds per IP. Running
+  the E2E suite twice in quick succession locally can fail
+  `auth-api.spec.ts` with 429; wait a few seconds and re-run.
+- The open problems in HO-019 still stand.
+

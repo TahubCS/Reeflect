@@ -1,0 +1,27 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 1rem clamp(1rem, 3vw, 3.5rem) 3rem;
+}
+
+.top {
+  padding-bottom: 0.875rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.wordmark {
+  color: var(--ink);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.main {
+  display: flex;
+  flex: 1;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: clamp(2rem, 8vh, 5rem);
+}

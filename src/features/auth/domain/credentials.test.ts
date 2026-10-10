@@ -1,0 +1,106 @@
+import { describe, expect, it } from "vitest";
+import { authFailureMessage, parseSignIn, parseSignUp } from "./credentials";
+
+const VALID = {
+  name: "Sam Rivera",
+  email: "sam@example.test",
+  password: "correct-horse",
+};
+
+describe("parseSignUp", () => {
+  it("accepts a name, an email and a password, and trims the name", () => {
+    expect(parseSignUp({ ...VALID, name: "  Sam Rivera " })).toEqual({
+      ok: true,
+      value: VALID,
+    });
+  });
+
+  it("reports every field that is wrong", () => {
+    expect(parseSignUp({ name: " ", email: "sam", password: "short" })).toEqual(
+      {
+        ok: false,
+        errors: {
+          name: "Enter your name.",
+          email: "Enter an email address like name@example.com.",
+          password: "Use at least 8 characters.",
+        },
+      },
+    );
+  });
+
+  it("accepts a password of exactly 8 characters and rejects 7", () => {
+    expect(parseSignUp({ ...VALID, password: "12345678" }).ok).toBe(true);
+    expect(parseSignUp({ ...VALID, password: "1234567" }).ok).toBe(false);
+  });
+
+  it("rejects a name or password that is too long", () => {
+    expect(parseSignUp({ ...VALID, name: "n".repeat(81) })).toMatchObject({
+      errors: { name: "Use 80 characters or fewer." },
+    });
+    expect(parseSignUp({ ...VALID, password: "p".repeat(129) })).toMatchObject({
+      errors: { password: "Use 128 characters or fewer." },
+    });
+  });
+
+  it("rejects missing fields instead of throwing", () => {
+    const result = parseSignUp({});
+
+    expect(result.ok).toBe(false);
+    expect(result).toHaveProperty("errors.name");
+    expect(result).toHaveProperty("errors.email");
+    expect(result).toHaveProperty("errors.password");
+  });
+});
+
+describe("parseSignIn", () => {
+  it("accepts an email and any non-empty password", () => {
+    const input = { email: "sam@example.test", password: "x" };
+
+    expect(parseSignIn(input)).toEqual({ ok: true, value: input });
+  });
+
+  it("asks for the password when it is empty", () => {
+    expect(parseSignIn({ email: "sam@example.test", password: "" })).toEqual({
+      ok: false,
+      errors: { password: "Enter your password." },
+    });
+  });
+
+  it("rejects a malformed email", () => {
+    expect(parseSignIn({ email: "sam@", password: "x" })).toMatchObject({
+      errors: { email: "Enter an email address like name@example.com." },
+    });
+  });
+});
+
+describe("authFailureMessage", () => {
+  it("explains a wrong email or password", () => {
+    expect(
+      authFailureMessage({ status: 401, code: "INVALID_EMAIL_OR_PASSWORD" }),
+    ).toBe("That email and password don't match.");
+  });
+
+  it("explains an email that is already registered", () => {
+    expect(
+      authFailureMessage({
+        status: 422,
+        code: "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL",
+      }),
+    ).toBe("An account with that email already exists. Sign in instead.");
+  });
+
+  it("explains rate limiting, whatever the code", () => {
+    expect(authFailureMessage({ status: 429 })).toBe(
+      "Too many attempts. Wait a moment and try again.",
+    );
+  });
+
+  it("falls back to a generic message without leaking details", () => {
+    expect(
+      authFailureMessage({ status: 500, code: "FAILED_TO_CREATE_USER" }),
+    ).toBe("Something went wrong. Please try again.");
+    expect(authFailureMessage({})).toBe(
+      "Something went wrong. Please try again.",
+    );
+  });
+});
