@@ -38,14 +38,16 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <header className={styles.top}>
-        <Link href="/dashboard" className={styles.wordmark}>
-          {APP_NAME}
-        </Link>
-        <AppNav />
-        <div className={styles.account}>
-          <Suspense fallback={null}>
-            <Account />
-          </Suspense>
+        <div className={styles.bar}>
+          <Link href="/dashboard" className={styles.wordmark}>
+            {APP_NAME}
+          </Link>
+          <AppNav />
+          <div className={styles.account}>
+            <Suspense fallback={null}>
+              <Account />
+            </Suspense>
+          </div>
         </div>
       </header>
       <Suspense fallback={<p className={styles.loading}>Loading…</p>}>

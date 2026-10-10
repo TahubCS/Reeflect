@@ -1,39 +1,49 @@
 /* The header shared by every signed-in page. Uses the tokens in
    src/app/globals.css (ADR-046). */
 
+/* Stays at the top while the page scrolls. The background spans the full
+   width so page content passes underneath it cleanly; the row and its line
+   keep the page's side margins. */
 .top {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 0 clamp(1rem, 3vw, 3.5rem);
+  background: var(--bg);
+}
+
+.bar {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem 1.5rem;
-  margin: 0 clamp(1rem, 3vw, 3.5rem);
-  padding: 1rem 0 0.875rem;
+  gap: 0.5rem 1.75rem;
+  padding: 1.125rem 0 1rem;
   border-bottom: 1px solid var(--line);
 }
 
 .wordmark {
   color: var(--ink);
-  font-size: 1.0625rem;
+  font-size: 1.25rem;
   font-weight: 700;
   letter-spacing: -0.01em;
   text-decoration: none;
 }
 
+/* The address and the Sign out button are laid out as items of the row
+   itself, so the address can give up its width before the links do. */
 .account {
-  display: flex;
-  flex: 0 1 auto;
-  align-items: center;
-  gap: 0.75rem;
-  min-width: 0;
-  margin-left: auto;
+  display: contents;
   color: var(--ink-soft);
   font-size: 0.875rem;
 }
 
-/* A long address is cut short so the links keep their room. */
 .email {
+  flex: 0 100 auto;
+  min-width: 0;
   max-width: 16rem;
+  margin-left: auto;
   overflow: hidden;
+  color: var(--ink-soft);
+  font-size: 0.875rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -45,12 +55,20 @@
 
 /* Phones: the links take their own row under the wordmark and account. */
 @media (max-width: 40rem) {
-  .top nav {
+  .bar {
+    flex-wrap: wrap;
+  }
+
+  .bar nav {
     order: 3;
     flex-basis: 100%;
   }
 
   .email {
     display: none;
+  }
+
+  .account > button {
+    margin-left: auto;
   }
 }

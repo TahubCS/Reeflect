@@ -846,3 +846,30 @@ recommendation, not a decision.
   the group moves when workspaces exist.
 - The open problems in HO-020 still stand.
 
+---
+
+## HO-022: Signed-in header stays on screen and is larger
+
+- **Date:** 2026-10-10 16:10 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `feat/app-nav` (uncommitted) / not opened
+
+### What changed
+- The header in `src/app/(app)/layout.tsx` is `position: sticky`, so it
+  stays at the top while a page scrolls. It is still rendered on the server
+  as part of the layout; no script is involved.
+- The wordmark and links are larger, with more padding.
+- When space runs short the email address shortens, then disappears, before
+  any link is cut off; after that the links scroll sideways.
+- `html` has `scroll-padding-top`, so an element that receives keyboard
+  focus is not hidden under the header.
+
+### What's next
+- Give pages enough top spacing of their own; the header takes 75 to 115
+  pixels of every signed-in screen.
+
+### Open problems
+- Below about 1100 pixels wide, the last links are reached by scrolling the
+  link row sideways. A menu for small screens is left for the design cleanup.
+- The open problems in HO-021 still stand.
+
