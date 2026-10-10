@@ -1,35 +1,39 @@
 import "server-only";
 import { z } from "zod";
 
-// Server environment variables (ARCH-09). Each feature adds its own variables
-// here in the PR that starts using them.
-const serverEnvSchema = z.object({
-  DATABASE_URL: z.url(),
+const postgresUrl = z
+  .string()
+  .regex(/^postgres(ql)?:\/\//, "must start with postgres:// or postgresql://");
+
+// Every variable the app reads (ARCH-09). Add a variable here in the PR that
+// first uses it, and to .env.example.
+const envSchema = z.object({
+  /** Runtime connection. On Neon, the pooled string (host contains "-pooler"). */
+  DATABASE_URL: postgresUrl,
+  /** Direct connection, used only by Drizzle Kit migrations. */
+  DATABASE_URL_UNPOOLED: postgresUrl.optional(),
+  /** Signs sessions and cookies (ADR-006). 32+ random characters. */
   BETTER_AUTH_SECRET: z.string().min(32),
+  /** The app's public origin, e.g. http://localhost:3000. */
   BETTER_AUTH_URL: z.url(),
 });
 
-export type ServerEnv = z.infer<typeof serverEnvSchema>;
+export type Env = z.infer<typeof envSchema>;
 
-/** Validates `source`. The error names the bad variables but never their values. */
-export function parseServerEnv(
-  source: Record<string, string | undefined>,
-): ServerEnv {
-  const result = serverEnvSchema.safeParse(source);
+export function parseEnv(
+  raw: Readonly<Record<string, string | undefined>>,
+): Env {
+  const result = envSchema.safeParse(raw);
   if (!result.success) {
-    const names = [
-      ...new Set(result.error.issues.map((i) => i.path.join("."))),
-    ];
+    // Names and reasons only: never echo a value, it may be a secret.
+    const problems = result.error.issues
+      .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+      .join("; ");
     throw new Error(
-      `Missing or invalid environment variables: ${names.join(", ")}. See .env.example.`,
+      `Invalid environment variables (${problems}). See .env.example.`,
     );
   }
   return result.data;
 }
 
-let cached: ServerEnv | undefined;
-
-export function serverEnv(): ServerEnv {
-  cached ??= parseServerEnv(process.env);
-  return cached;
-}
+export const env: Env = parseEnv(process.env);

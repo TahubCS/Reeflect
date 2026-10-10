@@ -1,3 +1,2 @@
-// Vitest stand-in for the `server-only` package, which throws outside a
-// React Server Components bundle.
+// Vitest runs outside Next.js, where the real `server-only` package throws.
 export {};

@@ -5,8 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1791652529617,
-      "tag": "0000_better_auth",
+      "when": 1791651907479,
+      "tag": "0000_init",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791653688740,
+      "tag": "0001_better_auth",
       "breakpoints": true
     }
   ]

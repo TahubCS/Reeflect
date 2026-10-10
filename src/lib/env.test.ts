@@ -1,55 +1,62 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { parseServerEnv } from "./env";
+import { describe, expect, it } from "vitest";
+import { parseEnv } from "./env";
 
-const VALID = {
-  DATABASE_URL: "postgres://test:test@localhost:5432/app_test",
+const POOLED = "postgresql://app:secret-password@ep-x-pooler.neon.tech/app";
+const DIRECT = "postgresql://app:secret-password@ep-x.neon.tech/app";
+const AUTH = {
   BETTER_AUTH_SECRET: "test-only-not-a-real-secret-0123456789",
   BETTER_AUTH_URL: "http://localhost:3000",
 };
 
-describe("parseServerEnv", () => {
-  it("accepts a complete environment", () => {
-    expect(parseServerEnv(VALID)).toEqual(VALID);
+describe("parseEnv", () => {
+  it("accepts a pooled URL alone", () => {
+    expect(parseEnv({ DATABASE_URL: POOLED, ...AUTH })).toEqual({
+      DATABASE_URL: POOLED,
+      ...AUTH,
+    });
+  });
+
+  it("accepts a pooled and a direct URL", () => {
+    const env = parseEnv({
+      DATABASE_URL: POOLED,
+      DATABASE_URL_UNPOOLED: DIRECT,
+      ...AUTH,
+    });
+
+    expect(env.DATABASE_URL_UNPOOLED).toBe(DIRECT);
   });
 
   it("names every missing variable", () => {
-    expect(() => parseServerEnv({})).toThrow(
-      "DATABASE_URL, BETTER_AUTH_SECRET, BETTER_AUTH_URL",
-    );
+    const attempt = (): unknown => parseEnv({});
+
+    expect(attempt).toThrow(/DATABASE_URL/);
+    expect(attempt).toThrow(/BETTER_AUTH_SECRET/);
+    expect(attempt).toThrow(/BETTER_AUTH_URL/);
   });
 
-  it("rejects a secret shorter than 32 characters without printing it", () => {
+  it("rejects a value that is not a postgres URL without echoing it", () => {
+    const attempt = (): unknown =>
+      parseEnv({
+        DATABASE_URL: "https://secret-password@example.com",
+        ...AUTH,
+      });
+
+    expect(attempt).toThrow(/DATABASE_URL: must start with postgres/);
+    expect(attempt).not.toThrow(/secret-password/);
+  });
+
+  it("rejects an auth secret shorter than 32 characters without echoing it", () => {
     const short = "too-short-secret";
+    const attempt = (): unknown =>
+      parseEnv({ DATABASE_URL: POOLED, ...AUTH, BETTER_AUTH_SECRET: short });
 
-    expect(() =>
-      parseServerEnv({ ...VALID, BETTER_AUTH_SECRET: short }),
-    ).toThrow(/BETTER_AUTH_SECRET/);
-    expect(() =>
-      parseServerEnv({ ...VALID, BETTER_AUTH_SECRET: short }),
-    ).not.toThrow(short);
+    expect(attempt).toThrow(/BETTER_AUTH_SECRET/);
+    expect(attempt).not.toThrow(short);
   });
 
-  it("rejects a malformed URL", () => {
+  it("rejects a malformed auth URL", () => {
     expect(() =>
-      parseServerEnv({ ...VALID, BETTER_AUTH_URL: "localhost" }),
+      parseEnv({ DATABASE_URL: POOLED, ...AUTH, BETTER_AUTH_URL: "localhost" }),
     ).toThrow(/BETTER_AUTH_URL/);
-  });
-});
-
-describe("serverEnv", () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
-    vi.resetModules();
-  });
-
-  it("reads process.env once and caches the result", async () => {
-    for (const [name, value] of Object.entries(VALID)) vi.stubEnv(name, value);
-    const { serverEnv } = await import("./env");
-
-    const first = serverEnv();
-    vi.stubEnv("BETTER_AUTH_URL", "http://changed.example");
-
-    expect(serverEnv()).toBe(first);
-    expect(first.BETTER_AUTH_URL).toBe(VALID.BETTER_AUTH_URL);
   });
 });

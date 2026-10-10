@@ -5,10 +5,8 @@ import { nextCookies } from "better-auth/next-js";
 import { organization } from "better-auth/plugins";
 import { db } from "@/lib/db/client";
 import * as schema from "@/lib/db/schema";
-import { serverEnv } from "@/lib/env";
+import { env } from "@/lib/env";
 import { ac, roles } from "./permissions";
-
-const env = serverEnv();
 
 // Better Auth (ADR-006): email and password now, Google sign-in later. A
 // workspace is an organization (ADR-007).

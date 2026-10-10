@@ -237,7 +237,8 @@ Governed by: ADR-006, ADR-007, ADR-010, ADR-012, ADR-019, ADR-025
 
 | Variable | Used by | Secret |
 |---|---|---|
-| `DATABASE_URL` | Drizzle (pooled connection string in production) | Yes |
+| `DATABASE_URL` | Drizzle at runtime, through `pg` (Neon's pooled connection string in production) | Yes |
+| `DATABASE_URL_UNPOOLED` | Drizzle Kit migrations only (Neon's direct connection string); optional, falls back to `DATABASE_URL` | Yes |
 | `BETTER_AUTH_SECRET` | Better Auth | Yes |
 | `BETTER_AUTH_URL` | Better Auth | No |
 | `ENCRYPTION_KEY` | `lib/security/crypto.ts` (32 bytes, base64) | Yes |
@@ -254,14 +255,19 @@ Governed by: ADR-006, ADR-007, ADR-010, ADR-012, ADR-019, ADR-025
 | `DEMO_MODE` | Brain (`true` only on the demo deployment) | No |
 
 All variables are validated at startup with `zod` in `src/lib/env.ts`; the app
-refuses to start if a required one is missing. `.env.example` lists every
-variable with a fake value.
+refuses to start if a required one is missing (`src/instrumentation.ts`).
+`env.ts` and `.env.example` list the variables in use so far; each PR that
+first reads a variable adds it to both.
+
+`GET /api/health` runs one trivial query through the runtime pool and
+returns `ok` or 503, with no data and no error details. Use it to confirm the
+Neon connection after a deploy.
 
 ## ARCH-10: Environments and deployment
 
 | Environment | Database | Plaid | Purpose |
 |---|---|---|---|
-| Local | PostgreSQL in Docker | Sandbox | Development |
+| Local | PostgreSQL in Docker (`docker compose up -d`, port 5433) or a Neon branch | Sandbox | Development |
 | CI | PostgreSQL service container | Mocked in unit tests; sandbox not called | Tests |
 | Preview (per PR) | Neon branch or shared preview database | Sandbox | Review |
 | Production / demo | Neon main | Sandbox for the demo | HackNC demo |

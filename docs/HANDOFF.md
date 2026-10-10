@@ -39,7 +39,7 @@ Update this table when work is assigned or finished. Features are listed in
 
 | Feature / bug | Lane | Assigned to | Branch | Status |
 |---|---|---|---|---|
-| Scaffold (Next.js, pnpm workspace, Drizzle, Better Auth, CI, lefthook) | All | Unassigned | — | In progress: Next.js and CI done (HO-016) |
+| Scaffold (Next.js, pnpm workspace, Drizzle, Better Auth, CI, lefthook) | All | Unassigned | — | In progress: Next.js, CI and Drizzle done (HO-017); Better Auth next |
 | F-01 Sign up / sign in | B | Unassigned | — | Not started |
 | F-02 Personal workspace | B | Unassigned | — | Not started |
 | F-03 Financial accounts | A | Unassigned | — | Not started |
@@ -633,42 +633,72 @@ recommendation, not a decision.
 
 ---
 
-## HO-017: Better Auth and Drizzle installed
+## HO-017: Drizzle and the database connection set up
 
-- **Date:** 2026-10-10 13:17 (EDT)
-- **Author:** Simon Ormond with Claude (Claude Code)
-- **Branch / PR:** `feat/better-auth` (uncommitted) / not opened
+- **Date:** 2026-10-10 13:15 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `main` (uncommitted working tree, by the user's choice) / not opened
 
 ### What changed
-- Drizzle (ADR-005) with the `pg` driver, not `@neondatabase/serverless`:
-  it works with Neon's pooled URL, Docker and the CI service container, and
-  supports the transactions that import commits need (ADR-010). Client in
-  `src/lib/db/client.ts`; migrations in `src/lib/db/migrations/`.
-- Better Auth 1.7 (ADR-006) in `src/lib/auth/auth.ts`: email and password,
-  the organization plugin with roles `owner` / `editor` / `viewer` (ADR-007,
-  `src/lib/auth/permissions.ts`), `nextCookies`, and rate limits stored in
-  the database so they hold across serverless instances (ARCH-08). Handler at
-  `/api/auth/[...all]`; `getSession()` in `src/lib/auth/session.ts`; browser
-  client in `src/lib/auth/client.ts`.
-- Auth tables (`user`, `session`, `account`, `verification`, `organization`,
-  `member`, `invitation`, `rate_limit`) in migration `0000_better_auth`. They
-  come from Better Auth's own generator, with `timestamptz` columns.
-  `src/lib/db/schema/auth.test.ts` fails if a Better Auth upgrade expects
-  columns we don't have.
-- `src/lib/env.ts` validates `DATABASE_URL`, `BETTER_AUTH_SECRET` and
-  `BETTER_AUTH_URL` with zod (ARCH-09). `.env.example` lists every ARCH-09
-  variable.
-- `pnpm db:generate` and `pnpm db:migrate` added (AGENTS.md section 5). CI
-  `unit` and `e2e` now run a PostgreSQL 17 service and `pnpm db:migrate`
-  (TEST-09).
-- Tests: Vitest for env, roles, the auth config, the session helper, the
-  client and the schema; Playwright `auth-api.spec.ts` signs up, out and in
-  through the API. All of them pass locally against PostgreSQL 17 in Docker.
+- Drizzle ORM with the `pg` driver (ADR-005): `src/lib/db/client.ts`, an
+  empty schema in `src/lib/db/schema/`, and an empty first migration in
+  `src/lib/db/migrations/`. `pnpm db:generate` and `pnpm db:migrate` exist.
+- `src/lib/env.ts` validates `DATABASE_URL` (runtime, Neon's pooled string)
+  and the optional `DATABASE_URL_UNPOOLED` (migrations, Neon's direct string).
+  `src/instrumentation.ts` makes the server refuse to serve without them.
+  `.env.example` added.
+- `GET /api/health` runs one query through the pool (ARCH-09).
+- `docker-compose.yml`: local PostgreSQL on host port 5433. Vitest and
+  Playwright always use it (or the CI service), never `.env.local`.
+- CI: `unit` and `e2e` start PostgreSQL and run `pnpm db:migrate` first.
+- Verified against Neon: `pnpm db:migrate` applied the empty first migration
+  over the direct URL, and `/api/health` answered `ok` over the pooled URL.
+  `.env.example` also lists `NESSIE_API_KEY` (server-side only, ADR-033).
+- Auth stays as ADR-006 (Better Auth as a library, tables in our database).
+  Neon's managed "Neon Auth" is not used: its Organization plugin is only
+  partly supported and it does not exist in local or CI PostgreSQL.
 
 ### What's next
-1. Put the Neon pooled URL in `.env.local` as `DATABASE_URL`, then run
-   `pnpm db:migrate`. Add `DATABASE_URL`, `BETTER_AUTH_SECRET` and
-   `BETTER_AUTH_URL` to Vercel.
+1. Each developer: copy `.env.example` to `.env.local`, paste both Neon
+   connection strings, run `pnpm db:migrate`, then open `/api/health`.
+2. Add `DATABASE_URL` and `DATABASE_URL_UNPOOLED` to the Vercel project.
+3. Better Auth with the Drizzle adapter and organization plugin (F-01, F-02).
+
+### Open problems
+- `pnpm build` and `pnpm dev` now need `DATABASE_URL`; without it the build
+  fails and the server answers 500 with a clear log line.
+- The open problems in HO-016 still stand.
+
+---
+
+## HO-018: Better Auth on top of the Drizzle setup
+
+- **Date:** 2026-10-10 13:40 (EDT)
+- **Author:** Simon Ormond with Claude (Claude Code)
+- **Branch / PR:** `feat/better-auth` / not opened
+
+### What changed
+- Better Auth 1.7 (ADR-006) in `src/lib/auth/auth.ts`, using the Drizzle
+  client from HO-017: email and password, the organization plugin with roles
+  `owner` / `editor` / `viewer` (ADR-007, `src/lib/auth/permissions.ts`),
+  `nextCookies`, and rate limits stored in the database so they hold across
+  serverless instances (ARCH-08). Handler at `/api/auth/[...all]`;
+  `getSession()` in `src/lib/auth/session.ts`; browser client in
+  `src/lib/auth/client.ts`.
+- Auth tables (`user`, `session`, `account`, `verification`, `organization`,
+  `member`, `invitation`, `rate_limit`) in `src/lib/db/schema/auth.ts` and
+  migration `0001_better_auth`. They come from Better Auth's own Drizzle
+  generator, with `timestamptz` columns. `src/lib/db/schema/auth.test.ts`
+  fails if a Better Auth upgrade expects columns we don't have.
+- `src/lib/env.ts` now also requires `BETTER_AUTH_SECRET` (32+ characters)
+  and `BETTER_AUTH_URL`; both are in `.env.example`.
+- Tests: Vitest for env, roles, the auth config, the session helper, the
+  client and the schema; Playwright `auth-api.spec.ts` signs up, out and in
+  through the API against the local PostgreSQL.
+
+### What's next
+1. Each developer: add `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` to
+   `.env.local`, then run `pnpm db:migrate`. Add both to Vercel.
 2. Create the Personal workspace on sign-up (ADR-007), for example in a
    Better Auth `databaseHooks.user.create.after` hook.
 3. `requireWorkspaceAccess` in `src/lib/auth/authz.ts` (ARCH-04), using the
@@ -681,4 +711,4 @@ recommendation, not a decision.
 - The `auth` CLI package was not installed; regenerate the schema with Better
   Auth's Drizzle generator when upgrading (see the header of
   `src/lib/db/schema/auth.ts`).
-- The open problems in HO-016 still stand.
+- The open problems in HO-017 still stand.

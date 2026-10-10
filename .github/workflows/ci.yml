@@ -54,22 +54,22 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm docs:check
 
-  # `unit` and `e2e` run against a fresh PostgreSQL with all migrations
-  # applied (TEST-09). DATABASE_URL above points at this service.
   unit:
     name: unit
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17
+        image: postgres:16
         env:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test
           POSTGRES_DB: app_test
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U test -d app_test"
-          --health-interval 5s --health-timeout 5s --health-retries 10
+          --health-cmd "pg_isready -U test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -92,15 +92,17 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17
+        image: postgres:16
         env:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test
           POSTGRES_DB: app_test
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U test -d app_test"
-          --health-interval 5s --health-timeout 5s --health-retries 10
+          --health-cmd "pg_isready -U test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6

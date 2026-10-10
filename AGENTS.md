@@ -190,7 +190,7 @@ fails if this table and `package.json` differ.
 | `pnpm test:e2e` | Playwright against the production build (`pnpm build` first). Tests that call external services are tagged `@external`; CI runs them nightly only |
 | `pnpm scan:bundle` | After `pnpm build`, scan the client bundle for secrets and server-only env values |
 | `pnpm db:generate` | Drizzle Kit: generate a migration from schema changes |
-| `pnpm db:migrate` | Apply migrations to `DATABASE_URL` |
+| `pnpm db:migrate` | Apply migrations (uses `DATABASE_URL_UNPOOLED` when set) |
 
 Not defined yet. Add each script, and its row above, in the PR that adds the
 thing it runs:
@@ -202,6 +202,9 @@ thing it runs:
 
 Root `pnpm lint`, `pnpm typecheck` and `pnpm test:unit` must also cover the
 `agent-worker/` and `packages/` workspace packages.
+
+Unit and E2E tests need the local database: `docker compose up -d` (host
+port 5433). Tests never use the Neon database in `.env.local`.
 
 Use `pnpm` only. Never commit `package-lock.json` or `yarn.lock`.
 
