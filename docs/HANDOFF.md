@@ -49,8 +49,8 @@ Update this table when work is assigned or finished. Features are listed in
 | F-08 Categorization | A | Unassigned | — | Not started |
 | F-09 Monthly budgets (P1) | A | Unassigned | — | Not started |
 | F-10 Subscriptions (detection P0, marks P1) | A | Unassigned | — | Not started |
-| F-12 Calendar home screen | B | Unassigned | — | Scaffolded on sample data (HO-018) |
-| F-13 Drill-down | B | Unassigned | — | Scaffolded on sample data (HO-018) |
+| F-12 Calendar home screen | B | Unassigned | — | Scaffolded on sample data (HO-019) |
+| F-13 Drill-down | B | Unassigned | — | Scaffolded on sample data (HO-019) |
 | F-18 Themes and accessibility | B | Unassigned | — | Not started |
 | F-19 Delete data | B | Unassigned | — | Not started |
 | F-21 Demo seed (incl. Nessie) | A | Unassigned | — | Not started |
@@ -671,7 +671,51 @@ recommendation, not a decision.
 
 ---
 
-## HO-018: Calendar mock scaffold on the home page
+## HO-018: Better Auth on top of the Drizzle setup
+
+- **Date:** 2026-10-10 13:40 (EDT)
+- **Author:** Simon Ormond with Claude (Claude Code)
+- **Branch / PR:** `feat/better-auth` / not opened
+
+### What changed
+- Better Auth 1.7 (ADR-006) in `src/lib/auth/auth.ts`, using the Drizzle
+  client from HO-017: email and password, the organization plugin with roles
+  `owner` / `editor` / `viewer` (ADR-007, `src/lib/auth/permissions.ts`),
+  `nextCookies`, and rate limits stored in the database so they hold across
+  serverless instances (ARCH-08). Handler at `/api/auth/[...all]`;
+  `getSession()` in `src/lib/auth/session.ts`; browser client in
+  `src/lib/auth/client.ts`.
+- Auth tables (`user`, `session`, `account`, `verification`, `organization`,
+  `member`, `invitation`, `rate_limit`) in `src/lib/db/schema/auth.ts` and
+  migration `0001_better_auth`. They come from Better Auth's own Drizzle
+  generator, with `timestamptz` columns. `src/lib/db/schema/auth.test.ts`
+  fails if a Better Auth upgrade expects columns we don't have.
+- `src/lib/env.ts` now also requires `BETTER_AUTH_SECRET` (32+ characters)
+  and `BETTER_AUTH_URL`; both are in `.env.example`.
+- Tests: Vitest for env, roles, the auth config, the session helper, the
+  client and the schema; Playwright `auth-api.spec.ts` signs up, out and in
+  through the API against the local PostgreSQL.
+
+### What's next
+1. Each developer: add `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` to
+   `.env.local`, then run `pnpm db:migrate`. Add both to Vercel.
+2. Create the Personal workspace on sign-up (ADR-007), for example in a
+   Better Auth `databaseHooks.user.create.after` hook.
+3. `requireWorkspaceAccess` in `src/lib/auth/authz.ts` (ARCH-04), using the
+   roles in `permissions.ts`.
+4. The `(auth)` sign-in and sign-up pages, with `auth.spec.ts` (TEST-07).
+
+### Open problems
+- Vercel preview URLs differ from `BETTER_AUTH_URL`, so Better Auth will
+  reject their origin. Add `trustedOrigins` for previews when they are set up.
+- The `auth` CLI package was not installed; regenerate the schema with Better
+  Auth's Drizzle generator when upgrading (see the header of
+  `src/lib/db/schema/auth.ts`).
+- The open problems in HO-017 still stand.
+
+---
+
+## HO-019: Calendar mock scaffold on the home page
 
 - **Date:** 2026-10-10 13:45 (EDT)
 - **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
@@ -715,4 +759,4 @@ recommendation, not a decision.
   (ADR-014). No axe, reduced-motion or responsive Playwright suites yet.
 - The page says "Design preview with made-up numbers" and the title says
   "design preview"; change both when real data is wired in.
-- The open problems in HO-017 still stand.
+- The open problems in HO-018 still stand.

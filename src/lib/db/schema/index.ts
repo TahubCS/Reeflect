@@ -2,4 +2,4 @@
 //   export * from "./financial-account";
 // After changing the schema run `pnpm db:generate` and commit the migration
 // in the same PR.
-export {};
+export * from "./auth";

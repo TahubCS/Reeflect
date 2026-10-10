@@ -19,6 +19,8 @@ export default defineConfig({
       DATABASE_URL:
         process.env.DATABASE_URL ??
         "postgres://test:test@localhost:5433/app_test",
+      BETTER_AUTH_SECRET: "test-only-not-a-real-secret-0123456789",
+      BETTER_AUTH_URL: "http://localhost:3000",
     },
     coverage: {
       provider: "v8",
