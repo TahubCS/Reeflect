@@ -80,6 +80,10 @@ Planned features (each a folder in `src/features/`):
 `nessie`, `reminders`, `agent`, `messaging`, `ai`, `audit`, `synthetic` (the
 batch generator, ADR-049).
 
+Built so far: `auth` (sign-in and sign-up forms), `cashflow` (the calendar,
+on sample data), `landing` (the home page) and `synthetic`. Only
+`synthetic` has an `index.ts` yet, and no feature has a `server/` folder.
+
 Scripts in `scripts/` run with plain `node`. Those that import from `src/`
 load `scripts/register-paths.ts` first, so `@/…` and extensionless imports
 resolve the way they do in Next.js and Vitest. They cannot import
@@ -112,7 +116,7 @@ have `updated_at`.
 
 | Table | Key columns | Notes |
 |---|---|---|
-| `workspace_settings` | workspace_id (PK), kind (`personal`/`household`), timezone, cushion_target_cents (nullable) | Used only by the aquarium (ADR-016, superseded); drop it unless ADR-042 finds a use |
+| `workspace_settings` | workspace_id (PK), kind (`personal`/`household`), timezone, cushion_target_cents (nullable) | Not built. It was for the aquarium (ADR-016, superseded); create it only if ADR-042 finds a use |
 | `financial_account` | id, workspace_id, institution_name, type (`checking`/`savings`/`credit_card`/`loan`), mask_last4, nickname, source (`manual`/`text`/`csv`/`pdf`/`plaid`/`nessie`/`synthetic`), current_balance_cents, balance_as_of, identity_confirmed_at, plaid_account_id (nullable), nessie_account_id (nullable) | Unique (workspace_id, plaid_account_id); unique (workspace_id, nessie_account_id). Built (migration 0002) |
 | `transaction` | id, workspace_id, financial_account_id, posted_on (date), amount_cents (signed, ADR-008), description_raw, merchant_normalized, category_id (nullable), status (`pending`/`posted`), is_transfer, transfer_pair_id (nullable; both sides of a transfer share it), source, import_batch_id (nullable), external_id (nullable), fingerprint | Unique (financial_account_id, fingerprint). Built (migration 0002) without `category_id` and `import_batch_id`; each arrives with the table it references |
 | `synthetic_batch` | id, label, generator_version, seed, start_month, months, as_of, spec (jsonb), notes, created_by, promoted_from | A replayable recipe (ADR-049). Built |
@@ -160,7 +164,13 @@ order:
 | Add / edit / delete transactions, budgets, rules, goals; run imports; link banks | editor |
 | Invite members, change roles, delete workspace | owner |
 
-Caching: pages under `/w/[workspaceId]` render dynamically. No `unstable_cache`
+`requireWorkspaceAccess` is in `src/lib/auth/authz.ts`; it calls `notFound()`
+in every failing case. The signed-in pages live under
+`src/app/(app)/w/[workspaceId]/`, whose layout checks membership; the flat
+URLs (`/dashboard`, …) redirect into the user's Personal workspace (HO-027).
+No page loads workspace data yet.
+
+Caching: pages that show workspace data render dynamically. No `unstable_cache`
 or fetch caching of workspace data. Client state is keyed by workspace id and
 cleared on workspace switch and sign-out.
 
@@ -241,7 +251,7 @@ Governed by: ADR-006, ADR-007, ADR-010, ADR-012, ADR-019, ADR-025
 | AI data leakage or invented numbers | Minimal data to the model; placeholders; digit scan (ARCH-07) |
 | Vulnerable dependencies | `pnpm audit` in CI; CodeQL; Dependabot alerts |
 | Sensitive data in logs | Log ids only; redaction helper in `lib/security/redact.ts` |
-| Secrets in `public/` | Everything in `public/` is served as is and is not covered by `scan:bundle`. Never put a key there. The vendored Nessie SDK that held a hard-coded key was removed in HO-028; the key is still in git history (ADR-048, HO-026) |
+| Secrets in `public/` | Everything in `public/` is served as is and is not covered by `scan:bundle`. Never put a key there. The vendored Nessie SDK that held a hard-coded key was removed in HO-029; the key is still in git history (ADR-048, HO-026) |
 | Scripts writing to the wrong database | Scripts take a named `--target`, print its endpoint id, and refuse production unless `NEON_PRODUCTION_ENDPOINT_ID` matches (ADR-049) |
 
 ## ARCH-09: Configuration
@@ -479,4 +489,4 @@ Nessie as verified on 2026-10-10 (ADR-048):
   ADR-020's rules.
 - **Deleting:** customers cannot be deleted, only their accounts.
 - **Call it from the server only.** The browser SDK that was in
-  `public/lib` was removed in HO-028.
+  `public/lib` was removed in HO-029.

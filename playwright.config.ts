@@ -17,7 +17,7 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   projects: [
-    // Signs up one shared user and saves its session (tests/e2e/signed-in.ts).
+    // Signs up one shared user and saves its session (tests/e2e/support.ts).
     { name: "setup", testMatch: /.*.setup.ts/ },
     {
       name: "chromium",

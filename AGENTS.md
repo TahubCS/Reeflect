@@ -37,7 +37,7 @@ bill reminders and the Gemini summary (ADR-045). Everything else waits.
 
 Built for HackNC 2026 (October 9–11, 2026) as an MVP that must stay clean
 enough to keep building afterwards. Tracks: Beginner/General, Photon AI Agent,
-Best Use of Nessie (ADR-036).
+Best Use of Nessie, MLH Best Use of Gemini API (ADR-036).
 
 **The product is named Reeflect** (ADR-002). Never hard-code the name. Use
 `APP_NAME` from `src/config/app.ts` in code and UI copy.
@@ -95,7 +95,10 @@ Do not build, suggest, or scaffold any of the following:
   `src/lib/money`. Never use floating-point dollars for storage or math.
 - All arithmetic, rounding, splitting, parsing and formatting of money goes
   through `src/lib/money`. No ad-hoc `* 100`, `/ 100`, `toFixed`, or
-  `parseFloat` on money anywhere else.
+  `parseFloat` on money anywhere else. If the function you need is missing,
+  add it there with tests. `src/lib/money` is still smaller than ADR-008
+  asks: no split without losing cents yet, and `fraction` rounds half up,
+  not half to even (HO-026).
 - Sign convention: amounts are signed from the account holder's point of view.
   Positive = money into that account. Negative = money out of that account.
   A credit-card purchase is negative on the card account.
@@ -110,7 +113,8 @@ Do not build, suggest, or scaffold any of the following:
   functions (`src/features/<feature>/server/`).
 - Every server action and route handler calls
   `requireWorkspaceAccess(session, workspaceId, minimumRole)` from
-  `src/lib/auth/authz.ts` before touching data.
+  `src/lib/auth/authz.ts` before touching data (ARCH-04). Roles are in
+  `src/lib/auth/permissions.ts` and ordered in `src/lib/auth/roles.ts`.
 - Never import the database client into React components or client code.
   Server-only modules start with `import 'server-only'`.
 - Never cache per-user or per-workspace data in any shared cache. Pages that
@@ -152,7 +156,8 @@ Do not build, suggest, or scaffold any of the following:
 
 ### Nessie
 - Convert Nessie dollar amounts with `fromDollarNumber` from `src/lib/money`
-  only (ADR-033).
+  only (ADR-033). It does not exist yet: add it to `src/lib/money`, with
+  the TEST-04 cases, in the PR that adds the Nessie client.
 - The Nessie key travels in the URL query string: never log request URLs or
   raw errors from the Nessie client without redaction.
 - Nessie starts empty and drops cents on everything but bills (ADR-048).
@@ -208,8 +213,8 @@ thing it runs:
 | `pnpm db:seed` | Seed synthetic demo data, including the demo Nessie customer | Demo seed (F-21) |
 | `pnpm --filter agent-worker dev` | Run the agent worker locally (terminal provider by default) | Agent worker (ADR-032) |
 
-Root `pnpm lint`, `pnpm typecheck` and `pnpm test:unit` must also cover the
-`agent-worker/` and `packages/` workspace packages.
+Once `agent-worker/` and `packages/` exist (they don't yet), root
+`pnpm lint`, `pnpm typecheck` and `pnpm test:unit` must cover them too.
 
 Unit and E2E tests need the local database: `docker compose up -d` (host
 port 5433). Tests never use the Neon database in `.env.local`.
@@ -218,34 +223,46 @@ Use `pnpm` only. Never commit `package-lock.json` or `yarn.lock`.
 
 ## 6. Project structure
 
+Entries marked *(planned)* do not exist yet; create them where shown.
+
 ```text
 src/
   app/                      Next.js App Router routes only (thin)
+    page.tsx                landing page (src/features/landing)
     (auth)/                 sign-in, sign-up
-    (app)/w/[workspaceId]/  dashboard, accounts, transactions, budgets,
-                            imports, debt, settings
-    api/                    route handlers: auth, Plaid webhooks
+    (app)/                  signed-in pages
+      w/[workspaceId]/      one folder per navbar link in src/config/nav.ts
+                            (dashboard, accounts, …, settings) (ADR-007)
+      <name>/               flat URL (/dashboard) that redirects into the
+                            user's Personal workspace
+    api/                    route handlers: auth, health; Plaid webhooks,
+                            agent turn and job tick (planned)
   features/                 one folder per feature, owned by whoever is assigned
-    <feature>/
+    <feature>/              built so far: auth, cashflow, landing, synthetic
       domain/               pure TypeScript logic, no I/O (most unit tests here)
       server/               repositories, server actions ('server-only')
       ui/                   React components for this feature
-  components/ui/            shared presentational components
+      index.ts              what other features may import
+  components/ui/            shared presentational components (app-nav, page-placeholder)
+  config/                   app.ts (APP_NAME), nav.ts (navbar links)
   lib/
     money/                  the only place money math happens
-    db/                     Drizzle schema, client, migrations config
-    auth/                   Better Auth config, authz helpers
-    security/               encryption, rate limiting, redaction
-    ai/                     model client, placeholder filling, digit scan
-  config/app.ts             APP_NAME and other product constants
+    db/                     Drizzle schema, client, migrations, uuidv7 ids
+    auth/                   Better Auth config, roles, session, authz.ts,
+                            Personal workspace on sign-up
+    env.ts                  zod validation of the app's environment variables
+    security/               encryption, rate limiting, redaction (planned)
+    ai/                     model client, placeholder filling, digit scan (planned)
+  instrumentation.ts        refuses to start without the required env vars
 tests/
   e2e/                      Playwright specs
-  fixtures/                 synthetic CSVs, PDFs, Plaid payloads (never real data)
+  fixtures/                 synthetic data only (never real data)
 scripts/                    docs-check, scan-bundle, db (whoami, migrate-to),
                             batch (synthetic batches), with their unit tests
-agent-worker/               Photon Spectrum relay process (pnpm workspace package)
-packages/agent-protocol/    zod schemas shared by the worker and /api/agent/turn
-docs/                       PROJECT, ARCHITECTURE, DECISIONS, HANDOFF, TESTING, PITCH
+agent-worker/               Photon Spectrum relay process (planned, ADR-032)
+packages/agent-protocol/    zod schemas shared by the worker and /api/agent/turn (planned)
+docs/                       PROJECT, ARCHITECTURE, DECISIONS, HANDOFF, TESTING,
+                            PITCH, SYNTHETIC
 ```
 
 Features import from `lib/` and `components/ui/`, never from another feature's
