@@ -30,6 +30,11 @@ export default defineConfig({
         "src/app/**",
         "src/features/*/ui/**",
         "src/instrumentation.ts",
+        // Command-line entry points: argument parsing and printing around
+        // tested modules; checked by running them (TEST-03).
+        "scripts/batch/cli.ts",
+        "scripts/db/migrate-to.ts",
+        "scripts/register-paths.ts",
         "src/lib/db/schema/**",
         "**/*.test.{ts,tsx}",
       ],

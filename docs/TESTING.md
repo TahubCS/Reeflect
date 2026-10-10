@@ -38,9 +38,13 @@ feature without both is not mergeable.
 | `src/lib/security/**`, `src/lib/auth/**` | 95% | 90% |
 | Everything else | 80% | 70% |
 
-Coverage is measured over `src/` and `scripts/`, except `src/app/**` and
-`src/features/*/ui/**`: routes are thin, and React components are covered by
-Playwright (TEST-02, TEST-07).
+Coverage is measured over `src/` and `scripts/`, with these exceptions:
+- `src/app/**` and `src/features/*/ui/**`: routes are thin, and React
+  components are covered by Playwright (TEST-02, TEST-07).
+- Command-line entry files (`scripts/batch/cli.ts`,
+  `scripts/db/migrate-to.ts`, `scripts/register-paths.ts`): they only parse
+  arguments and print around tested modules, and are checked by running
+  them.
 
 Coverage is a floor, not the goal. Boundary cases below are required even
 when coverage is already met.
@@ -60,7 +64,9 @@ when coverage is already met.
 | CSV parsing | Each sign convention; date formats; extra header rows; trailing blank lines; quoted commas; UTF-8 BOM |
 | PDF parsing (ADR-044) | Each supported template against fixture PDFs; encrypted PDF rejected; image-only PDF rejected; wrong-bank PDF blocked by identity check |
 | Nessie mapping (ADR-033) | `fromDollarNumber`: 12.1 → 1210, 0.1 + 0.2 style inputs, 19.999 rejected, negative and zero amounts; purchase on a credit-card account is negative; deposit positive; transfer pairs; bill → `recurring_series` kind `bill` with lender due date; loan → `liability`; re-sync creates no duplicates (external id) |
-| Nessie client | API key never appears in thrown errors or log output (spy on logger with a failing request) |
+| Nessie client | API key never appears in thrown errors or log output (spy on logger with a failing request); every purchase, deposit, withdrawal and transfer is sent with `status`; dates that are not real `YYYY-MM-DD` days are rejected before sending; amounts with cents are rejected for everything except bills; a 400 on one account's list skips that account only (ADR-048) |
+| Synthetic generator (ADR-049) | Same spec and seed give identical rows, and a different seed gives different rows; extending the span leaves earlier months unchanged; nothing after `asOf`; weekend paydays move to Friday; yearly charges only in their month; every transfer is an equal and opposite pair on two accounts on one day; card full, minimum ($25 floor) and fixed payments; interest only on carried balances; closing balance = opening + rows; whole-dollar mode emits no cents and no zeros; spec validation rejects bad input with readable paths; plausibility warnings fire |
+| Database targets (ADR-049) | Endpoint ids parsed from pooled and direct URLs; passwords never printed; a branch URL that is really production is refused; production refused without a matching `NEON_PRODUCTION_ENDPOINT_ID`; migrations compared with the journal (applied, pending, unknown) |
 | Agent intent parsing (ADR-035) | "12 lunch", "$12.50 coffee", "lunch 12", "spent twelve dollars" (asks instead of guessing), two numbers in one message (asks), LINK codes, STOP, keep / cancel / yes |
 | Agent number rule | `logSpending` rejects amounts not present in the user's text; every reply passes the digit scan; model-invented digits trigger the fallback template |
 | Agent identity (ADR-034) | Unlinked handle gets only the sign-up reply; expired, reused and wrong link codes fail; STOP revokes; one handle cannot link to two users |
@@ -84,6 +90,7 @@ when coverage is already met.
 | Import commit | Commit is atomic: a failure mid-commit leaves no partial rows; re-commit is idempotent |
 | Migrations | All migrations apply cleanly to an empty database |
 | Cascade deletes | Deleting an account or workspace removes all dependent rows |
+| Synthetic batches | Loading is atomic (one bad row writes nothing); deleting a batch removes its workspaces, accounts, transactions and markers and leaves other batches alone; a batch row cannot be deleted while its workspaces exist (`scripts/batch/store.test.ts`) |
 
 ## TEST-06: Required security tests
 
@@ -133,6 +140,8 @@ when coverage is already met.
   fail reconciliation by $0.01.
 - `pnpm db:seed` builds the demo workspace from the same fixture generators,
   so the demo and the tests use identical data shapes.
+- The synthetic generator (ADR-049, `docs/SYNTHETIC.md`) is that generator.
+  Its example spec is `tests/fixtures/synthetic/example-spec.json`.
 
 ## TEST-09: CI gates
 

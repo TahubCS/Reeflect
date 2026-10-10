@@ -53,7 +53,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-13 Drill-down | B | Unassigned | — | Scaffolded on sample data (HO-019) |
 | F-18 Themes and accessibility | B | Unassigned | — | Not started |
 | F-19 Delete data | B | Unassigned | — | Not started |
-| F-21 Demo seed (incl. Nessie) | A | Unassigned | — | Not started |
+| F-21 Demo seed (incl. Nessie) | A | Jacob Heminway | `database/migration` | Synthetic generator and batch scripts built (HO-026); Nessie seeding not started |
 | F-23 Nessie import and sync | A | Unassigned | — | Not started |
 | F-24 Phone linking | C | Unassigned | — | Not started |
 | F-25 "How am I doing?" + week-ahead image | C | Unassigned | — | Not started |
@@ -976,3 +976,104 @@ recommendation, not a decision.
 
 ### Open problems
 - Real users' emails and sign-in details go to a third party; see ADR-047.
+
+---
+
+## HO-026: Synthetic batch generator, batch-testing branch, Nessie probe
+
+- **Date:** 2026-10-10 16:50 (EDT)
+- **Author:** Jacob Heminway with Claude (Claude Code)
+- **Branch / PR:** `database/migration` (uncommitted) / not opened
+
+### What changed
+- **ADR-048 (Proposed): Nessie as it behaves today**, from a live probe.
+  - Nessie starts empty; it does not generate demo data.
+  - Back-dated dates are kept.
+  - Cents are dropped except on bills.
+  - Balances never move.
+  - A purchase without `status` breaks that account's purchase list.
+  - Transfers have no payee.
+  - Customers cannot be deleted.
+- **ADR-049 (Accepted): synthetic data batches.**
+  - An agent writes a population spec following the new
+    [docs/SYNTHETIC.md](SYNTHETIC.md).
+  - Seeded code in `src/features/synthetic` expands it.
+  - Batches are tried on the Neon batch-testing branch, then promoted to
+    production by replay.
+- **Migration `0002_synthetic_batches`** adds four tables:
+  - `financial_account` and `transaction`, the ARCH-03 tables for F-03 and
+    F-04, without `category_id` and `import_batch_id` for now.
+  - `synthetic_batch`.
+  - `synthetic_workspace`: the marker. A workspace is Better Auth's
+    `organization`, so the marker is our own table, not a column on theirs.
+
+  Our tables get UUID v7 ids (`src/lib/db/id.ts`).
+- **New commands:** `pnpm db:whoami`, `pnpm db:migrate:to` and `pnpm batch`
+  (load, list, report, delete, promote).
+  - `scripts/register-paths.ts` lets plain `node` scripts import `@/…` code.
+  - Production writes need `--target production`, `--yes`, and a matching
+    `NEON_PRODUCTION_ENDPOINT_ID`.
+- **`truncateToDollars` in `src/lib/money`**, for Nessie-bound amounts.
+- **Docs:**
+  - ARCH-02, ARCH-03, ARCH-08, ARCH-09, ARCH-10 (which database and which
+    migrations a build uses) and ARCH-14 updated.
+  - TEST-03, TEST-04, TEST-05 and TEST-08 updated.
+  - AGENTS.md (commands, Nessie rules, docs table), the PROJECT.md glossary
+    and F-21, and `.env.example` updated.
+- **Batch-testing branch** (`ep-fancy-base-b44dev77`): migrated to 0002
+  (see the first open problem). It holds the first batch, `01a1279d-…`
+  "First 50, North Carolina, Jul-Oct 2026", loaded with seed `nc-first-50`:
+  - 50 people in the default mix, July 1 to October 10, 2026.
+  - 117 accounts and 6,627 transactions.
+  - No plausibility flags.
+  - `batch report` confirms the database matches the recipe.
+  - Its spec is `scripts/batch/specs/first-50-nc.json`.
+- **Tests:**
+  - Vitest for the generator (calendar, random, spec, expand, check), the
+    database targets, migration comparison, row building, reports and
+    `uuidv7`.
+  - `scripts/batch/store.test.ts` (load atomicity, cascade delete) needs the
+    Docker database, so it runs in CI; there is no Docker on this laptop.
+
+### What's next
+1. Add `NEON_PRODUCTION_ENDPOINT_ID=ep-autumn-block-b4n38d0q` to `.env.local`.
+2. With the team's OK, record `0001_better_auth` as applied on production
+   (first open problem), then `pnpm db:migrate:to production`.
+3. Review the first batch on the branch, then
+   `pnpm batch promote 01a1279d-200f-7bbd-93ee-2d5a0501553e --target production --yes`
+   once production is migrated.
+4. A way to view a synthetic workspace in the app (they have no members),
+   then the Nessie client and `pnpm db:seed` (F-21, ADR-048).
+5. Playwright coverage arrives with the first page that shows synthetic data.
+
+### Open problems
+- **Production's migration record is out of step.**
+  - **What happened:** Neon production recorded an earlier draft of
+    `0001_better_auth` (hash `a9734c03…`, timestamp `1791652529617`).
+    Someone regenerated the file after applying it.
+  - **Why it matters:** the tables match the committed migration column for
+    column, but `pnpm db:migrate` would try to run `0001` again and fail on
+    `CREATE TABLE "user"`.
+  - **Fix:** insert one row into `drizzle.__drizzle_migrations` with the
+    committed file's sha256 and timestamp `1791653688740`.
+  - **Status:** done on the batch-testing branch (where 0002 then applied
+    cleanly); not done on production.
+- **A hard-coded Nessie API key is public.**
+  - **Where:** `public/lib/example.html` and `public/lib/unit_tests.html`
+    (commit 6525b1b).
+  - **Exposure:** the GitHub repository is public, and every deployment
+    serves those files at `/lib/…`.
+  - **Whose key:** it does not match the team key in `.env.local`; it is
+    probably the sample key from Capital One's SDK repository. Simon should
+    confirm whose it is.
+  - **Proposed fix:** delete those two files (and `public/lib/tests/`).
+    HO-016 says not to remove the SDK without asking, so they are untouched.
+  - **Also:** `pnpm scan:bundle` does not scan `public/`.
+- **The browser SDK targets the old API shape** (no `status`, old transfer
+  fields), and using it means putting a key in the browser (ADR-033,
+  ADR-048).
+- **Leftovers on the team Nessie key** from the probe: one customer and one
+  merchant, named "Synthetic … probe". They cannot be deleted.
+- **Rounding drift in money code.** ADR-008 and TEST-04 say round half to
+  even, but `fraction` in `src/lib/money` uses `Math.round` (half up). Not
+  changed here.
