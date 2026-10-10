@@ -106,3 +106,19 @@ export function parseDollars(text: string): Cents | null {
     Number(match[1]) * 100 + Number((match[2] ?? "").padEnd(2, "0"));
   return value > 0 ? cents(value) : null;
 }
+
+/**
+ * Reads a balance someone typed ("0", "1,204.50", "-$35.10") as signed cents.
+ * Unlike `parseDollars`, zero and a leading minus (an overdrawn account) are
+ * allowed.
+ */
+export function parseBalance(text: string): Cents | null {
+  const match = /^(-)?\$?(\d{1,9})(?:\.(\d{1,2}))?$/.exec(
+    text.trim().replace(/,/g, ""),
+  );
+  if (!match) return null;
+  const value = cents(
+    Number(match[2]) * 100 + Number((match[3] ?? "").padEnd(2, "0")),
+  );
+  return match[1] ? negate(value) : value;
+}
