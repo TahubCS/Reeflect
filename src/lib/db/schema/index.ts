@@ -3,3 +3,5 @@
 // After changing the schema run `pnpm db:generate` and commit the migration
 // in the same PR.
 export * from "./auth";
+export * from "./finance";
+export * from "./synthetic";

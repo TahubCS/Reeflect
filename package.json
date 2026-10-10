@@ -15,7 +15,10 @@
     "test:e2e": "playwright test",
     "scan:bundle": "node scripts/scan-bundle.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "db:migrate:to": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register-paths.ts scripts/db/migrate-to.ts",
+    "db:whoami": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register-paths.ts scripts/db/whoami.ts",
+    "batch": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register-paths.ts scripts/batch/cli.ts"
   },
   "dependencies": {
     "better-auth": "^1.7.7",

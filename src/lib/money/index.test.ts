@@ -15,6 +15,7 @@ import {
   subtract,
   sum,
   times,
+  truncateToDollars,
 } from "./index";
 
 describe("cents", () => {
@@ -119,4 +120,22 @@ describe("parseDollars", () => {
       expect(parseDollars(text)).toBeNull();
     },
   );
+});
+
+describe("truncateToDollars", () => {
+  it.each([
+    [1234, 1200],
+    [1299, 1200],
+    [-1234, -1200],
+    [-99, 0],
+    [99, 0],
+    [0, 0],
+    [500, 500],
+  ])("cuts %i cents to %i", (value, expected) => {
+    expect(truncateToDollars(cents(value))).toBe(expected);
+  });
+
+  it("never returns negative zero", () => {
+    expect(Object.is(truncateToDollars(cents(-99)), -0)).toBe(false);
+  });
 });

@@ -77,7 +77,14 @@ Governed by: ADR-003, ADR-046, AGENTS.md section 6
 Planned features (each a folder in `src/features/`):
 `workspaces`, `accounts`, `transactions`, `imports`, `categorization`,
 `budgets`, `recurring`, `goals`, `transfers`, `cashflow`, `forecast`, `debt`, `plaid`,
-`nessie`, `reminders`, `agent`, `messaging`, `ai`, `audit`.
+`nessie`, `reminders`, `agent`, `messaging`, `ai`, `audit`, `synthetic` (the
+batch generator, ADR-048).
+
+Scripts in `scripts/` run with plain `node`. Those that import from `src/`
+load `scripts/register-paths.ts` first, so `@/…` and extensionless imports
+resolve the way they do in Next.js and Vitest. They cannot import
+`server-only` modules (`src/lib/db/client.ts`, `src/lib/env.ts`), so they
+open their own connection to a named target (`scripts/db/target.ts`).
 
 The repository is a pnpm workspace (ADR-032): the Next.js app at the root,
 and `agent-worker/` as a second package. The worker may import only from
@@ -92,22 +99,24 @@ styling.
 
 ## ARCH-03: Data model
 
-Governed by: ADR-005, ADR-006, ADR-007, ADR-008, ADR-010, ADR-012, ADR-025
+Governed by: ADR-005, ADR-006, ADR-007, ADR-008, ADR-010, ADR-012, ADR-025, ADR-048
 
 Better Auth owns `user`, `session`, `account` (login providers),
 `verification`, and, through the organization plugin, `organization`
 (= workspace), `member`, `invitation`. Our tables reference
 `organization.id` as `workspace_id`.
 
-All money columns: `bigint` (cents). All ids: text (UUID v7 or Better Auth's
-id format, consistently). All tables have `created_at`, and mutable tables
+All money columns: `bigint` (cents). All ids: text. Better Auth's tables use
+Better Auth's id format; ours use UUID v7 (`src/lib/db/id.ts`). All tables have `created_at`, and mutable tables
 have `updated_at`.
 
 | Table | Key columns | Notes |
 |---|---|---|
 | `workspace_settings` | workspace_id (PK), kind (`personal`/`household`), timezone, cushion_target_cents (nullable) | Used only by the aquarium (ADR-016, superseded); drop it unless ADR-042 finds a use |
-| `financial_account` | id, workspace_id, institution_name, type (`checking`/`savings`/`credit_card`/`loan`), mask_last4, nickname, source (`manual`/`csv`/`pdf`/`plaid`/`nessie`), current_balance_cents, balance_as_of, identity_confirmed_at, plaid_account_id (nullable), nessie_account_id (nullable) | Unique (workspace_id, plaid_account_id); unique (workspace_id, nessie_account_id) |
-| `transaction` | id, workspace_id, financial_account_id, posted_on (date), amount_cents (signed, ADR-008), description_raw, merchant_normalized, category_id (nullable), status (`pending`/`posted`), is_transfer, transfer_pair_id (nullable), source, import_batch_id (nullable), external_id (nullable), fingerprint | Unique (financial_account_id, fingerprint) |
+| `financial_account` | id, workspace_id, institution_name, type (`checking`/`savings`/`credit_card`/`loan`), mask_last4, nickname, source (`manual`/`text`/`csv`/`pdf`/`plaid`/`nessie`/`synthetic`), current_balance_cents, balance_as_of, identity_confirmed_at, plaid_account_id (nullable), nessie_account_id (nullable) | Unique (workspace_id, plaid_account_id); unique (workspace_id, nessie_account_id). Built (migration 0002) |
+| `transaction` | id, workspace_id, financial_account_id, posted_on (date), amount_cents (signed, ADR-008), description_raw, merchant_normalized, category_id (nullable), status (`pending`/`posted`), is_transfer, transfer_pair_id (nullable; both sides of a transfer share it), source, import_batch_id (nullable), external_id (nullable), fingerprint | Unique (financial_account_id, fingerprint). Built (migration 0002) without `category_id` and `import_batch_id`; each arrives with the table it references |
+| `synthetic_batch` | id, label, generator_version, seed, start_month, months, as_of, spec (jsonb), notes, created_by, promoted_from | A replayable recipe (ADR-048). Built |
+| `synthetic_workspace` | workspace_id (PK, cascade), batch_id (restrict), person_key, persona, summary | The synthetic marker: a row means the workspace is synthetic, no row means real (ADR-048). Built |
 | `category` | id, workspace_id, name, color_token, sort_order, is_preset | |
 | `budget` | id, workspace_id, category_id, month (`YYYY-MM`), amount_cents | Unique (category_id, month) |
 | `category_rule` | id, workspace_id, pattern, match_type, category_id, priority, origin (`user`/`ai_confirmed`) | |
@@ -232,6 +241,8 @@ Governed by: ADR-006, ADR-007, ADR-010, ADR-012, ADR-019, ADR-025
 | AI data leakage or invented numbers | Minimal data to the model; placeholders; digit scan (ARCH-07) |
 | Vulnerable dependencies | `pnpm audit` in CI; CodeQL; Dependabot alerts |
 | Sensitive data in logs | Log ids only; redaction helper in `lib/security/redact.ts` |
+| Secrets in `public/` | Everything in `public/` is served as is and is not covered by `scan:bundle`. Never put a key there. `public/lib/example.html` and `unit_tests.html` (the vendored Nessie SDK) hold a hard-coded Nessie key today (ADR-047, HO-025) |
+| Scripts writing to the wrong database | Scripts take a named `--target`, print its endpoint id, and refuse production unless `NEON_PRODUCTION_ENDPOINT_ID` matches (ADR-048) |
 
 ## ARCH-09: Configuration
 
@@ -246,16 +257,20 @@ Governed by: ADR-006, ADR-007, ADR-010, ADR-012, ADR-019, ADR-025
 | `GEMINI_API_KEY` | `lib/ai` (Google Gemini API) | Yes |
 | `GEMINI_MODEL` | `lib/ai` (model name, set at kickoff) | No |
 | `NESSIE_API_KEY` | `features/nessie` (sent as a query parameter; logs must redact it) | Yes |
-| `NESSIE_BASE_URL` | `features/nessie` (confirmed at kickoff) | No |
+| `NESSIE_BASE_URL` | `features/nessie`: `https://api.nessieisreal.com` (ADR-047) | No |
 | `AGENT_SERVICE_TOKEN` | Next.js and worker (shared secret, 32+ random bytes) | Yes |
 | `AGENT_WORKER_URL` | Next.js (where to POST proactive messages) | No |
 | `REEFLECT_URL` | Worker (where to POST turns) | No |
 | `PHOTON_PROJECT_ID`, `PHOTON_PROJECT_SECRET` | Worker only | Yes (secret) |
 | `CRON_SECRET` | Vercel Cron routes | Yes |
 | `DEMO_MODE` | Brain (`true` only on the demo deployment) | No |
+| `DATABASE_URL_BATCHTESTINGBRANCH` | Scripts only: the Neon batch-testing branch (ADR-048). `_UNPOOLED` is optional; scripts derive the direct URL | Yes |
+| `NEON_PRODUCTION_ENDPOINT_ID` | Scripts only: production's endpoint id (`ep-…`). Scripts refuse to write to production unless it matches | No |
 
-All variables are validated at startup with `zod` in `src/lib/env.ts`; the app
-refuses to start if a required one is missing (`src/instrumentation.ts`).
+All variables the app reads are validated at startup with `zod` in
+`src/lib/env.ts`; the app refuses to start if a required one is missing
+(`src/instrumentation.ts`). Script-only variables are not in `env.ts`; the
+scripts check them when they need them.
 `env.ts` and `.env.example` list the variables in use so far; each PR that
 first reads a variable adds it to both.
 
@@ -267,10 +282,11 @@ Neon connection after a deploy.
 
 | Environment | Database | Plaid | Purpose |
 |---|---|---|---|
-| Local | PostgreSQL in Docker (`docker compose up -d`, port 5433) or a Neon branch | Sandbox | Development |
+| Local | PostgreSQL in Docker (`docker compose up -d`, port 5433), or Neon production through `.env.local` | Sandbox | Development |
 | CI | PostgreSQL service container | Mocked in unit tests; sandbox not called | Tests |
+| Batch testing | Neon batch-testing branch, a child of production | Not used | Trying synthetic batches before promoting them (ADR-048) |
 | Preview (per PR) | Neon branch or shared preview database | Sandbox | Review |
-| Production / demo | Neon main | Sandbox for the demo | HackNC demo |
+| Production / demo | Neon's root branch, named `production` in the Console (`main` when created by the CLI) | Sandbox for the demo | HackNC demo |
 
 The agent worker runs on Render (ADR-032; an always-on instance, not the free tier that sleeps) in the demo
 environment and as a local process (`pnpm --filter agent-worker dev`) with
@@ -280,6 +296,32 @@ nightly `@external` job.
 
 Migrations run before the new version serves traffic. A migration that
 deletes or rewrites data needs its own ADR.
+
+**Which database, and which version of the tables:**
+
+- **Which database:** the app uses whatever `DATABASE_URL` it started with.
+  - The host's first part (`ep-…`, without `-pooler`) is the Neon branch's
+    endpoint id.
+  - Changing branch means changing `DATABASE_URL` and
+    `DATABASE_URL_UNPOOLED` together, then restarting `pnpm dev`. On Vercel,
+    change the variable and redeploy.
+  - Marking another branch as DEFAULT in Neon does not move the app.
+- **Which tables:** each database records the migrations applied to it in
+  `drizzle.__drizzle_migrations`, matched to
+  `src/lib/db/migrations/meta/_journal.json` by timestamp.
+  - Only `pnpm db:migrate` (or `db:migrate:to`) changes it.
+  - Never change tables by hand.
+  - A branch copies its parent's tables and migration history at the moment
+    it is created.
+- **`pnpm db:whoami [--target app|local|branch|production]`** prints the
+  endpoint id, the database it recognises, the migrations applied and
+  pending, and the synthetic batch count. It never prints a password.
+
+**Drizzle's rule:** it applies every migration newer than the newest one
+recorded. If a migration is regenerated after it was applied somewhere, that
+database records the old draft, and the next `db:migrate` tries to run the
+new file again. This happened with `0001_better_auth` on Neon production
+(HO-025).
 
 ## ARCH-11: Plaid integration
 
@@ -415,11 +457,11 @@ Rules:
 
 ## ARCH-14: Nessie integration
 
-Governed by: ADR-033, ADR-010, ADR-020, ADR-030
+Governed by: ADR-033, ADR-047, ADR-010, ADR-020, ADR-030
 
 | Module | Location | Responsibility |
 |---|---|---|
-| Client | `src/features/nessie/server/client.ts` | HTTP client with key from env; redacts query strings in errors and logs; zod-validates every response |
+| Client | `src/features/nessie/server/client.ts` | HTTP client with key from env; redacts query strings in errors and logs; zod-validates every response; always sends `status`; validates dates; whole-dollar amounts (ADR-047) |
 | Connect | `src/features/nessie/server/actions.ts` | Create Nessie customer and accounts for the workspace; store `nessie_link` |
 | Sync | `src/features/nessie/server/sync.ts` | Fetch accounts, purchases, deposits, withdrawals, transfers, bills, loans; send through the shared import pipeline (ARCH-05) with `kind = 'nessie'` |
 | Mapping | `src/features/nessie/domain/map.ts` | Nessie objects → internal shapes (ADR-033 table): dollars → cents via `fromDollarNumber`, sign convention, dates |
@@ -427,3 +469,13 @@ Governed by: ADR-033, ADR-010, ADR-020, ADR-030
 
 De-duplication uses the Nessie object id as `external_id`. Bills become
 `recurring_series` of kind `bill` with `due_date_source = 'lender'`.
+
+Nessie as verified on 2026-10-10 (ADR-047):
+- **Data:** it starts empty; we create every customer and transaction.
+- **Amounts:** cents are dropped except on bills.
+- **Balances:** never move, so we compute balances ourselves.
+- **Transfers:** carry no second account, so card payments are paired by
+  ADR-020's rules.
+- **Deleting:** customers cannot be deleted, only their accounts.
+- **Call it from the server only.** The browser SDK in `public/lib` is not
+  the integration path.

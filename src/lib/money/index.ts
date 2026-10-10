@@ -76,6 +76,15 @@ export function divideFloor(a: Cents, parts: number): Cents {
   return cents(Math.floor(a / parts));
 }
 
+/**
+ * Drops the cents, toward zero: $12.34 → $12.00, −$12.34 → −$12.00. Nessie
+ * keeps only whole dollars on purchases, deposits, withdrawals and transfers
+ * (ADR-047), so anything sent there is cut the same way first.
+ */
+export function truncateToDollars(a: Cents): Cents {
+  return cents(Math.trunc(a / 100) * 100 || 0);
+}
+
 /** "+$12.50" or "-$12.50", for lists that mix money in and money out. */
 export function formatSigned(
   a: Cents,

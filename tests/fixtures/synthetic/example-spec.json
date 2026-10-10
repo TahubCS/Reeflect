@@ -1,0 +1,275 @@
+{
+  "version": 1,
+  "label": "Example: three personas",
+  "request": "One paycheck-to-paycheck worker, one upper-middle tech worker and one retiree, 3 months.",
+  "startMonth": "2026-07",
+  "months": 3,
+  "people": [
+    {
+      "key": "p2p-01",
+      "name": "Dana Whitfield",
+      "persona": "paycheck_to_paycheck",
+      "summary": "Warehouse associate, biweekly $1,040, rent $975, carries a card balance and pays the minimum.",
+      "accounts": {
+        "checking": { "openingBalanceCents": 115000 },
+        "card": {
+          "openingBalanceCents": -184000,
+          "aprBps": 2899,
+          "payment": { "kind": "minimum" },
+          "paymentDay": 22
+        }
+      },
+      "income": [
+        {
+          "payer": "NORTHGATE LOGISTICS PAYROLL",
+          "amountCents": 104000,
+          "variationPct": 4,
+          "schedule": { "every": "two_weeks", "anchor": "2026-07-03" }
+        }
+      ],
+      "bills": [
+        {
+          "name": "Pine Hollow Apartments",
+          "amountCents": 97500,
+          "day": 1,
+          "category": "Housing"
+        },
+        {
+          "name": "Duke Energy",
+          "amountCents": 9800,
+          "day": 12,
+          "variationPct": 20,
+          "category": "Utilities"
+        },
+        {
+          "name": "Cricket Wireless",
+          "amountCents": 4000,
+          "day": 18,
+          "category": "Phone & internet"
+        }
+      ],
+      "subscriptions": [
+        { "name": "Netflix", "amountCents": 799, "day": 9, "account": "card" }
+      ],
+      "spending": [
+        {
+          "category": "Groceries",
+          "merchants": ["Food Lion", "Aldi", "Walmart Supercenter"],
+          "perMonth": { "min": 6, "max": 9 },
+          "amountCents": { "min": 1800, "max": 9500 },
+          "cardShare": 30
+        },
+        {
+          "category": "Transport",
+          "merchants": ["Sheetz", "Circle K"],
+          "perMonth": { "min": 3, "max": 5 },
+          "amountCents": { "min": 2500, "max": 4800 }
+        },
+        {
+          "category": "Eating out",
+          "merchants": ["Bojangles", "Cook Out", "Taco Bell"],
+          "perMonth": { "min": 3, "max": 7 },
+          "amountCents": { "min": 700, "max": 1900 },
+          "cardShare": 50
+        }
+      ]
+    },
+    {
+      "key": "tech-01",
+      "name": "Priya Okonkwo-Lane",
+      "persona": "upper_middle_tech",
+      "summary": "Software engineer, semimonthly $4,350, rent $2,350, saves $1,200 a month, pays the card in full.",
+      "accounts": {
+        "checking": { "openingBalanceCents": 685000 },
+        "savings": {
+          "openingBalanceCents": 2410000,
+          "monthlyTransferCents": 120000,
+          "transferDay": 16
+        },
+        "card": {
+          "openingBalanceCents": -142315,
+          "aprBps": 2149,
+          "payment": { "kind": "full" },
+          "paymentDay": 5
+        }
+      },
+      "income": [
+        {
+          "payer": "TRIANGLE CLOUD INC DIR DEP",
+          "amountCents": 435000,
+          "schedule": { "every": "half_month", "days": [15, 31] }
+        }
+      ],
+      "bills": [
+        {
+          "name": "The Alexan Durham",
+          "amountCents": 235000,
+          "day": 1,
+          "category": "Housing"
+        },
+        {
+          "name": "Spectrum Internet",
+          "amountCents": 8000,
+          "day": 7,
+          "account": "card",
+          "category": "Phone & internet"
+        },
+        {
+          "name": "GEICO Auto",
+          "amountCents": 14200,
+          "day": 20,
+          "account": "card",
+          "category": "Insurance"
+        },
+        {
+          "name": "Duke Energy",
+          "amountCents": 11500,
+          "day": 12,
+          "variationPct": 15,
+          "category": "Utilities"
+        }
+      ],
+      "subscriptions": [
+        { "name": "Spotify", "amountCents": 1199, "day": 3, "account": "card" },
+        { "name": "Netflix", "amountCents": 2299, "day": 9, "account": "card" },
+        {
+          "name": "ChatGPT Plus",
+          "amountCents": 2000,
+          "day": 14,
+          "account": "card"
+        },
+        {
+          "name": "Orangetheory Fitness",
+          "amountCents": 15900,
+          "day": 1,
+          "account": "card"
+        },
+        {
+          "name": "Amazon Prime",
+          "amountCents": 13900,
+          "day": 22,
+          "account": "card",
+          "cadence": "yearly",
+          "month": 8
+        }
+      ],
+      "spending": [
+        {
+          "category": "Groceries",
+          "merchants": ["Harris Teeter", "Whole Foods Market", "Trader Joe's"],
+          "perMonth": { "min": 5, "max": 8 },
+          "amountCents": { "min": 3500, "max": 16000 },
+          "cardShare": 100
+        },
+        {
+          "category": "Eating out",
+          "merchants": ["Pizzeria Toro", "Bull City Burger", "DoorDash"],
+          "perMonth": { "min": 6, "max": 12 },
+          "amountCents": { "min": 1500, "max": 9000 },
+          "cardShare": 100
+        },
+        {
+          "category": "Coffee",
+          "merchants": ["Cocoa Cinnamon", "Starbucks"],
+          "perMonth": { "min": 8, "max": 14 },
+          "amountCents": { "min": 450, "max": 900 },
+          "cardShare": 100
+        },
+        {
+          "category": "Shopping",
+          "merchants": ["Amazon.com", "Target", "REI"],
+          "perMonth": { "min": 2, "max": 5 },
+          "amountCents": { "min": 2000, "max": 22000 },
+          "cardShare": 100
+        }
+      ],
+      "events": [
+        {
+          "date": "2026-08-14",
+          "description": "Delta Air Lines",
+          "amountCents": -48620,
+          "account": "card",
+          "category": "Travel"
+        }
+      ]
+    },
+    {
+      "key": "retiree-01",
+      "name": "Walter Brannigan",
+      "persona": "retiree",
+      "summary": "Retired teacher, Social Security $1,850 plus pension $1,320, owns his home, no card.",
+      "accounts": {
+        "checking": { "openingBalanceCents": 512000 },
+        "savings": {
+          "openingBalanceCents": 4180000,
+          "monthlyTransferCents": 0,
+          "transferDay": 1
+        }
+      },
+      "income": [
+        {
+          "payer": "SSA TREAS 310 XXSOC SEC",
+          "amountCents": 185000,
+          "schedule": { "every": "month_weekday", "nth": 2, "weekday": 3 }
+        },
+        {
+          "payer": "NC RETIREMENT SYS PENSION",
+          "amountCents": 132000,
+          "schedule": { "every": "month", "day": 1 }
+        }
+      ],
+      "bills": [
+        {
+          "name": "Wake County Property Tax",
+          "amountCents": 210000,
+          "day": 15,
+          "cadence": "yearly",
+          "month": 9,
+          "category": "Housing"
+        },
+        {
+          "name": "Medicare Part B",
+          "amountCents": 18500,
+          "day": 3,
+          "category": "Insurance"
+        },
+        {
+          "name": "Duke Energy",
+          "amountCents": 13200,
+          "day": 12,
+          "variationPct": 25,
+          "category": "Utilities"
+        },
+        {
+          "name": "AT&T",
+          "amountCents": 6500,
+          "day": 25,
+          "category": "Phone & internet"
+        }
+      ],
+      "subscriptions": [
+        { "name": "The News & Observer", "amountCents": 1500, "day": 10 }
+      ],
+      "spending": [
+        {
+          "category": "Groceries",
+          "merchants": ["Publix", "Food Lion"],
+          "perMonth": { "min": 5, "max": 8 },
+          "amountCents": { "min": 2500, "max": 11000 }
+        },
+        {
+          "category": "Health",
+          "merchants": ["CVS Pharmacy", "Walgreens"],
+          "perMonth": { "min": 2, "max": 4 },
+          "amountCents": { "min": 800, "max": 6500 }
+        },
+        {
+          "category": "Eating out",
+          "merchants": ["Cracker Barrel", "Golden Corral"],
+          "perMonth": { "min": 2, "max": 4 },
+          "amountCents": { "min": 1400, "max": 4200 }
+        }
+      ]
+    }
+  ]
+}

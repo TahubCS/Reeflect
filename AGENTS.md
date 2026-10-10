@@ -12,6 +12,7 @@ Read this whole file before doing anything. Detailed docs live in `/docs`.
 | `docs/TESTING.md` | Before writing or changing any code: every change ships with tests |
 | `docs/HANDOFF.md` | At the start of every session (read the latest entry) and at the end (append one) |
 | `docs/PITCH.md` | You change a feature that appears in the demo script; keep the script true to the build |
+| `docs/SYNTHETIC.md` | You write a synthetic population spec, or load, promote or delete a batch |
 
 ---
 
@@ -154,6 +155,10 @@ Do not build, suggest, or scaffold any of the following:
   only (ADR-033).
 - The Nessie key travels in the URL query string: never log request URLs or
   raw errors from the Nessie client without redaction.
+- Nessie starts empty and drops cents on everything but bills (ADR-047).
+  Send whole dollars and always send `status`; compute balances yourself.
+- Never call Nessie's `DELETE /data`: it wipes the whole shared key.
+- Never put a key in `public/`: it is served to everyone.
 
 ### UI and accessibility
 - Every visual state of the calendar has a text equivalent on screen or in an
@@ -191,6 +196,9 @@ fails if this table and `package.json` differ.
 | `pnpm scan:bundle` | After `pnpm build`, scan the client bundle for secrets and server-only env values |
 | `pnpm db:generate` | Drizzle Kit: generate a migration from schema changes |
 | `pnpm db:migrate` | Apply migrations (uses `DATABASE_URL_UNPOOLED` when set) |
+| `pnpm db:migrate:to` | Apply migrations to a named database: `local`, `branch` or `production` (ADR-048) |
+| `pnpm db:whoami` | Show which database a target is and which migrations it has; no secrets printed |
+| `pnpm batch` | Synthetic batches: `load`, `list`, `report`, `delete`, `promote` (`docs/SYNTHETIC.md`) |
 
 Not defined yet. Add each script, and its row above, in the PR that adds the
 thing it runs:
@@ -233,7 +241,8 @@ src/
 tests/
   e2e/                      Playwright specs
   fixtures/                 synthetic CSVs, PDFs, Plaid payloads (never real data)
-scripts/                    docs-check and scan-bundle, with their unit tests
+scripts/                    docs-check, scan-bundle, db (whoami, migrate-to),
+                            batch (synthetic batches), with their unit tests
 agent-worker/               Photon Spectrum relay process (pnpm workspace package)
 packages/agent-protocol/    zod schemas shared by the worker and /api/agent/turn
 docs/                       PROJECT, ARCHITECTURE, DECISIONS, HANDOFF, TESTING, PITCH

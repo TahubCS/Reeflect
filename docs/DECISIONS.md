@@ -72,6 +72,8 @@ Rules:
 | ADR-044 | Statement parsing: CSV and PDF, by code only | Accepted |
 | ADR-045 | Gemini summary on the website (refines ADR-019) | Accepted |
 | ADR-046 | Styling: plain CSS first, Tailwind as a fallback | Accepted |
+| ADR-047 | Nessie as it behaves today (refines ADR-033) | Proposed |
+| ADR-048 | Synthetic data batches and the batch-testing branch | Accepted |
 
 ---
 
@@ -652,6 +654,121 @@ Rules:
   - The base URL and exact field names are confirmed against Nessie's own
     interactive documentation at kickoff and kept in `NESSIE_BASE_URL`.
 - **Consequences:** Nessie holds sandbox data only; real data never enters it.
+
+### ADR-047: Nessie as it behaves today (refines ADR-033)
+
+- **Status:** Proposed (2026-10-10), from Jacob's live probe of the API.
+- **Context:** ADR-033 was written from Nessie's old documentation. On
+  2026-10-10 the live API at `https://api.nessieisreal.com` was probed with
+  the team key, using test records that were deleted afterwards. The API has
+  been rewritten since that documentation: ids are UUIDs, errors are
+  validation messages, and the documentation pages (`/documentation`,
+  `/openapi.json`) answer 403. What it does now:
+
+| Question | Finding |
+|---|---|
+| Does Nessie come with demo data? | **No.** Data belongs to the API key, and our key held 0 customers and 0 merchants. Everything read back was something we created. There is no generate endpoint. "Mock data" in ADR-033 means data we create. |
+| Back-dated transactions | Kept exactly as sent: `purchase_date` and `transaction_date` one year back were stored unchanged. Future dates and other formats (`07/12/2026`) are also accepted, so validation is ours. |
+| Cents | **Dropped** on purchases, deposits, withdrawals and transfers ($12.34 → $12). Bills keep cents. |
+| Balances | Fixed at whatever the account was created with. Transactions do not change them, and updates to `balance` are ignored. |
+| Purchase status | Must be `pending`, `cancelled` or `completed`. A purchase created without one is accepted, but afterwards listing that account's purchases fails with 400. |
+| Transfers | No payee or second account: only date, amount, status and description on one account. |
+| Bills | `status: recurring`, `recurring_date`, `payment_amount` (with cents). Nessie computes `upcoming_payment_date`. |
+| Deleting | `DELETE /accounts/{id}` works. Customers cannot be deleted (403). The old bulk `DELETE /data` was not tried: it would wipe everything on the key. |
+| Rate limits | None seen in about 20 calls; no rate-limit headers. |
+
+- **Decision:**
+  - **Base URL:** `NESSIE_BASE_URL` is `https://api.nessieisreal.com`
+    (HTTPS only; plain HTTP times out).
+  - **What our Nessie client sends:**
+    - `status` on every purchase, deposit, withdrawal and transfer.
+    - Dates as `YYYY-MM-DD` that have already passed zod validation.
+    - Whole-dollar amounts for purchases, deposits, withdrawals and
+      transfers, so the copy in our database matches Nessie's.
+  - **What sync does:**
+    - zod-validates every response.
+    - Treats a 400 on one account's list as that account's problem: log its
+      id, skip it, carry on.
+  - **Balances are ours.** Computed from an opening balance plus
+    transactions; Nessie's `balance` is used only as the opening balance
+    when the account is created.
+  - **Card payments** are posted as a transfer on checking ("CAPITAL ONE CARD
+    PMT") and a matching deposit-style record on the card. Sync pairs them
+    under ADR-020 (equal and opposite, within 3 days).
+  - **Removing a Nessie customer's data** means deleting its accounts. The
+    empty customer record stays, so demo customers get names that are
+    obviously synthetic.
+  - **Never call `DELETE /data`.** The key is shared by the whole team.
+- **Consequences:**
+  - The demo seed (F-21) and the "Connect Capital One sandbox" button
+    (F-23) both create their Nessie history themselves; ADR-048's generator
+    supplies it in whole-dollar mode.
+  - TEST-04 gains rows for the client rules above.
+  - **Leftovers on the team key:** one customer ("Synthetic
+    Reeflect-Q1-Probe") and one merchant ("Synthetic Grocer (Reeflect
+    probe)") from the probe; they cannot be deleted.
+  - **The browser SDK in `public/lib`** (commit 6525b1b) targets the old API
+    shape. It does not send `status`, and it sends transfer fields that are
+    now rejected.
+  - **`public/lib/example.html` and `public/lib/unit_tests.html` contain a
+    hard-coded Nessie API key.** The repository is public on GitHub, and
+    anything in `public/` is served by every deployment. The key does not
+    match the team key, so it is probably the sample key that ships with
+    Capital One's SDK, but treat it as exposed (see HANDOFF.md).
+
+### ADR-048: Synthetic data batches and the batch-testing branch
+
+- **Status:** Accepted (2026-10-10), decided by Jacob (schema and marker).
+- **Context:**
+  - **What we need:** realistic customers to build and test against, as a
+    population (a mix of personas) rather than one demo user, over months of
+    history.
+  - **Why not Nessie:** it generates nothing (ADR-047).
+  - **Why not let a language model write the transactions:** it cannot keep
+    one person's rent and paycheck consistent across hundreds of rows, and
+    it gets cents and signs wrong.
+  - **Why replay instead of merge:** Neon branches cannot be merged back
+    into production.
+- **Decision:**
+  - **Two stages.** An agent writes a population **spec** by following
+    `docs/SYNTHETIC.md`. Deterministic, seeded code
+    (`src/features/synthetic`) expands it into accounts and transactions.
+    Same spec, seed and `GENERATOR_VERSION` → the same rows.
+  - **Same tables as everyone else.** Each synthetic person is an ordinary
+    workspace (an `organization` row) with `financial_account` and
+    `transaction` rows.
+  - **The marker** is a `synthetic_workspace` row (one per workspace) naming
+    its `synthetic_batch`. No row = real. It is a table of ours rather than
+    a column on `organization`, because Better Auth generates that table.
+  - **A batch is a recipe.** `synthetic_batch` stores the spec, seed,
+    generator version, span and `asOf` date. It is loaded in one database
+    transaction and deleted as a unit: deleting its workspaces cascades to
+    their accounts, transactions and markers. The batch row cannot be
+    deleted while workspaces still point at it.
+  - **Batches are tried on the Neon batch-testing branch first**, a child of
+    production. The ones we keep are **promoted by replay**: the same recipe
+    is loaded into production by the same code, and the generator version
+    must match.
+  - **The scripts:**
+    - `pnpm batch` (load, list, report, delete, promote).
+    - `pnpm db:whoami`: which database and which migrations.
+    - `pnpm db:migrate:to`: migrate a named database.
+
+    They always name their target and print its endpoint id. Writing to
+    production needs `--target production`, `--yes`, and a matching
+    `NEON_PRODUCTION_ENDPOINT_ID`.
+  - **Synthetic data is never mixed with real data.** It is never counted in
+    real users' figures. Anything shown from it is labelled "Sample"
+    (ADR-024's convention), and its workspace names start with
+    "Sample · ".
+- **Consequences:**
+  - **New tables** (migration `0002_synthetic_batches`): `synthetic_batch`,
+    `synthetic_workspace`, plus the first `financial_account` and
+    `transaction` tables from ARCH-03.
+  - **Generator changes** that alter output must bump `GENERATOR_VERSION`.
+    Old batches then replay only from a matching checkout.
+  - **A cross-workspace insights page** over synthetic batches needs its own
+    ADR before it is built.
 
 ---
 
