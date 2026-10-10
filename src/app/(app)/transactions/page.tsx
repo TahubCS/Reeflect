@@ -1,14 +1,8 @@
-import type { Metadata } from "next";
-import { PagePlaceholder } from "@/components/ui/page-placeholder";
+import { redirect } from "next/navigation";
+import { personalWorkspaceHref } from "@/lib/auth/home";
 
-export const metadata: Metadata = { title: "Transactions" };
-
-export default function TransactionsPage() {
-  return (
-    <PagePlaceholder
-      title="Transactions"
-      purpose="Every transaction across your accounts, with its category, and a way to add or correct one by hand."
-      features="F-04 and F-08"
-    />
-  );
+// The workspace-free URL, kept for bookmarks: opens this page in the
+// signed-in user's Personal workspace (ADR-007).
+export default async function Page() {
+  redirect(await personalWorkspaceHref("/transactions"));
 }

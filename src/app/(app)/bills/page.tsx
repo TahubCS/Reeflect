@@ -1,14 +1,8 @@
-import type { Metadata } from "next";
-import { PagePlaceholder } from "@/components/ui/page-placeholder";
+import { redirect } from "next/navigation";
+import { personalWorkspaceHref } from "@/lib/auth/home";
 
-export const metadata: Metadata = { title: "Bills" };
-
-export default function BillsPage() {
-  return (
-    <PagePlaceholder
-      title="Bills"
-      purpose="The bills coming up, when each is due, and whether your balance covers it."
-      features="F-22"
-    />
-  );
+// The workspace-free URL, kept for bookmarks: opens this page in the
+// signed-in user's Personal workspace (ADR-007).
+export default async function Page() {
+  redirect(await personalWorkspaceHref("/bills"));
 }

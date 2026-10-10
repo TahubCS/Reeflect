@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { type ReactNode, Suspense } from "react";
-import { AppNav } from "@/components/ui/app-nav";
+import { AppNav, AppNavFallback } from "@/components/ui/app-nav";
 import { APP_NAME } from "@/config/app";
 import { SignOutButton } from "@/features/auth/ui/sign-out-button";
 import { getSession } from "@/lib/auth/session";
 import styles from "./layout.module.css";
 
-// Both components below read the session, so each renders inside a Suspense
-// boundary (Cache Components). The wordmark and links are static.
+// Both components below read the session, and the nav reads the URL, so
+// each renders inside a Suspense boundary (Cache Components). The wordmark
+// is static.
 
 async function Account() {
   const session = await getSession();
@@ -42,7 +43,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <Link href="/dashboard" className={styles.wordmark}>
             {APP_NAME}
           </Link>
-          <AppNav />
+          <Suspense fallback={<AppNavFallback />}>
+            <AppNav />
+          </Suspense>
           <div className={styles.account}>
             <Suspense fallback={null}>
               <Account />

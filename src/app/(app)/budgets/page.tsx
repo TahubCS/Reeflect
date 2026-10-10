@@ -1,14 +1,8 @@
-import type { Metadata } from "next";
-import { PagePlaceholder } from "@/components/ui/page-placeholder";
+import { redirect } from "next/navigation";
+import { personalWorkspaceHref } from "@/lib/auth/home";
 
-export const metadata: Metadata = { title: "Budgets" };
-
-export default function BudgetsPage() {
-  return (
-    <PagePlaceholder
-      title="Budgets"
-      purpose="A monthly budget for each category and how much of it is left."
-      features="F-09"
-    />
-  );
+// The workspace-free URL, kept for bookmarks: opens this page in the
+// signed-in user's Personal workspace (ADR-007).
+export default async function Page() {
+  redirect(await personalWorkspaceHref("/budgets"));
 }

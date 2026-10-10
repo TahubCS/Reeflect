@@ -1,14 +1,8 @@
-import type { Metadata } from "next";
-import { PagePlaceholder } from "@/components/ui/page-placeholder";
+import { redirect } from "next/navigation";
+import { personalWorkspaceHref } from "@/lib/auth/home";
 
-export const metadata: Metadata = { title: "Subscriptions" };
-
-export default function SubscriptionsPage() {
-  return (
-    <PagePlaceholder
-      title="Subscriptions"
-      purpose="The recurring charges we found, what each costs in a month and a year, and which ones you plan to cancel."
-      features="F-10"
-    />
-  );
+// The workspace-free URL, kept for bookmarks: opens this page in the
+// signed-in user's Personal workspace (ADR-007).
+export default async function Page() {
+  redirect(await personalWorkspaceHref("/subscriptions"));
 }

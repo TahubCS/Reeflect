@@ -82,7 +82,7 @@ test("sign up, sign out, a wrong password, then sign in", async ({ page }) => {
   await page.getByRole("button", { name: "Create account" }).click();
 
   // Signed up and signed in: the calendar opens.
-  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page).toHaveURL(/\/w\/[^/]+\/dashboard$/);
   await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
     "a day until payday",
@@ -102,6 +102,6 @@ test("sign up, sign out, a wrong password, then sign in", async ({ page }) => {
   await expect(page).toHaveURL(/\/sign-in$/);
 
   await fillSignIn(page, email, PASSWORD);
-  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page).toHaveURL(/\/w\/[^/]+\/dashboard$/);
   await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
 });
