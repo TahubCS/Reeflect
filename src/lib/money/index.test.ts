@@ -9,6 +9,7 @@ import {
   formatSigned,
   fraction,
   negate,
+  parseBalance,
   parseDollars,
   positivePart,
   ratio,
@@ -120,6 +121,37 @@ describe("parseDollars", () => {
       expect(parseDollars(text)).toBeNull();
     },
   );
+});
+
+describe("parseBalance", () => {
+  it.each([
+    ["0", 0],
+    ["0.00", 0],
+    ["-0", 0],
+    ["12.5", 1250],
+    ["$1,204.50", 120450],
+    ["-35.10", -3510],
+    ["-$35.1", -3510],
+    ["  250000  ", 25000000],
+    ["999999999.99", 99999999999],
+  ])("reads %j as %i cents", (text, expected) => {
+    expect(parseBalance(text)).toBe(expected);
+  });
+
+  it.each([
+    "",
+    "-",
+    "abc",
+    "12.345",
+    "12.",
+    "1e3",
+    "--5",
+    "$-5",
+    "+5",
+    "1000000000",
+  ])("rejects %j", (text) => {
+    expect(parseBalance(text)).toBeNull();
+  });
 });
 
 describe("truncateToDollars", () => {

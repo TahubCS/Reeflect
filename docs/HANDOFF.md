@@ -42,7 +42,7 @@ Update this table when work is assigned or finished. Features are listed in
 | Scaffold (Next.js, pnpm workspace, Drizzle, Better Auth, CI, lefthook) | All | Unassigned | — | Next.js, CI, Drizzle and Better Auth done (HO-017, HO-018). Not done: lefthook, the `agent-worker/` and `packages/` workspace packages |
 | F-01 Sign up / sign in | B | Unassigned | — | Done (HO-018, HO-020, HO-021, HO-027) |
 | F-02 Personal workspace | B | Simon Ormond | `feat/personal-workspace` | Personal workspace and `/w/[workspaceId]` done (HO-027); household later |
-| F-03 Financial accounts | A | Unassigned | — | Not started |
+| F-03 Financial accounts | A | Simon Ormond | `feat/financial-accounts` | Done: manual accounts, list, edit, delete (HO-030) |
 | F-04 Manual transactions | A | Unassigned | — | Not started |
 | F-05 CSV import | A | Unassigned | — | Not started |
 | F-06 PDF statement import (P0, ADR-044) | A | Unassigned | — | Not started |
@@ -1256,3 +1256,72 @@ recommendation, not a decision.
   it. Whoever owns that key should treat it as public (HO-026).
 - Jacob's PR #9 also edited `ARCHITECTURE.md` and this file. It merged
   first, so this entry was renumbered from HO-028 to HO-029.
+
+---
+
+## HO-030: Financial accounts (F-03); first server actions and the isolation matrix
+
+- **Date:** 2026-10-10 18:40 (EDT)
+- **Author:** Simon Ormond with Claude (Claude Code)
+- **Branch / PR:** `feat/financial-accounts` (uncommitted) / not opened
+
+### What changed
+- **F-03 is built** on the `financial_account` table from migration 0002.
+  There is no schema change.
+  - `/w/[workspaceId]/accounts` lists accounts grouped by type, with exact
+    balances. Cards and loans show "Owed $300.00"; checking and savings
+    show "Balance …".
+  - Add an account at `/accounts/new`; edit or delete one at
+    `/accounts/[accountId]`.
+  - Delete takes two steps, and the second says the account's transactions
+    go with it (ADR-025).
+  - Viewers see no add or edit links. Pages and actions require editor.
+- **Balances.** The user types the current balance, or the amount owed for
+  a card or loan. It is stored signed (owed is negative, ADR-008), with
+  `balance_as_of` set to today in `DEFAULT_TIME_ZONE`
+  (`src/config/app.ts`, America/New_York until users can set their own).
+  - A synced account (`source` other than `manual`) keeps the type and
+    balance its source gives it; only its name, institution and last 4
+    can be edited.
+  - New `parseBalance` in `src/lib/money` accepts 0 and a leading minus
+    (overdrawn).
+- **Server-action pattern** (`src/features/accounts/server/actions.ts`),
+  for the next features to copy:
+  1. The page binds the ids (`action.bind(null, workspaceId, id)`).
+  2. The action calls `requireWorkspaceAccess(getSession(), workspaceId,
+     "editor")`.
+  3. It zod-parses the ids and form, then calls the repository with the
+     verified id.
+  4. It calls `redirect()` on success. On bad input it returns `{ errors,
+     values }`; React resets forms after an action, so the typed values
+     come back to refill them.
+- **TEST-06 isolation matrix started.** `server/entry-points.ts` lists a
+  feature's actions (`EntryPoint` in `src/lib/auth/entry-point.ts`), and
+  `src/lib/auth/isolation.test.ts` runs every list.
+  - It checks that a non-member finds nothing, that another workspace's
+    object ids change nothing, that a role below the minimum is refused,
+    and that a signed-out visitor is refused.
+  - **Add your feature's list there.**
+- `src/features/accounts/index.ts` exports `listAccounts`, `getAccount`,
+  `AccountSummary` and `owesMoney` for F-04, F-12 and F-23.
+- **Tests:**
+  - Vitest for the domain, money, the repository and actions (against
+    Docker) and the matrix.
+  - Shared database fixtures in `tests/support/db-fixtures.ts`.
+  - `tests/e2e/accounts.spec.ts` (TEST-07).
+  - `auth-api.spec.ts` now uses `ownClientAddress()`. It used to share
+    the default address's sign-in allowance with `auth.spec.ts` and
+    failed with 429 about half the time when run in parallel.
+
+### What's next
+- **F-04 manual transactions** on top of `getAccount`, with the same
+  action pattern and its own `entry-points.ts`.
+- **F-12:** build the calendar's starting balance from `listAccounts`.
+- **F-23:** Nessie sync creates accounts with `source: "nessie"` and
+  `nessieAccountId`.
+
+### Open problems
+- Next 16 keeps the previous page in the DOM, hidden. Playwright locators
+  must be by role (which skips hidden elements); `getByLabel` can match
+  the hidden copy.
+- No audit event is written on delete yet (ADR-025, P1).
