@@ -189,14 +189,14 @@ fails if this table and `package.json` differ.
 | `pnpm test:unit` | Vitest, with coverage thresholds |
 | `pnpm test:e2e` | Playwright against the production build (`pnpm build` first). Tests that call external services are tagged `@external`; CI runs them nightly only |
 | `pnpm scan:bundle` | After `pnpm build`, scan the client bundle for secrets and server-only env values |
+| `pnpm db:generate` | Drizzle Kit: generate a migration from schema changes |
+| `pnpm db:migrate` | Apply migrations to `DATABASE_URL` |
 
 Not defined yet. Add each script, and its row above, in the PR that adds the
 thing it runs:
 
 | Command | Purpose | Arrives with |
 |---|---|---|
-| `pnpm db:generate` | Drizzle Kit: generate a migration from schema changes | Drizzle schema (ADR-005) |
-| `pnpm db:migrate` | Apply migrations | Drizzle schema (ADR-005) |
 | `pnpm db:seed` | Seed synthetic demo data, including the demo Nessie customer | Demo seed (F-21) |
 | `pnpm --filter agent-worker dev` | Run the agent worker locally (terminal provider by default) | Agent worker (ADR-032) |
 
