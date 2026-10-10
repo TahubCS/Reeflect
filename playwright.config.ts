@@ -23,6 +23,8 @@ export default defineConfig({
       DATABASE_URL:
         process.env.DATABASE_URL ??
         "postgres://test:test@localhost:5433/app_test",
+      // The server under test is always on localhost, whatever .env.local says.
+      BETTER_AUTH_URL: "http://localhost:3000",
     },
   },
 });

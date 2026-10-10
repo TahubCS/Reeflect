@@ -668,3 +668,47 @@ recommendation, not a decision.
 - `pnpm build` and `pnpm dev` now need `DATABASE_URL`; without it the build
   fails and the server answers 500 with a clear log line.
 - The open problems in HO-016 still stand.
+
+---
+
+## HO-018: Better Auth on top of the Drizzle setup
+
+- **Date:** 2026-10-10 13:40 (EDT)
+- **Author:** Simon Ormond with Claude (Claude Code)
+- **Branch / PR:** `feat/better-auth` / not opened
+
+### What changed
+- Better Auth 1.7 (ADR-006) in `src/lib/auth/auth.ts`, using the Drizzle
+  client from HO-017: email and password, the organization plugin with roles
+  `owner` / `editor` / `viewer` (ADR-007, `src/lib/auth/permissions.ts`),
+  `nextCookies`, and rate limits stored in the database so they hold across
+  serverless instances (ARCH-08). Handler at `/api/auth/[...all]`;
+  `getSession()` in `src/lib/auth/session.ts`; browser client in
+  `src/lib/auth/client.ts`.
+- Auth tables (`user`, `session`, `account`, `verification`, `organization`,
+  `member`, `invitation`, `rate_limit`) in `src/lib/db/schema/auth.ts` and
+  migration `0001_better_auth`. They come from Better Auth's own Drizzle
+  generator, with `timestamptz` columns. `src/lib/db/schema/auth.test.ts`
+  fails if a Better Auth upgrade expects columns we don't have.
+- `src/lib/env.ts` now also requires `BETTER_AUTH_SECRET` (32+ characters)
+  and `BETTER_AUTH_URL`; both are in `.env.example`.
+- Tests: Vitest for env, roles, the auth config, the session helper, the
+  client and the schema; Playwright `auth-api.spec.ts` signs up, out and in
+  through the API against the local PostgreSQL.
+
+### What's next
+1. Each developer: add `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` to
+   `.env.local`, then run `pnpm db:migrate`. Add both to Vercel.
+2. Create the Personal workspace on sign-up (ADR-007), for example in a
+   Better Auth `databaseHooks.user.create.after` hook.
+3. `requireWorkspaceAccess` in `src/lib/auth/authz.ts` (ARCH-04), using the
+   roles in `permissions.ts`.
+4. The `(auth)` sign-in and sign-up pages, with `auth.spec.ts` (TEST-07).
+
+### Open problems
+- Vercel preview URLs differ from `BETTER_AUTH_URL`, so Better Auth will
+  reject their origin. Add `trustedOrigins` for previews when they are set up.
+- The `auth` CLI package was not installed; regenerate the schema with Better
+  Auth's Drizzle generator when upgrading (see the header of
+  `src/lib/db/schema/auth.ts`).
+- The open problems in HO-017 still stand.

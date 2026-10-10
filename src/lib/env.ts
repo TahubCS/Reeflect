@@ -12,6 +12,10 @@ const envSchema = z.object({
   DATABASE_URL: postgresUrl,
   /** Direct connection, used only by Drizzle Kit migrations. */
   DATABASE_URL_UNPOOLED: postgresUrl.optional(),
+  /** Signs sessions and cookies (ADR-006). 32+ random characters. */
+  BETTER_AUTH_SECRET: z.string().min(32),
+  /** The app's public origin, e.g. http://localhost:3000. */
+  BETTER_AUTH_URL: z.url(),
 });
 
 export type Env = z.infer<typeof envSchema>;
