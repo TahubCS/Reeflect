@@ -1,6 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const isCi = Boolean(process.env.CI);
+// Set PORT when something else (such as `pnpm dev`) already uses 3000.
+const port = process.env.PORT ?? "3000";
+const baseURL = `http://localhost:${port}`;
 
 // E2E tests run against the production build: `pnpm build` first (TEST-01).
 export default defineConfig({
@@ -10,13 +13,13 @@ export default defineConfig({
   retries: isCi ? 1 : 0,
   reporter: isCi ? [["github"], ["html", { open: "never" }]] : "list",
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL,
     trace: "on-first-retry",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: "pnpm start",
-    url: "http://localhost:3000",
+    command: `pnpm start -p ${port}`,
+    url: baseURL,
     reuseExistingServer: !isCi,
     env: {
       // Never the Neon database from .env.local: the local or CI Postgres.

@@ -49,8 +49,8 @@ Update this table when work is assigned or finished. Features are listed in
 | F-08 Categorization | A | Unassigned | — | Not started |
 | F-09 Monthly budgets (P1) | A | Unassigned | — | Not started |
 | F-10 Subscriptions (detection P0, marks P1) | A | Unassigned | — | Not started |
-| F-12 Calendar home screen | B | Unassigned | — | Not started |
-| F-13 Drill-down | B | Unassigned | — | Not started |
+| F-12 Calendar home screen | B | Unassigned | — | Scaffolded on sample data (HO-018) |
+| F-13 Drill-down | B | Unassigned | — | Scaffolded on sample data (HO-018) |
 | F-18 Themes and accessibility | B | Unassigned | — | Not started |
 | F-19 Delete data | B | Unassigned | — | Not started |
 | F-21 Demo seed (incl. Nessie) | A | Unassigned | — | Not started |
@@ -668,3 +668,51 @@ recommendation, not a decision.
 - `pnpm build` and `pnpm dev` now need `DATABASE_URL`; without it the build
   fails and the server answers 500 with a clear log line.
 - The open problems in HO-016 still stand.
+
+---
+
+## HO-018: Calendar mock scaffold on the home page
+
+- **Date:** 2026-10-10 13:45 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `feat/calendar-mock-scaffold` (uncommitted) / not opened
+
+### What changed
+- The calendar design mockup is integrated as the starting scaffold, so each
+  lane has real code to build on:
+  - `src/features/cashflow/domain/`: month view, summary and per-day amount,
+    subscription costs, date helpers, a rule-based text reader, sample data.
+  - `src/features/cashflow/ui/`: dashboard, month grid, list, balance line,
+    day panel, text thread.
+  - `src/lib/money` (branded `Cents`) and `src/config/app.ts` (`APP_NAME`).
+  - `src/app/globals.css`: the design tokens and all calendar styles as
+    plain CSS. Tailwind is loaded without its base reset (ADR-046).
+  - The home page renders the dashboard. The Nessie script tag is kept.
+- Tests: Vitest for `lib/money` and the cashflow domain (TEST-04), and
+  `tests/e2e/calendar.spec.ts` for the home page (TEST-07). Feature UI is
+  left out of unit coverage and covered by Playwright (TEST-03).
+- `PORT=3210 pnpm test:e2e` runs E2E on another port when `pnpm dev` holds
+  3000.
+
+### What's next
+- **Lane A (data):** replace `domain/demo-data.ts` with a server-built
+  `CashflowData` from the database (ARCH-06). The shape `CashflowData` is
+  the contract between the data lane and the calendar.
+- **Lane B (web):** the page is all client state today. Move data loading to
+  the server, add the workspace route (`/w/[workspaceId]`), split
+  `globals.css` into tokens plus CSS Modules (ADR-046).
+- **Lane C (agent):** `domain/read-text.ts` and the text thread are a
+  stand-in for the real agent brain (ADR-032, ADR-035).
+
+### Open problems
+- ADR-029 says no mockup code is copied into this repository. This change
+  does that, so ADR-029 no longer matches the code and needs a superseding
+  ADR from the team.
+- `lib/money` is smaller than ADR-008 and TEST-04 require: no half-to-even
+  rounding, no cent-preserving split, no "(12.00)" or negative parsing, no
+  `fromDollarNumber`, no fast-check property tests.
+- Subscriptions and paydays come from fixed sample rules, not detection
+  (ADR-014). No axe, reduced-motion or responsive Playwright suites yet.
+- The page says "Design preview with made-up numbers" and the title says
+  "design preview"; change both when real data is wired in.
+- The open problems in HO-017 still stand.

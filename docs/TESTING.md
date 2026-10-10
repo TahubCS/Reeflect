@@ -38,8 +38,9 @@ feature without both is not mergeable.
 | `src/lib/security/**`, `src/lib/auth/**` | 95% | 90% |
 | Everything else | 80% | 70% |
 
-Coverage is measured over `src/` and `scripts/`, except `src/app/**`: routes
-are thin and are covered by Playwright (TEST-07).
+Coverage is measured over `src/` and `scripts/`, except `src/app/**` and
+`src/features/*/ui/**`: routes are thin, and React components are covered by
+Playwright (TEST-02, TEST-07).
 
 Coverage is a floor, not the goal. Boundary cases below are required even
 when coverage is already met.
