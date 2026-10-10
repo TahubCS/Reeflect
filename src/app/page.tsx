@@ -1,69 +1,65 @@
-import Image from "next/image";
+import Link from "next/link";
+import { APP_NAME } from "@/config/app";
+import styles from "./page.module.css";
+
+const POINTS = [
+  {
+    title: "One plain answer",
+    text: "A single sentence says what you can spend each day until payday, with the sum behind it.",
+  },
+  {
+    title: "See what's coming",
+    text: "Paydays, bills and subscriptions sit on the days they happen, so nothing arrives as a surprise.",
+  },
+  {
+    title: "Numbers you can trust",
+    text: "Every figure is worked out from your own transactions, to the cent.",
+  },
+];
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-25"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/6 px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/8">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className={styles.page}>
+      <header className={styles.top}>
+        <p className={styles.wordmark}>{APP_NAME}</p>
+        <nav className={styles.nav} aria-label="Account">
+          <Link href="/sign-in">Sign in</Link>
+          <Link href="/sign-up" className={styles.navPrimary}>
+            Create account
+          </Link>
+        </nav>
+      </header>
+
+      <main>
+        <section className={styles.hero}>
+          <h1>Know what you can spend each day until payday.</h1>
+          <p className={styles.lede}>
+            {APP_NAME} lays your month out as a calendar: what has come in, what
+            is going out, and what is yours to spend.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-39.5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-3.5 w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/8 px-5 transition-colors hover:border-transparent hover:bg-black/4 dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-39.5"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+          <div className={styles.actions}>
+            <Link href="/sign-up" className={styles.primary}>
+              Create your account
+            </Link>
+            <Link href="/sign-in" className={styles.secondary}>
+              I already have one
+            </Link>
+          </div>
+        </section>
+
+        <ul className={styles.points}>
+          {POINTS.map((point) => (
+            <li key={point.title}>
+              <h2>{point.title}</h2>
+              <p>{point.text}</p>
+            </li>
+          ))}
+        </ul>
       </main>
+
+      <footer>
+        {APP_NAME} only reads and displays your money. It never moves it.
+      </footer>
     </div>
   );
 }

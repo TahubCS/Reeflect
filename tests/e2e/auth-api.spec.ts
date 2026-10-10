@@ -2,7 +2,8 @@ import { expect, test } from "@playwright/test";
 
 // The Better Auth route handler against a real database. The sign-in pages
 // (auth.spec.ts, TEST-07) arrive with the (auth) routes.
-const origin = "http://localhost:3000";
+// Matches the port in playwright.config.ts.
+const origin = `http://localhost:${process.env.PORT ?? "3000"}`;
 const headers = { origin };
 
 test("the auth handler is mounted", async ({ request }) => {

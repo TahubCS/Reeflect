@@ -24,10 +24,11 @@ export default defineConfig({
     },
     coverage: {
       provider: "v8",
-      // Routes in src/app are thin and are covered by Playwright (TEST-07).
+      // Routes and feature UI are covered by Playwright (TEST-02, TEST-07).
       include: ["src/**/*.{ts,tsx}", "scripts/**/*.ts"],
       exclude: [
         "src/app/**",
+        "src/features/*/ui/**",
         "src/instrumentation.ts",
         "src/lib/db/schema/**",
         "**/*.test.{ts,tsx}",

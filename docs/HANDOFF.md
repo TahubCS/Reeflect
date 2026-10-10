@@ -40,7 +40,7 @@ Update this table when work is assigned or finished. Features are listed in
 | Feature / bug | Lane | Assigned to | Branch | Status |
 |---|---|---|---|---|
 | Scaffold (Next.js, pnpm workspace, Drizzle, Better Auth, CI, lefthook) | All | Unassigned | — | In progress: Next.js, CI and Drizzle done (HO-017); Better Auth next |
-| F-01 Sign up / sign in | B | Unassigned | — | Not started |
+| F-01 Sign up / sign in | B | Unassigned | — | Pages and API done (HO-018, HO-020); personal workspace on sign-up still to do |
 | F-02 Personal workspace | B | Unassigned | — | Not started |
 | F-03 Financial accounts | A | Unassigned | — | Not started |
 | F-04 Manual transactions | A | Unassigned | — | Not started |
@@ -49,8 +49,8 @@ Update this table when work is assigned or finished. Features are listed in
 | F-08 Categorization | A | Unassigned | — | Not started |
 | F-09 Monthly budgets (P1) | A | Unassigned | — | Not started |
 | F-10 Subscriptions (detection P0, marks P1) | A | Unassigned | — | Not started |
-| F-12 Calendar home screen | B | Unassigned | — | Not started |
-| F-13 Drill-down | B | Unassigned | — | Not started |
+| F-12 Calendar home screen | B | Unassigned | — | Scaffolded on sample data (HO-019) |
+| F-13 Drill-down | B | Unassigned | — | Scaffolded on sample data (HO-019) |
 | F-18 Themes and accessibility | B | Unassigned | — | Not started |
 | F-19 Delete data | B | Unassigned | — | Not started |
 | F-21 Demo seed (incl. Nessie) | A | Unassigned | — | Not started |
@@ -712,3 +712,93 @@ recommendation, not a decision.
   Auth's Drizzle generator when upgrading (see the header of
   `src/lib/db/schema/auth.ts`).
 - The open problems in HO-017 still stand.
+
+---
+
+## HO-019: Calendar mock scaffold on the home page
+
+- **Date:** 2026-10-10 13:45 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `feat/calendar-mock-scaffold` (uncommitted) / not opened
+
+### What changed
+- The calendar design mockup is integrated as the starting scaffold, so each
+  lane has real code to build on:
+  - `src/features/cashflow/domain/`: month view, summary and per-day amount,
+    subscription costs, date helpers, a rule-based text reader, sample data.
+  - `src/features/cashflow/ui/`: dashboard, month grid, list, balance line,
+    day panel, text thread.
+  - `src/lib/money` (branded `Cents`) and `src/config/app.ts` (`APP_NAME`).
+  - `src/app/globals.css`: the design tokens and all calendar styles as
+    plain CSS. Tailwind is loaded without its base reset (ADR-046).
+  - The home page renders the dashboard. The Nessie script tag is kept.
+- Tests: Vitest for `lib/money` and the cashflow domain (TEST-04), and
+  `tests/e2e/calendar.spec.ts` for the home page (TEST-07). Feature UI is
+  left out of unit coverage and covered by Playwright (TEST-03).
+- `PORT=3210 pnpm test:e2e` runs E2E on another port when `pnpm dev` holds
+  3000.
+
+### What's next
+- **Lane A (data):** replace `domain/demo-data.ts` with a server-built
+  `CashflowData` from the database (ARCH-06). The shape `CashflowData` is
+  the contract between the data lane and the calendar.
+- **Lane B (web):** the page is all client state today. Move data loading to
+  the server, add the workspace route (`/w/[workspaceId]`), split
+  `globals.css` into tokens plus CSS Modules (ADR-046).
+- **Lane C (agent):** `domain/read-text.ts` and the text thread are a
+  stand-in for the real agent brain (ADR-032, ADR-035).
+
+### Open problems
+- ADR-029 says no mockup code is copied into this repository. This change
+  does that, so ADR-029 no longer matches the code and needs a superseding
+  ADR from the team.
+- `lib/money` is smaller than ADR-008 and TEST-04 require: no half-to-even
+  rounding, no cent-preserving split, no "(12.00)" or negative parsing, no
+  `fromDollarNumber`, no fast-check property tests.
+- Subscriptions and paydays come from fixed sample rules, not detection
+  (ADR-014). No axe, reduced-motion or responsive Playwright suites yet.
+- The page says "Design preview with made-up numbers" and the title says
+  "design preview"; change both when real data is wired in.
+- The open problems in HO-018 still stand.
+
+---
+
+## HO-020: Landing page, sign-up, sign-in; dashboard moved to /dashboard
+
+- **Date:** 2026-10-10 14:10 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `feat/calendar-mock-scaffold` / same PR as HO-019
+
+### What changed
+- Routes: `/` is a landing page; `/sign-up` and `/sign-in` (in
+  `src/app/(auth)/`) use the Better Auth client from HO-018; the calendar
+  moved from `/` to `/dashboard`.
+- `/dashboard` needs a session: a signed-out visitor is redirected to
+  `/sign-in`. The session is read inside a Suspense boundary (Cache
+  Components). A "Signed in as … / Sign out" bar sits above the calendar.
+- `src/features/auth/`: `domain/credentials.ts` validates form input with
+  zod and turns Better Auth errors into plain messages; `ui/` has the form
+  and the sign-out button. No change to `src/lib/auth` or the auth tables.
+- All new pages use CSS Modules with the tokens in `globals.css` (ADR-046).
+- Fix: the Tailwind loader rule in `next.config.ts` was turning every
+  `*.module.css` into global CSS, so CSS Modules had no class names. The
+  rule now skips them.
+- Tests: Vitest for `credentials.ts`; Playwright `auth.spec.ts` (TEST-07)
+  for sign up, sign out, wrong password and sign in through the pages.
+  `auth.setup.ts` signs one shared user up for specs of signed-in pages
+  (`tests/e2e/support.ts`).
+
+### What's next
+- Create the Personal workspace on sign-up and move the calendar under
+  `/w/[workspaceId]` (ADR-007, AGENTS.md section 6). `/dashboard` is a
+  stand-in until then.
+- Send a signed-in visitor from `/sign-in` and `/sign-up` to the dashboard.
+
+### Open problems
+- Sign-in will not work on Vercel preview URLs until `trustedOrigins` is
+  set (HO-018), so the dashboard cannot be opened on a preview.
+- Better Auth limits sign-in to a few tries per 10 seconds per IP. Running
+  the E2E suite twice in quick succession locally can fail
+  `auth-api.spec.ts` with 429; wait a few seconds and re-run.
+- The open problems in HO-019 still stand.
+
