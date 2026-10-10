@@ -95,6 +95,26 @@ describe("createAccountAction", () => {
     expect(await listAccounts(workspace)).toHaveLength(before);
   });
 
+  it("echoes back only the form's own fields, never names from the request", async () => {
+    signedInAs(editor);
+    const data = form({ ...CARD, balance: "lots" });
+    data.set("__proto__", "polluted");
+    data.set("toString", "polluted");
+    data.set("extra", "ignored");
+
+    const state = await createAccountAction(workspace, { errors: {} }, data);
+
+    expect(Object.keys(state.values ?? {}).sort()).toEqual([
+      "balance",
+      "institutionName",
+      "maskLast4",
+      "nickname",
+      "type",
+    ]);
+    expect(Object.getPrototypeOf(state.values)).toBe(Object.prototype);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
   it("refuses a viewer and a signed-out visitor", async () => {
     signedInAs(viewer);
     expect(

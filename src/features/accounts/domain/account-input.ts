@@ -36,7 +36,7 @@ export type AccountSummary = {
 export type AccountFormState = {
   errors: AccountFieldErrors;
   /** What was typed, so the form shows it again: React resets it after an action. */
-  values?: Record<string, string>;
+  values?: Partial<Record<AccountFormField, string>>;
 };
 
 /** Our account ids are UUID v7 (ARCH-03). */
@@ -85,22 +85,27 @@ export type AccountInput = {
   balanceCents: Cents | null;
 };
 
-type Field = "type" | "institutionName" | "nickname" | "maskLast4" | "balance";
-
-/** One message per form field that is wrong. */
-export type AccountFieldErrors = Partial<Record<Field, string>>;
-
-export type ParsedAccount =
-  | { readonly ok: true; readonly value: AccountInput }
-  | { readonly ok: false; readonly errors: AccountFieldErrors };
-
-const FIELDS: readonly string[] = [
+/** The add/edit form's fields: the only names read from a submitted form. */
+export const ACCOUNT_FORM_FIELDS = [
   "type",
   "institutionName",
   "nickname",
   "maskLast4",
   "balance",
-] satisfies Field[];
+] as const;
+
+export type AccountFormField = (typeof ACCOUNT_FORM_FIELDS)[number];
+
+/** One message per form field that is wrong. */
+export type AccountFieldErrors = Partial<Record<AccountFormField, string>>;
+
+export type ParsedAccount =
+  | { readonly ok: true; readonly value: AccountInput }
+  | { readonly ok: false; readonly errors: AccountFieldErrors };
+
+function isFormField(name: unknown): name is AccountFormField {
+  return (ACCOUNT_FORM_FIELDS as readonly unknown[]).includes(name);
+}
 
 const accountFormSchema = z.object({
   type: z.enum(ACCOUNT_TYPE_OPTIONS as [AccountType, ...AccountType[]], {
@@ -141,9 +146,7 @@ export function parseAccountForm(
   if (!result.success) {
     for (const issue of result.error.issues) {
       const field = issue.path[0];
-      if (typeof field === "string" && FIELDS.includes(field)) {
-        errors[field as Field] ??= issue.message;
-      }
+      if (isFormField(field)) errors[field] ??= issue.message;
     }
   }
 

@@ -4,7 +4,9 @@ import { notFound, redirect } from "next/navigation";
 import { requireWorkspaceAccess } from "@/lib/auth/authz";
 import { getSession } from "@/lib/auth/session";
 import {
+  ACCOUNT_FORM_FIELDS,
   type AccountFieldErrors,
+  type AccountFormField,
   type AccountFormState,
   accountIdSchema,
   parseAccountForm,
@@ -25,9 +27,12 @@ function rejected(
   errors: AccountFieldErrors,
   formData: FormData,
 ): AccountFormState {
-  const values: Record<string, string> = {};
-  for (const [key, value] of formData) {
-    if (typeof value === "string") values[key] = value.slice(0, 200);
+  // Only the form's own field names are copied, never names chosen by the
+  // request, so a field like `__proto__` cannot reach the object.
+  const values: Partial<Record<AccountFormField, string>> = {};
+  for (const name of ACCOUNT_FORM_FIELDS) {
+    const value = formData.get(name);
+    if (typeof value === "string") values[name] = value.slice(0, 200);
   }
   return { errors, values };
 }
