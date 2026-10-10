@@ -241,6 +241,7 @@ Governed by: ADR-006, ADR-007, ADR-010, ADR-012, ADR-019, ADR-025
 | `DATABASE_URL_UNPOOLED` | Drizzle Kit migrations only (Neon's direct connection string); optional, falls back to `DATABASE_URL` | Yes |
 | `BETTER_AUTH_SECRET` | Better Auth | Yes |
 | `BETTER_AUTH_URL` | Better Auth | No |
+| `BETTER_AUTH_API_KEY` | Better Auth Infrastructure dashboard (`dash()` plugin, ADR-047); optional, the plugin is left out without it | Yes |
 | `ENCRYPTION_KEY` | `lib/security/crypto.ts` (32 bytes, base64) | Yes |
 | `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_ENV` | Plaid client | Yes (secret) |
 | `GEMINI_API_KEY` | `lib/ai` (Google Gemini API) | Yes |

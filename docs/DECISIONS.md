@@ -72,6 +72,7 @@ Rules:
 | ADR-044 | Statement parsing: CSV and PDF, by code only | Accepted |
 | ADR-045 | Gemini summary on the website (refines ADR-019) | Accepted |
 | ADR-046 | Styling: plain CSS first, Tailwind as a fallback | Accepted |
+| ADR-047 | Better Auth Infrastructure dashboard | Proposed |
 
 ---
 
@@ -286,6 +287,29 @@ Rules:
 - **Consequences:** Better Auth owns a table named `account` for login
   providers, so bank and card accounts use the table name
   `financial_account`.
+
+### ADR-047: Better Auth Infrastructure dashboard
+
+- **Status:** Proposed (2026-10-10), proposed by Simon
+- **Context:** Better Auth (ADR-006) runs inside the app and keeps users and
+  sessions in our database, so there is nowhere to watch sign-ups, sign-ins
+  and sessions without querying the database. Better Auth sells a hosted
+  dashboard, Better Auth Infrastructure, that shows this activity.
+- **Decision:**
+  - Connect the app to Better Auth Infrastructure with the `dash()` server
+    plugin and `dashClient()` from `@better-auth/infra`.
+  - The key is `BETTER_AUTH_API_KEY`, optional. Without it the server plugin
+    is left out, so local tests, CI and Playwright never call the service
+    (Playwright sets it to empty).
+  - Activity tracking (`lastActiveAt`) stays off, so the user table does not
+    change. `sentinel()` (paid plan) is not used.
+- **Alternatives considered:** Querying the `user` and `session` tables in
+  the Neon console or Drizzle Studio; no new vendor, but no activity history.
+- **Consequences:** A new external vendor. Auth events about real users
+  (user ids, emails, sign-in times, IP-based location, user agent) are sent
+  to dash.better-auth.com. No financial data is sent. Confirm with the team,
+  and check Better Auth's data handling, before production users sign up.
+  Removing it is one plugin and one variable.
 
 ### ADR-007: Workspaces and roles
 

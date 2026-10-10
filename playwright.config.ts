@@ -36,6 +36,9 @@ export default defineConfig({
         "postgres://test:test@localhost:5433/app_test",
       // The server under test is always on localhost, whatever .env.local says.
       BETTER_AUTH_URL: baseURL,
+      // Test sign-ups never reach the Better Auth dashboard (ADR-047). An
+      // empty value wins over the key in .env.local.
+      BETTER_AUTH_API_KEY: "",
     },
   },
 });

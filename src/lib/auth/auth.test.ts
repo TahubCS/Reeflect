@@ -32,6 +32,24 @@ describe("auth", () => {
     expect(ids.at(-1)).toBe("next-cookies");
   });
 
+  it("leaves the dashboard plugin out when there is no key", async () => {
+    vi.stubEnv("BETTER_AUTH_API_KEY", "");
+    const { auth } = await import("./auth");
+
+    expect(auth.options.plugins.map((plugin) => plugin.id)).not.toContain(
+      "dash",
+    );
+  });
+
+  it("adds the dashboard plugin when its key is set, keeping nextCookies last", async () => {
+    vi.stubEnv("BETTER_AUTH_API_KEY", "test-only-dashboard-key");
+    const { auth } = await import("./auth");
+    const ids = auth.options.plugins.map((plugin) => plugin.id);
+
+    expect(ids).toContain("dash");
+    expect(ids.at(-1)).toBe("next-cookies");
+  });
+
   it("refuses to load without its environment", async () => {
     vi.stubEnv("BETTER_AUTH_SECRET", "");
 
