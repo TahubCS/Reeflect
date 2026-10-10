@@ -50,6 +50,39 @@ describe("auth", () => {
     expect(ids.at(-1)).toBe("next-cookies");
   });
 
+  it("creates the Personal workspace after a user is created (ADR-007)", async () => {
+    const ensure = vi.fn().mockResolvedValue("ws-1");
+    vi.doMock("./personal-workspace", () => ({
+      ensurePersonalWorkspace: ensure,
+    }));
+    const { auth } = await import("./auth");
+
+    await auth.options.databaseHooks?.user?.create?.after?.({ id: "user-1" });
+
+    expect(ensure).toHaveBeenCalledWith("user-1");
+    vi.doUnmock("./personal-workspace");
+  });
+
+  it("logs, without failing the sign-up, when the workspace cannot be made", async () => {
+    vi.doMock("./personal-workspace", () => ({
+      ensurePersonalWorkspace: vi.fn().mockRejectedValue(new Error("down")),
+    }));
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { createPersonalWorkspace } = await import("./auth");
+
+    await expect(
+      createPersonalWorkspace({ id: "user-1" }),
+    ).resolves.toBeUndefined();
+    expect(log).toHaveBeenCalledWith(
+      "sign-up: personal workspace not created",
+      {
+        userId: "user-1",
+        message: "down",
+      },
+    );
+    vi.doUnmock("./personal-workspace");
+  });
+
   it("refuses to load without its environment", async () => {
     vi.stubEnv("BETTER_AUTH_SECRET", "");
 

@@ -40,8 +40,8 @@ Update this table when work is assigned or finished. Features are listed in
 | Feature / bug | Lane | Assigned to | Branch | Status |
 |---|---|---|---|---|
 | Scaffold (Next.js, pnpm workspace, Drizzle, Better Auth, CI, lefthook) | All | Unassigned | — | In progress: Next.js, CI and Drizzle done (HO-017); Better Auth next |
-| F-01 Sign up / sign in | B | Unassigned | — | Pages and API done (HO-018, HO-020); personal workspace on sign-up still to do |
-| F-02 Personal workspace | B | Unassigned | — | Not started |
+| F-01 Sign up / sign in | B | Unassigned | — | Done (HO-018, HO-020, HO-027) |
+| F-02 Personal workspace | B | Simon Ormond | `feat/personal-workspace` | Personal workspace and `/w/[workspaceId]` done (HO-027); household later |
 | F-03 Financial accounts | A | Unassigned | — | Not started |
 | F-04 Manual transactions | A | Unassigned | — | Not started |
 | F-05 CSV import | A | Unassigned | — | Not started |
@@ -1077,3 +1077,70 @@ recommendation, not a decision.
 - **Rounding drift in money code.** ADR-008 and TEST-04 say round half to
   even, but `fraction` in `src/lib/money` uses `Math.round` (half up). Not
   changed here.
+
+---
+
+## HO-027: Personal workspace on sign-up; pages under /w/[workspaceId]
+
+- **Date:** 2026-10-10 17:35 (EDT)
+- **Author:** Simon Ormond with Claude (Claude Code)
+- **Branch / PR:** `feat/personal-workspace` (uncommitted) / not opened
+
+### What changed
+- **Personal workspace (ADR-007).** `src/lib/auth/personal-workspace.ts`
+  creates one `organization` named "Personal" (slug `personal-<userId>`,
+  metadata `{"kind":"personal"}`) with the user as its only `owner` member.
+  - It runs from Better Auth's `databaseHooks.user.create.after`, which
+    fires after the user row is committed. A failure is logged by user id
+    and does not fail the sign-up.
+  - It is idempotent and safe to run twice at once. Users who signed up
+    before this get their workspace on their first visit.
+- **`requireWorkspaceAccess` (ARCH-04)** in `src/lib/auth/authz.ts`.
+  - It validates the id with zod and loads the membership.
+  - It calls `notFound()` for no session, a malformed id, a non-member or a
+    role that is too low.
+  - It returns `{ workspaceId, role }`. Role order (viewer < editor < owner)
+    is in `src/lib/auth/roles.ts`.
+  - Synthetic workspaces have no members, so it hides them.
+- **Pages moved to `src/app/(app)/w/[workspaceId]/<name>/`.**
+  - Its `layout.tsx` sends signed-out visitors to sign-in and checks
+    membership.
+  - The old flat URLs (`/dashboard`, `/accounts`, …) are now redirects into
+    the user's Personal workspace (`personalWorkspaceHref` in
+    `src/lib/auth/home.ts`), so sign-in still lands on `/dashboard`.
+- **Nav.** `src/config/nav.ts` lists segments, and `AppNav` links inside
+  the workspace in the URL. It reads the URL, so it sits in Suspense with
+  `AppNavFallback`, which shows the same links pointing at the redirects.
+- The workspace code lives in `src/lib/auth/`, not in `src/features/`,
+  because `auth.ts` needs it and `lib/` must not import from features.
+- **Tests:**
+  - Vitest for roles, authz and the Personal workspace (against the Docker
+    database), the href helper and the sign-up hook.
+  - New `tests/e2e/workspaces.spec.ts`: a new user lands in their
+    workspace, flat URLs redirect into it, another user's workspace is not
+    found, signed out goes to sign in.
+  - `app-nav`, `auth` and `nav.test` updated for the new URLs.
+
+### What's next
+- **To build your feature page:** it is now in
+  `src/app/(app)/w/[workspaceId]/<name>/page.tsx` (not the folder in
+  HO-023). Read `workspaceId` from `params` and call
+  `requireWorkspaceAccess` again in your server code before loading data.
+- **To add a page:** create both
+  `src/app/(app)/w/[workspaceId]/<name>/page.tsx` and the flat redirect
+  `src/app/(app)/<name>/page.tsx`, then add the segment to `nav.ts`.
+- **Production:** existing users get their workspace the first time they
+  open any app page. No migration is needed.
+- **Household workspaces** (create, invite link, switcher) remain for later
+  (PROJECT.md F-02).
+- **TEST-06:** the workspace isolation matrix still needs a registry of
+  entry points; it should start with the first server action that loads
+  data (F-03).
+
+### Open problems
+- A non-member gets Next's default "This page could not be found." page,
+  with HTTP status 200, because the page has already started streaming.
+  It shows no data. A styled `not-found.tsx` is left for the design
+  cleanup.
+- On this machine the local Docker database had not been migrated to
+  `0002`. `pnpm db:migrate:to local` fixed it.

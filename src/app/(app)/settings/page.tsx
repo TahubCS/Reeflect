@@ -1,14 +1,8 @@
-import type { Metadata } from "next";
-import { PagePlaceholder } from "@/components/ui/page-placeholder";
+import { redirect } from "next/navigation";
+import { personalWorkspaceHref } from "@/lib/auth/home";
 
-export const metadata: Metadata = { title: "Settings" };
-
-export default function SettingsPage() {
-  return (
-    <PagePlaceholder
-      title="Settings"
-      purpose="Link your phone, set quiet hours for messages, and delete your data."
-      features="F-24, F-33 and F-19"
-    />
-  );
+// The workspace-free URL, kept for bookmarks: opens this page in the
+// signed-in user's Personal workspace (ADR-007).
+export default async function Page() {
+  redirect(await personalWorkspaceHref("/settings"));
 }
