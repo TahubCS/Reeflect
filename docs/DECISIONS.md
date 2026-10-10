@@ -75,6 +75,7 @@ Rules:
 | ADR-047 | Better Auth Infrastructure dashboard | Proposed |
 | ADR-048 | Nessie as it behaves today (refines ADR-033) | Proposed |
 | ADR-049 | Synthetic data batches and the batch-testing branch | Accepted |
+| ADR-050 | Phone linking: six digits, approved on the website (refines ADR-034) | Proposed |
 
 ---
 
@@ -908,6 +909,44 @@ Rules:
 - **Consequences:** Adds the `messaging_identity` and `agent_link_code`
   tables, a `DEMO_MODE` flag, two demo scripts, and identity tests (TEST-04,
   TEST-06).
+
+### ADR-050: Phone linking: six digits, approved on the website (refines ADR-034)
+
+- **Status:** Proposed (2026-10-10), by Muhammad
+- **Context:** ADR-034 links a phone when it texts a one-time code, and its
+  example is four digits. A short code can be guessed: someone texting
+  random codes could link their own phone to another person's account and
+  then read that person's finances. The team is also on Photon's free plan,
+  where users may reach the agent on different numbers.
+- **Decision:** ADR-034 holds, with these additions.
+  - **Six digits.** The code is six digits, shown as `LINK 482 193`. It is
+    valid for 10 minutes and works once. Only a hash keyed with a server
+    secret is stored, so the plain code exists only in the browser tab that
+    asked for it; reloading the page hides it.
+  - **Approval on the website.** Texting the code does not link the phone.
+    It records a request, and the Settings card then shows "Link request
+    from phone ending 1234" with **Approve** and **Not me**. The identity is
+    created only on Approve. Until then the phone gets the same sign-up
+    reply as any unlinked phone.
+  - **Attempt limit.** A phone that sends 5 wrong codes within 10 minutes is
+    locked out of linking for the rest of that window. A wrong, expired,
+    used and already-claimed code all get the same reply.
+  - **One link each way.** A phone links to one user and a user has one
+    linked phone, both enforced by unique indexes.
+  - **The number to text is a setting.** `AGENT_PHONE_NUMBER` is optional.
+    When set, the card shows it with a link that opens Messages; when unset
+    the card says "Text … to Reeflect" and shows no number.
+  - **Opt-in** to proactive texts (ADR-038) is a checkbox on the linked
+    card, off by default.
+- **Alternatives considered:** four digits with the attempt limit alone
+  (shorter to type, weaker); six digits without the approval step (one
+  fewer step, but a guessed code would link straight away).
+- **Consequences:**
+  - `agent_link_code` also holds the pending request, and a new
+    `agent_link_attempt` table counts wrong codes (ARCH-03).
+  - The judge "Try it" flow in ADR-034 is unchanged and still to be built;
+    it needs one number that every judge can text.
+  - Linking takes one more step in the demo.
 
 ### ADR-035: Agent number rules (refines ADR-019)
 

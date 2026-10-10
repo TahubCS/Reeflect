@@ -1,14 +1,24 @@
 import type { Metadata } from "next";
-import { PagePlaceholder } from "@/components/ui/page-placeholder";
+import { MessagesSection } from "@/features/messaging/ui/messages-section";
+import styles from "./page.module.css";
 
 export const metadata: Metadata = { title: "Settings" };
 
-export default function SettingsPage() {
+// The workspace layout above renders this inside a Suspense boundary, which
+// `MessagesSection` needs to read the session.
+export default async function SettingsPage({
+  params,
+}: PageProps<"/w/[workspaceId]/settings">) {
+  const { workspaceId } = await params;
+
   return (
-    <PagePlaceholder
-      title="Settings"
-      purpose="Link your phone, set quiet hours for messages, and delete your data."
-      features="F-24, F-33 and F-19"
-    />
+    <main className={styles.page}>
+      <h1>Settings</h1>
+      <MessagesSection workspaceId={workspaceId} />
+      <p className={styles.note}>
+        Not built yet: quiet hours for messages and deleting your data (F-33 and
+        F-19).
+      </p>
+    </main>
   );
 }

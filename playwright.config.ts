@@ -39,6 +39,10 @@ export default defineConfig({
       // Test sign-ups never reach the Better Auth dashboard (ADR-047). An
       // empty value wins over the key in .env.local.
       BETTER_AUTH_API_KEY: "",
+      // Lets specs post turns as the agent worker would (tests/e2e/support.ts).
+      AGENT_SERVICE_TOKEN: "e2e-only-agent-service-token-0123456789",
+      // The link card must not depend on a number being configured.
+      AGENT_PHONE_NUMBER: "",
     },
   },
 });

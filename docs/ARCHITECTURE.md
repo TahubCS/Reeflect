@@ -131,8 +131,9 @@ have `updated_at`.
 | `csv_mapping` | id, workspace_id, institution_name, column_map (jsonb), date_format, sign_convention | Reused per institution |
 | `plaid_item` | id, workspace_id, plaid_item_id, institution_name, access_token_ciphertext, access_token_iv, transactions_cursor, status | Ciphertext only (ADR-012) |
 | `liability` | id, workspace_id, financial_account_id, apr_bps, minimum_payment_cents, next_due_on, source (`plaid`/`mock`) | P2 |
-| `messaging_identity` | id, user_id, workspace_id (personal), platform (`imessage`), handle, space_id, verified_at, proactive_opt_in (bool), alert_prefs (jsonb), revoked_at | Unique (platform, handle) among non-revoked rows (ADR-034) |
-| `agent_link_code` | id, user_id, code_hash, expires_at, used_at | Single use, 10-minute expiry |
+| `messaging_identity` | id, user_id, workspace_id (personal), platform (`imessage`), handle, space_id, verified_at, proactive_opt_in (bool), revoked_at | Unique (platform, handle) and unique (user_id), both among non-revoked rows (ADR-034, ADR-050). `alert_prefs` (jsonb) arrives with F-26 |
+| `agent_link_code` | id, user_id, code_hash (unique), expires_at, used_at, and the pending request: platform, handle, space_id, claimed_at | Single use, 10-minute expiry. The hash is keyed with a server secret. A phone that texts the code is recorded here until the user approves it (ADR-050) |
+| `agent_link_attempt` | id, platform, handle, attempted_at | One row per wrong code; 5 in 10 minutes locks the handle out of linking (ADR-050) |
 | `nessie_link` | workspace_id (PK), nessie_customer_id, last_synced_at | One sandbox customer per workspace (ADR-033) |
 | `outbound_message` | id, messaging_identity_id, kind (`subscription_alert`/`bill_reminder`/`weekly_recap`), dedupe_key, scheduled_for, sent_at, status | Unique dedupe_key; enforces quiet hours and daily cap (ADR-038) |
 | `audit_event` | id, workspace_id (nullable), actor_user_id, action, target_type, target_id, created_at, ip_hash | No financial details |
@@ -269,7 +270,8 @@ Governed by: ADR-006, ADR-007, ADR-010, ADR-012, ADR-019, ADR-025
 | `GEMINI_MODEL` | `lib/ai` (model name, set at kickoff) | No |
 | `NESSIE_API_KEY` | `features/nessie` (sent as a query parameter; logs must redact it) | Yes |
 | `NESSIE_BASE_URL` | `features/nessie`: `https://api.nessieisreal.com` (ADR-048) | No |
-| `AGENT_SERVICE_TOKEN` | Next.js and worker (shared secret, 32+ random bytes) | Yes |
+| `AGENT_SERVICE_TOKEN` | Next.js and worker (shared secret, 32+ characters). Optional in Next.js: without it `/api/agent/turn` answers 404 to everyone | Yes |
+| `AGENT_PHONE_NUMBER` | Next.js: the number shown on the Settings link card, in `+15551234567` form; optional (ADR-050) | No |
 | `AGENT_WORKER_URL` | Next.js (where to POST proactive messages) | No |
 | `REEFLECT_URL` | Worker (where to POST turns) | No |
 | `PHOTON_PROJECT_ID`, `PHOTON_PROJECT_SECRET` | Worker only | Yes (secret) |
@@ -398,7 +400,7 @@ cron secret. Both are idempotent: running them repeatedly sends nothing twice
 
 ## ARCH-13: The iMessage agent
 
-Governed by: ADR-031, ADR-032, ADR-034, ADR-035, ADR-038, ADR-019
+Governed by: ADR-031, ADR-032, ADR-034, ADR-050, ADR-035, ADR-038, ADR-019
 
 ```mermaid
 sequenceDiagram
@@ -430,10 +432,10 @@ sequenceDiagram
 |---|---|---|
 | Worker loop | `agent-worker/src/index.ts` | Spectrum connection, typing indicator, forward turn, send reply and image |
 | Worker send API | `agent-worker/src/server.ts` | `POST /send` for proactive messages; token-protected |
-| Protocol types | `packages/agent-protocol/` | Zod schemas shared by worker and brain |
-| Turn endpoint | `src/app/api/agent/turn/route.ts` | Token check, zod parse, call `runAgentTurn` |
-| Identity | `src/features/messaging/server/` | Link codes, `messaging_identity`, STOP handling |
-| Brain | `src/features/agent/server/runAgentTurn.ts` | Gemini loop with tools, reply composition |
+| Protocol types | `packages/agent-protocol/` | Zod schemas shared by worker and brain. Until the worker exists they live in `src/features/agent/domain/protocol.ts` |
+| Turn endpoint | `src/app/api/agent/turn/route.ts` | Token check (`src/features/agent/server/service-token.ts`, 404 without it), zod parse, call `runAgentTurn` |
+| Identity | `src/features/messaging/server/link.ts`, `actions.ts` | Link codes, the request a user approves, `messaging_identity`, STOP and Disconnect (ADR-050). The Settings card is `src/features/messaging/ui/` |
+| Brain | `src/features/agent/server/runAgentTurn.ts` | Gemini loop with tools, reply composition. Today: LINK, STOP and fixed replies only (F-24); Gemini arrives with F-25 |
 | Tools | `src/features/agent/server/tools/` | `getSummary`, `getCategory`, `listSubscriptions`, `listUpcomingBills`, `logSpending`, `setSubscriptionIntent` |
 | Intent parsing | `src/features/agent/domain/parse.ts` | Code-only commands (ADR-040): LINK, TRY, STOP, keep / cancel / yes / UNDO / DETAILS, quiet hours, amounts from user text (ADR-035) |
 | Quiet hours | `src/features/messaging/domain/quietHours.ts` | Parse times, handle ranges across midnight, decide whether a message may be sent now |
