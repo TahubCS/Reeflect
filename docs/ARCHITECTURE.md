@@ -80,9 +80,11 @@ Planned features (each a folder in `src/features/`):
 `nessie`, `reminders`, `agent`, `messaging`, `ai`, `audit`, `synthetic` (the
 batch generator, ADR-049).
 
-Built so far: `auth` (sign-in and sign-up forms), `cashflow` (the calendar,
-on sample data), `landing` (the home page) and `synthetic`. Only
-`synthetic` has an `index.ts` yet, and no feature has a `server/` folder.
+Built so far: `accounts` (F-03: add, edit and delete accounts; HO-030),
+`auth` (sign-in and sign-up forms), `cashflow` (the calendar, on sample
+data), `landing` (the home page) and `synthetic`. `accounts` and
+`synthetic` have an `index.ts`; `accounts` is the first feature with a
+`server/` folder, and its server actions are the pattern to copy.
 
 Scripts in `scripts/` run with plain `node`. Those that import from `src/`
 load `scripts/register-paths.ts` first, so `@/…` and extensionless imports

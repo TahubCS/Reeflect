@@ -103,7 +103,7 @@ when coverage is already met.
 
 | Test | How |
 |---|---|
-| **Workspace isolation matrix** | One parametrized test iterates over every server action and route handler. For each: user A (member of workspace 1 only) calls it with workspace 2's id and with object ids belonging to workspace 2. Expected: not found, no data returned, no rows changed. A new entry point that is missing from the matrix fails the test (the matrix is built from an exported registry). |
+| **Workspace isolation matrix** | One parametrized test iterates over every server action and route handler. For each: user A (member of workspace 1 only) calls it with workspace 2's id and with object ids belonging to workspace 2. Expected: not found, no data returned, no rows changed. Each feature lists its entry points in `src/features/<feature>/server/entry-points.ts`; `src/lib/auth/isolation.test.ts` runs every list, so a feature adds its list there. |
 | Role enforcement | Viewer cannot write; editor cannot invite or delete workspace; owner can |
 | Unauthenticated access | Every protected route redirects or returns 401 |
 | Input validation | Invalid ids, oversized strings, negative page sizes rejected with 400-class errors |
