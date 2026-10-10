@@ -20,6 +20,9 @@ The aim here is to build to the standard those audits expect.
 | @axe-core/playwright | Automated accessibility checks inside E2E tests |
 | PostgreSQL in Docker / CI service | Integration and E2E database |
 
+fast-check and `@axe-core/playwright` are not installed yet. Add each with
+`pnpm add -D` in the PR that writes the first test using it.
+
 ## TEST-02: Equal weight rule
 
 Every feature ships with **both**:
@@ -45,6 +48,10 @@ Coverage is measured over `src/` and `scripts/`, with these exceptions:
   `scripts/db/migrate-to.ts`, `scripts/register-paths.ts`): they only parse
   arguments and print around tested modules, and are checked by running
   them.
+- `src/lib/db/schema/**` (declarations; `auth.test.ts` checks the auth
+  tables against Better Auth) and `src/instrumentation.ts`.
+
+`vitest.config.mts` holds the same list; change both together.
 
 Coverage is a floor, not the goal. Boundary cases below are required even
 when coverage is already met.

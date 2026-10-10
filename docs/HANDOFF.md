@@ -39,8 +39,8 @@ Update this table when work is assigned or finished. Features are listed in
 
 | Feature / bug | Lane | Assigned to | Branch | Status |
 |---|---|---|---|---|
-| Scaffold (Next.js, pnpm workspace, Drizzle, Better Auth, CI, lefthook) | All | Unassigned | — | In progress: Next.js, CI and Drizzle done (HO-017); Better Auth next |
-| F-01 Sign up / sign in | B | Unassigned | — | Done (HO-018, HO-020, HO-027) |
+| Scaffold (Next.js, pnpm workspace, Drizzle, Better Auth, CI, lefthook) | All | Unassigned | — | Next.js, CI, Drizzle and Better Auth done (HO-017, HO-018). Not done: lefthook, the `agent-worker/` and `packages/` workspace packages |
+| F-01 Sign up / sign in | B | Unassigned | — | Done (HO-018, HO-020, HO-021, HO-027) |
 | F-02 Personal workspace | B | Simon Ormond | `feat/personal-workspace` | Personal workspace and `/w/[workspaceId]` done (HO-027); household later |
 | F-03 Financial accounts | A | Unassigned | — | Not started |
 | F-04 Manual transactions | A | Unassigned | — | Not started |
@@ -53,7 +53,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-13 Drill-down | B | Unassigned | — | Scaffolded on sample data (HO-019) |
 | F-18 Themes and accessibility | B | Unassigned | — | Not started |
 | F-19 Delete data | B | Unassigned | — | Not started |
-| F-21 Demo seed (incl. Nessie) | A | Jacob Heminway | `database/migration` | Synthetic generator and batch scripts built (HO-026); Nessie seeding not started |
+| F-21 Demo seed (incl. Nessie) | A | Jacob Heminway | — | Synthetic generator and batch scripts merged (HO-026, PR #7); Nessie seeding and `pnpm db:seed` not started |
 | F-23 Nessie import and sync | A | Unassigned | — | Not started |
 | F-24 Phone linking | C | Unassigned | — | Not started |
 | F-25 "How am I doing?" + week-ahead image | C | Unassigned | — | Not started |
@@ -1144,3 +1144,78 @@ recommendation, not a decision.
   cleanup.
 - On this machine the local Docker database had not been migrated to
   `0002`. `pnpm db:migrate:to local` fixed it.
+
+---
+
+## HO-028: Agent docs fact-checked against the code
+
+- **Date:** 2026-10-10 17:30 (EDT)
+- **Author:** Jacob Heminway with Claude (Claude Code)
+- **Branch / PR:** `feat/insights` / PR into `main`
+
+### What changed
+- **Merged with HO-027.** Both entries were written as HO-027 at the same
+  time; this one is renumbered HO-028. Where this entry says the URLs are
+  flat or `authz.ts` is not written, HO-027 made that untrue: the merge
+  updated AGENTS.md sections 4 and 6 and ARCH-04 to match.
+- **Corrects earlier entries:**
+  - HO-018 to HO-025 say "uncommitted" or "not opened". Their work is on
+    `main`: PR #1 (Better Auth), #2 (calendar scaffold, sign-in and
+    sign-up), #3 (landing page), #4 (app nav), #5 (Better Auth
+    Infrastructure).
+  - HO-026's work merged as PR #7. PR #6 added the
+    `vercel-react-best-practices` agent skill.
+- **AGENTS.md:**
+  - Section 6 shows the tree as it is and marks what is planned.
+    - The signed-in pages are flat (`/dashboard`, …) in `src/app/(app)/`,
+      not under `/w/[workspaceId]` yet.
+    - `lib/security`, `lib/ai`, `agent-worker/` and `packages/` don't
+      exist yet.
+  - Things that don't exist yet are now marked:
+    - `src/lib/auth/authz.ts` (`requireWorkspaceAccess`).
+    - `fromDollarNumber`.
+    - The workspace packages.
+    - The missing parts of `lib/money`.
+  - The Gemini prize track is listed (ADR-036).
+- **ARCHITECTURE.md:**
+  - ARCH-02 lists the features built so far.
+  - ARCH-03 says `workspace_settings` was never built.
+  - ARCH-04 explains the flat URLs.
+- **TESTING.md:**
+  - TEST-01 notes fast-check and axe are not installed.
+  - TEST-03 lists every coverage exclusion that `vitest.config.mts` has.
+- **Other files:**
+  - `README.md` was create-next-app boilerplate (npm, yarn, bun,
+    `app/page.tsx`). It now points to AGENTS.md and gives the pnpm setup.
+  - `.env.example`'s header no longer claims `env.ts` validates every
+    variable.
+  - A stale file name in a `playwright.config.ts` comment is fixed.
+
+### What's next
+- Team: decide the open problems below that need a decision.
+
+### Open problems
+- **Accepted ADRs whose consequences no longer match the code.** These need
+  a superseding ADR from the team, not an edit:
+  - ADR-029 says no mockup code is copied in (see HO-019).
+  - ADR-046 says the create-next-app starter page still uses Tailwind; it is
+    gone.
+  - ADR-021 says lefthook guards `main`; it was never installed.
+- **Agent skills are in three folders that have drifted.**
+  - `.claude/skills/` (Claude Code), `.agents/skills/` and `skills/` hold
+    copies.
+  - `neon` and `neon-postgres` are only in `.agents/skills/`, so Claude Code
+    doesn't see them.
+  - Muhammad added these; decide on one source and how the others are
+    filled.
+- **`lib/money` is behind ADR-008 and TEST-04:**
+  - No split without losing cents.
+  - No "(12.00)" or negative parsing.
+  - No `fromDollarNumber`.
+  - `fraction` rounds half up, not half to even.
+- **Branch names:** `database/migration` and `consolidate-docs` don't
+  follow AGENTS.md's `<type>/<description>` rule.
+- **Still open from HO-026:**
+  - Production's migration record.
+  - The public Nessie key in `public/lib`; the root layout still loads that
+    SDK.
