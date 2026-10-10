@@ -113,9 +113,8 @@ Do not build, suggest, or scaffold any of the following:
   functions (`src/features/<feature>/server/`).
 - Every server action and route handler calls
   `requireWorkspaceAccess(session, workspaceId, minimumRole)` from
-  `src/lib/auth/authz.ts` before touching data. That file is not written
-  yet: the first PR that reads workspace data adds it, using the roles in
-  `src/lib/auth/permissions.ts` (ARCH-04).
+  `src/lib/auth/authz.ts` before touching data (ARCH-04). Roles are in
+  `src/lib/auth/permissions.ts` and ordered in `src/lib/auth/roles.ts`.
 - Never import the database client into React components or client code.
   Server-only modules start with `import 'server-only'`.
 - Never cache per-user or per-workspace data in any shared cache. Pages that
@@ -231,10 +230,11 @@ src/
   app/                      Next.js App Router routes only (thin)
     page.tsx                landing page (src/features/landing)
     (auth)/                 sign-in, sign-up
-    (app)/                  signed-in pages, one folder per navbar link in
-                            src/config/nav.ts (dashboard, accounts, …, settings).
-                            URLs are flat (/dashboard) until workspaces exist,
-                            then the group moves under /w/[workspaceId] (ADR-007)
+    (app)/                  signed-in pages
+      w/[workspaceId]/      one folder per navbar link in src/config/nav.ts
+                            (dashboard, accounts, …, settings) (ADR-007)
+      <name>/               flat URL (/dashboard) that redirects into the
+                            user's Personal workspace
     api/                    route handlers: auth, health; Plaid webhooks,
                             agent turn and job tick (planned)
   features/                 one folder per feature, owned by whoever is assigned
@@ -248,7 +248,8 @@ src/
   lib/
     money/                  the only place money math happens
     db/                     Drizzle schema, client, migrations, uuidv7 ids
-    auth/                   Better Auth config, roles, session; authz.ts (planned)
+    auth/                   Better Auth config, roles, session, authz.ts,
+                            Personal workspace on sign-up
     env.ts                  zod validation of the app's environment variables
     security/               encryption, rate limiting, redaction (planned)
     ai/                     model client, placeholder filling, digit scan (planned)

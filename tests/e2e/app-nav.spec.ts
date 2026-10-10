@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
 import { SIGNED_IN_STATE, hydrated } from "./support";
 
-// Label, URL and page heading of each link in the signed-in header
-// (src/config/nav.ts). The dashboard's heading is the calendar headline.
+// Label, path inside the workspace and page heading of each link in the
+// signed-in header (src/config/nav.ts). The dashboard's heading is the
+// calendar headline.
 const PAGES = [
   ["Accounts", "/accounts"],
   ["Transactions", "/transactions"],
@@ -32,7 +33,7 @@ test.describe("signed in", () => {
     for (const [label, url] of PAGES) {
       await nav.getByRole("link", { name: label }).click();
 
-      await expect(page).toHaveURL(new RegExp(`${url}$`));
+      await expect(page).toHaveURL(new RegExp(`/w/[^/]+${url}$`));
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(label);
       await expect(nav.getByRole("link", { name: label })).toHaveAttribute(
         "aria-current",

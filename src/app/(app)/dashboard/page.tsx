@@ -1,8 +1,8 @@
-import type { Metadata } from "next";
-import { CashflowDashboard } from "@/features/cashflow/ui/cashflow-dashboard";
+import { redirect } from "next/navigation";
+import { personalWorkspaceHref } from "@/lib/auth/home";
 
-export const metadata: Metadata = { title: "Dashboard" };
-
-export default function DashboardPage() {
-  return <CashflowDashboard />;
+// The workspace-free URL, kept for bookmarks: opens this page in the
+// signed-in user's Personal workspace (ADR-007).
+export default async function Page() {
+  redirect(await personalWorkspaceHref("/dashboard"));
 }

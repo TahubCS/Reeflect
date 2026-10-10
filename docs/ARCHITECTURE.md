@@ -164,10 +164,11 @@ order:
 | Add / edit / delete transactions, budgets, rules, goals; run imports; link banks | editor |
 | Invite members, change roles, delete workspace | owner |
 
-Today the signed-in pages in `src/app/(app)/` have flat URLs (`/dashboard`)
-and none loads workspace data yet; `requireWorkspaceAccess`
-(`src/lib/auth/authz.ts`) is not written. Both arrive with the Personal
-workspace (F-02), when the group moves under `/w/[workspaceId]` (ADR-007).
+`requireWorkspaceAccess` is in `src/lib/auth/authz.ts`; it calls `notFound()`
+in every failing case. The signed-in pages live under
+`src/app/(app)/w/[workspaceId]/`, whose layout checks membership; the flat
+URLs (`/dashboard`, …) redirect into the user's Personal workspace (HO-027).
+No page loads workspace data yet.
 
 Caching: pages that show workspace data render dynamically. No `unstable_cache`
 or fetch caching of workspace data. Client state is keyed by workspace id and
