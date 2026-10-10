@@ -947,3 +947,32 @@ recommendation, not a decision.
 - Below about 1100 pixels wide, the last links are reached by scrolling the
   link row sideways. A menu for small screens is left for the design cleanup.
 - The open problems in HO-023 still stand.
+
+---
+
+## HO-025: Better Auth Infrastructure dashboard connected
+
+- **Date:** 2026-10-10 17:30 (EDT)
+- **Author:** Simon Ormond with Claude
+- **Branch / PR:** `feat/better-auth-additions` / not opened
+
+### What changed
+- New ADR-047 (Proposed): the app reports auth activity to Better Auth's
+  hosted dashboard through `@better-auth/infra`.
+- `src/lib/auth/auth.ts` adds `dash()` only when `BETTER_AUTH_API_KEY` is
+  set; `nextCookies()` stays last. `src/lib/auth/client.ts` adds
+  `dashClient()`. Activity tracking is off, so there is no migration.
+- `BETTER_AUTH_API_KEY` is optional in `src/lib/env.ts` (empty counts as
+  unset), listed in `.env.example` and ARCHITECTURE ARCH-09.
+- `playwright.config.ts` sets the key to empty for the test server, so test
+  sign-ups never reach the dashboard.
+- Tests: env parsing of the key; the plugin is present with a key and absent
+  without one.
+
+### What's next
+- Add `BETTER_AUTH_API_KEY` to Vercel (Production) and redeploy, then sign
+  in once and check the event shows on the dashboard.
+- Team to confirm ADR-047.
+
+### Open problems
+- Real users' emails and sign-in details go to a third party; see ADR-047.

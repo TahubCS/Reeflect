@@ -1,4 +1,5 @@
 import "server-only";
+import { dash } from "@better-auth/infra";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
@@ -20,6 +21,11 @@ export const auth = betterAuth({
   rateLimit: { storage: "database" },
   plugins: [
     organization({ ac, roles, creatorRole: "owner" }),
+    // Better Auth Infrastructure dashboard (ADR-047), only when its key is
+    // set. Activity tracking stays off: it would change the user table.
+    ...(env.BETTER_AUTH_API_KEY
+      ? [dash({ apiKey: env.BETTER_AUTH_API_KEY })]
+      : []),
     // Lets server actions set auth cookies. Must stay the last plugin.
     nextCookies(),
   ],
