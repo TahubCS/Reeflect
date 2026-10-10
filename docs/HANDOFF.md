@@ -46,7 +46,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-04 Manual transactions | A | Unassigned | — | Not started |
 | F-05 CSV import | A | Unassigned | — | Not started |
 | F-06 PDF statement import (P0, ADR-044) | A | Unassigned | — | Not started |
-| F-08 Categorization | A | Unassigned | — | Not started |
+| F-08 Categorization | A | Codex (engine) | `feat/transaction-categorization` | Engine and tests done (HO-031); persistence, caller integration and UI pending |
 | F-09 Monthly budgets (P1) | A | Unassigned | — | Not started |
 | F-10 Subscriptions (detection P0, marks P1) | A | Unassigned | — | Not started |
 | F-12 Calendar home screen | B | Unassigned | — | Scaffolded on sample data (HO-019) |
@@ -1325,3 +1325,73 @@ recommendation, not a decision.
   must be by role (which skips hidden elements); `getByLabel` can match
   the hidden copy.
 - No audit event is written on delete yet (ADR-025, P1).
+
+---
+
+## HO-031: Isolated categorization engine (F-08, ADR-013)
+
+- **Date:** 2026-10-10 19:18 (EDT)
+- **Author:** Codex
+- **Branch / PR:** `feat/transaction-categorization` (uncommitted) / not opened
+
+### What changed
+- Fetched main and created `/workspace/Reeflect-categorization` from `02c5154`.
+  A final fetch confirmed that main still matches this base. The original
+  checkout's planning changes were preserved.
+- Added `src/features/categorization/`: pure merchant normalization, literal
+  keyword matching, highest-priority selection with deterministic ties, manual
+  override precedence and Zod validation. Unknown merchants return an
+  uncategorized result; invalid inputs return validation issues. No I/O or
+  transaction mutation. Public exports and integration examples are in the
+  feature's `index.ts` and README.
+- Added [CATEGORIZATION_PLAN.md](CATEGORIZATION_PLAN.md) with the implemented
+  milestone and remaining dependencies. Existing routes, schemas, migrations,
+  auth, calendar logic, dependencies, lockfile and CI are unchanged.
+- Verification on the local test database:
+  - Baseline: 439 unit/integration tests passed before engine changes.
+  - Final: 517 unit/integration tests passed, including 78 engine tests at
+    100% line and branch coverage.
+  - All 42 existing non-external Playwright tests passed against the production
+    build: auth, workspaces, accounts, navigation, calendar, landing and health.
+  - Lint, format check, strict typecheck, production build and bundle scan passed.
+- Test setup: started the repository's PostgreSQL container and installed the
+  Chromium revision required by the locked Playwright package. The initial
+  browser attempt could not launch because that revision was missing; the
+  complete rerun passed after installation.
+
+### What's next
+- Integrate through `@/features/categorization` once category/rule persistence
+  and the manual transaction/import caller are available. Callers authorize the
+  workspace, supply only its rules and validate category ownership before writes.
+- Add Playwright coverage for manual override, saved rule and re-import behavior
+  with that user-facing integration (TEST-02). The engine alone is not full F-08.
+
+### Open problems
+- The current transaction schema has no category column; category/rule tables
+  and the manual transaction UI are still missing on this main revision.
+- Merchant cleanup is conservative; unsupported statement metadata is retained
+  rather than guessed. It does not replace institution-specific import parsing.
+
+---
+
+## HO-032: Categorization engine prepared for commit and PR
+
+- **Date:** 2026-10-10 19:31 (EDT)
+- **Author:** Codex
+- **Branch / PR:** `feat/transaction-categorization` / not opened yet
+
+### What changed
+- The user explicitly requested committing the engine and opening a PR.
+- Re-fetched main: the branch's base still matches `02c5154`; no main updates
+  need merging. Reviewed the feature and documentation scope for the commit.
+- Application code is unchanged since HO-031's successful verification.
+
+### What's next
+- Commit and publish this branch, then open the engine PR into main. The PR
+  description will distinguish engine verification from the future persisted
+  categorization flow. Its link will be attached to this chat.
+- Review the PR and integrate category persistence and a caller in later work.
+
+### Open problems
+- The full F-08 persistence and user-facing integration dependencies in HO-031
+  remain. This PR contains the isolated engine milestone.
