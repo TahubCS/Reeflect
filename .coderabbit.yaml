@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit automatically reads AGENTS.md as review guidelines.
+# Path rules below add focused checks for high-risk areas.
+language: en-US
+reviews:
+  profile: assertive
+  request_changes_workflow: false
+  high_level_summary: true
+  review_status: true
+  poem: false
+  auto_review:
+    enabled: true
+    drafts: false
+  path_instructions:
+    - path: "src/**"
+      instructions: >-
+        Flag any money handled as floating-point dollars, or any use of
+        parseFloat, toFixed, "* 100" or "/ 100" on money outside
+        src/lib/money (ADR-008). Flag hard-coded product names; APP_NAME must
+        be used (ADR-002). Flag logging of tokens, account numbers, file
+        contents or whole transaction objects.
+    - path: "src/lib/money/**"
+      instructions: >-
+        Money must be integer cents (branded Cents), safe integers only, with
+        explicit rounding (half to even). Every exported function needs
+        boundary tests. Require 100% line and branch coverage (TEST-03).
+    - path: "src/features/*/server/**"
+      instructions: >-
+        Every repository function must take workspaceId and filter by it.
+        Every server action must call requireWorkspaceAccess with the correct
+        minimum role before touching data (ARCH-04). File must import
+        'server-only'. Inputs validated with zod. New entry points must be
+        added to the workspace isolation test matrix (TEST-06).
+    - path: "src/app/**"
+      instructions: >-
+        Routes must stay thin: no direct database imports, no business logic.
+        Pages showing workspace data must render dynamically and must not use
+        shared caches.
+    - path: "src/features/imports/**"
+      instructions: >-
+        All imports must pass the ADR-010 guardrails in a preview step before
+        commit, write nothing on any blocking failure, commit atomically, and
+        delete raw files after extraction (ADR-025).
+    - path: "src/{lib,features}/ai/**"
+      instructions: >-
+        AI output must never contain numbers produced by the model. Numbers
+        come from code via placeholders and the digit scan must run (ADR-019).
+        Only minimal data may be sent to the model.
+    - path: "src/features/cashflow/**"
+      instructions: >-
+        No money math in client components; render only from the domain
+        results. Every visual state needs a text label, reduced motion must be
+        honoured, and colour must never be the only signal (ADR-042, ADR-018).
+        No shame mechanics.
+    - path: "agent-worker/**"
+      instructions: >-
+        The worker only relays messages between Photon Spectrum and
+        /api/agent/turn (ADR-032). Flag any business logic, database access,
+        or calls to Nessie, Plaid or Gemini here. /send must check the service
+        token. Never log message contents or phone handles in full.
+    - path: "src/features/agent/**"
+      instructions: >-
+        Workspace id must come from the verified messaging identity, never from
+        model output (ADR-034). Every reply passes the digit scan; amounts in
+        logSpending must appear in the user's text (ADR-035). No financial
+        data to unlinked handles. Proactive sends respect opt-in, quiet hours
+        and the daily cap (ADR-038).
+    - path: "src/features/nessie/**"
+      instructions: >-
+        Dollar amounts converted only through fromDollarNumber (ADR-033). The
+        API key is a URL query parameter: flag any logging of URLs or raw
+        errors without redaction. Validate every response with zod.
+    - path: "src/lib/db/**"
+      instructions: >-
+        Schema changes need a generated migration in the same PR. Destructive
+        migrations need their own ADR. Money columns are bigint.
+    - path: "tests/**"
+      instructions: >-
+        Fixtures must be synthetic: no real statements, account numbers or
+        personal names. No test.only or test.skip. No fixed sleeps in
+        Playwright.
+    - path: ".github/**"
+      instructions: >-
+        Required status check names in .github/rulesets/main.json must match
+        CI job names exactly.
+knowledge_base:
+  code_guidelines:
+    enabled: true

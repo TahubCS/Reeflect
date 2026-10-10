@@ -1,0 +1,113 @@
+# CI for every pull request into main (and merges to main).
+# Job names below are REQUIRED status checks in .github/rulesets/main.json.
+# If you rename a job, update the ruleset in the same PR (ADR-021).
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Test-only values. They are not secrets and must never be used outside CI.
+env:
+  DATABASE_URL: postgres://test:test@localhost:5432/app_test
+  BETTER_AUTH_SECRET: ci-only-not-a-real-secret-0123456789abcdef
+  BETTER_AUTH_URL: http://localhost:3000
+  ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+  PLAID_ENV: sandbox
+  PLAID_CLIENT_ID: ci-dummy
+  PLAID_SECRET: ci-dummy
+  GEMINI_API_KEY: ci-dummy
+  GEMINI_MODEL: ci-dummy
+  NESSIE_BASE_URL: http://localhost:9/nessie-disabled-in-ci
+  AGENT_SERVICE_TOKEN: ci-only-not-a-real-token-0123456789abcdef
+  AGENT_WORKER_URL: http://localhost:8787
+  REEFLECT_URL: http://localhost:3000
+  CRON_SECRET: ci-only-not-a-real-cron-secret
+  DEMO_MODE: "false"
+  NESSIE_API_KEY: ci-dummy
+  PHOTON_PROJECT_ID: ci-dummy
+  PHOTON_PROJECT_SECRET: ci-dummy
+
+jobs:
+  lint-typecheck:
+    name: lint-typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6 # version read from "packageManager" in package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm typecheck
+      - run: pnpm docs:check
+
+  # When the Drizzle schema lands (ADR-005), add a postgres service and a
+  # `pnpm db:migrate` step before the tests in `unit` and `e2e` (TEST-09).
+  unit:
+    name: unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:unit
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 7
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm build
+      - name: Scan client bundle for secrets
+        run: pnpm scan:bundle
+      - name: Playwright (excluding tests tagged @external)
+        run: pnpm test:e2e --grep-invert @external
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  security:
+    name: security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --prod --audit-level high

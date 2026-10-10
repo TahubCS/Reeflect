@@ -12,6 +12,10 @@ Agent Track, Best Use of Nessie with Capital One, MLH Best Use of Gemini API
 > calendar. The week-ahead image and the exact reply wording are still
 > Proposed; the agent, Nessie and trust story are unchanged.
 
+> **Updated 2026-10-10 (ADR-043, ADR-044):** statement parsing (CSV and PDF,
+> by code) is now one of the four main features. The demo script in section 5
+> does not show a statement upload yet; add a step once the import works.
+
 ---
 
 ## 1. One line
@@ -68,8 +72,8 @@ screen. Fill in the bracketed values from the seed before rehearsing.
 | 2:25 | Text "12 lunch" | "Logging cash is one text." Reply confirms the category and what's left. |
 | 2:45 | Close | Repeat the one-line pitch (section 1). |
 
-Steps that depend on P1 features (bill reminders at 2:05) are cut or shown
-as previews if unfinished.
+Steps that depend on P1 features (the keep / cancel reply at 1:45, bill
+reminders at 2:05) are cut if unfinished (ADR-043).
 
 ## 6. Judge questions to prepare for
 

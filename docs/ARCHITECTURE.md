@@ -64,7 +64,7 @@ Key properties:
 
 ## ARCH-02: Code layout and dependency rules
 
-Governed by: ADR-003, AGENTS.md section 6
+Governed by: ADR-003, ADR-046, AGENTS.md section 6
 
 | Layer | Location | May import | Must not import |
 |---|---|---|---|
@@ -84,6 +84,11 @@ and `agent-worker/` as a second package. The worker may import only from
 `agent-worker/` and a shared `packages/agent-protocol/` types package (the
 request and response shapes of `/api/agent/turn` and `/send`); it never
 imports from `src/`.
+
+Styling (ADR-046): design tokens are CSS custom properties in
+`src/app/globals.css`; each component has a CSS Module that uses them.
+Tailwind is a fallback for a single element, never a component's main
+styling.
 
 ## ARCH-03: Data model
 
@@ -152,7 +157,7 @@ cleared on workspace switch and sign-out.
 
 ## ARCH-05: Import pipeline
 
-Governed by: ADR-009, ADR-010, ADR-011, ADR-012, ADR-020, ADR-025
+Governed by: ADR-009, ADR-010, ADR-012, ADR-020, ADR-025, ADR-044
 
 ```mermaid
 flowchart TD
@@ -172,6 +177,8 @@ flowchart TD
   CM --> DEL[Delete raw file, keep SHA-256]
 ```
 
+- CSV and PDF parsing is done by code only; no AI model sees the file or
+  produces a value (ADR-044).
 - `preview` performs no writes except a `previewed` import batch row.
 - `commit` is idempotent per batch: re-running a committed batch does nothing.
 - Plaid sync runs on webhook receipt and on user request; it uses the same
@@ -194,7 +201,7 @@ Governed by: ADR-014, ADR-018, ADR-026, ADR-042
 
 ## ARCH-07: AI layer
 
-Governed by: ADR-019
+Governed by: ADR-019, ADR-045
 
 - `src/lib/ai/client.ts`: Google Gemini API wrapper using the `@google/genai`
   SDK (server-only). Nothing outside `lib/ai` imports the SDK directly.
@@ -204,6 +211,9 @@ Governed by: ADR-019
 - "Ask Reeflect" exposes read-only tools (for example
   `getCategorySpend(workspaceId, month, categoryId)`) that call the same
   repository functions as the UI, with the same authorization.
+- The website summary panel (ADR-045) sends code-computed aggregates to
+  Gemini, fills the placeholders in its reply, runs the digit scan, and falls
+  back to a fixed template with the same figures.
 
 ## ARCH-08: Security controls
 
@@ -312,7 +322,7 @@ again later." Other import sources keep working when Plaid is down.
 
 ## ARCH-12: Bill reminders
 
-Governed by: ADR-030, ADR-014, ADR-016, ADR-019
+Governed by: ADR-030, ADR-014, ADR-019, ADR-041
 
 | Step | Where | What happens |
 |---|---|---|
@@ -321,7 +331,7 @@ Governed by: ADR-030, ADR-014, ADR-016, ADR-019
 | 3. Schedule | Job tick every 5 minutes from the worker (ADR-041), plus a daily Vercel Cron backup → `src/features/reminders/server/schedule.ts` | For every bill due in 7 days (workspace time zone) with no reminder row for that cycle, create one |
 | 4. Check paid | `src/features/reminders/domain/isPaid.ts` | If a matching payment already posted this cycle, mark `cancelled_paid` instead of sending |
 | 5. Compose | `src/features/reminders/domain/compose.ts` | Builds the message from code values: name, amount, date, low-balance warning, autopay wording |
-| 6. Deliver | In-app list and badge; iMessage only if the agent ADR is accepted | Marks `sent` with timestamp |
+| 6. Deliver | In-app list and badge, and iMessage under ADR-038 | Marks `sent` with timestamp |
 
 The tick route checks the service token and the cron route checks Vercel's
 cron secret. Both are idempotent: running them repeatedly sends nothing twice
@@ -366,7 +376,7 @@ sequenceDiagram
 | Identity | `src/features/messaging/server/` | Link codes, `messaging_identity`, STOP handling |
 | Brain | `src/features/agent/server/runAgentTurn.ts` | Gemini loop with tools, reply composition |
 | Tools | `src/features/agent/server/tools/` | `getSummary`, `getCategory`, `listSubscriptions`, `listUpcomingBills`, `logSpending`, `setSubscriptionIntent` |
-| Intent parsing | `src/features/agent/domain/parse.ts` | Fast-path intents (ADR-039): LINK, TRY, STOP, keep / cancel / yes / UNDO / DETAILS, quiet hours, amounts from user text (ADR-035) |
+| Intent parsing | `src/features/agent/domain/parse.ts` | Code-only commands (ADR-040): LINK, TRY, STOP, keep / cancel / yes / UNDO / DETAILS, quiet hours, amounts from user text (ADR-035) |
 | Quiet hours | `src/features/messaging/domain/quietHours.ts` | Parse times, handle ranges across midnight, decide whether a message may be sent now |
 | Demo mode | `src/features/messaging/server/demo.ts`, `scripts/demo-judges.ts`, `scripts/demo-reset.ts` | Judge workspaces, TRY linking, expiry, reset (ADR-034) |
 | Week-ahead image | `src/app/api/agent/week.png/route.ts` | Renders the next 7 days of the calendar to PNG (Proposed, ADR-042); URL signed and valid for 10 minutes |

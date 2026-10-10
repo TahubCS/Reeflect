@@ -39,29 +39,31 @@ Update this table when work is assigned or finished. Features are listed in
 
 | Feature / bug | Lane | Assigned to | Branch | Status |
 |---|---|---|---|---|
-| Scaffold (Next.js, pnpm workspace, Drizzle, Better Auth, CI, lefthook) | All | Unassigned | — | Not started |
+| Scaffold (Next.js, pnpm workspace, Drizzle, Better Auth, CI, lefthook) | All | Unassigned | — | In progress: Next.js and CI done (HO-016) |
 | F-01 Sign up / sign in | B | Unassigned | — | Not started |
 | F-02 Personal workspace | B | Unassigned | — | Not started |
 | F-03 Financial accounts | A | Unassigned | — | Not started |
 | F-04 Manual transactions | A | Unassigned | — | Not started |
 | F-05 CSV import | A | Unassigned | — | Not started |
+| F-06 PDF statement import (P0, ADR-044) | A | Unassigned | — | Not started |
 | F-08 Categorization | A | Unassigned | — | Not started |
-| F-09 Monthly budgets | A | Unassigned | — | Not started |
-| F-10 Recurring snails | A | Unassigned | — | Not started |
-| F-12 Tank hero panel | B | Unassigned | — | Not started |
+| F-09 Monthly budgets (P1) | A | Unassigned | — | Not started |
+| F-10 Subscriptions (detection P0, marks P1) | A | Unassigned | — | Not started |
+| F-12 Calendar home screen | B | Unassigned | — | Not started |
 | F-13 Drill-down | B | Unassigned | — | Not started |
 | F-18 Themes and accessibility | B | Unassigned | — | Not started |
 | F-19 Delete data | B | Unassigned | — | Not started |
 | F-21 Demo seed (incl. Nessie) | A | Unassigned | — | Not started |
 | F-23 Nessie import and sync | A | Unassigned | — | Not started |
 | F-24 Phone linking | C | Unassigned | — | Not started |
-| F-25 "How am I doing?" + tank image | C | Unassigned | — | Not started |
-| F-26 Snail alerts | C | Unassigned | — | Not started |
+| F-25 "How am I doing?" + week-ahead image | C | Unassigned | — | Not started |
+| F-26 Subscription alerts | C | Unassigned | — | Not started |
 | F-27 Log spending by text | C | Unassigned | — | Not started |
 | F-28 Category and balance questions | C | Unassigned | — | Not started |
 | F-32 Agent worker | C | Unassigned | — | Not started |
 | F-22 Bill reminders (P1) | A + C | Unassigned | — | Not started |
-| Previews: PDF, household, debt tab, recap (ADR-027) | B | Unassigned | — | Not started |
+| F-15 Gemini summary on the website (P1, ADR-045) | C | Unassigned | — | Not started |
+| Later (ADR-043): Plaid, household, debt tab, savings goal, receipt photos, recaps, forecast, audit log | — | Unassigned | — | Only if time remains |
 
 ---
 
@@ -554,3 +556,79 @@ recommendation, not a decision.
   panel" and F-25 "tank image"; ADR-042 renamed these. Update the table when
   assignments are filled in at kickoff.
 - The open problems in HO-013 still stand.
+
+---
+
+## HO-015: Next.js scaffolded; plain CSS, no Tailwind
+
+- **Date:** 2026-10-10 12:01 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `main` (uncommitted working tree, by the user's choice) / not opened
+
+### What changed
+- Repository created with `create-next-app`: Next.js 16.4, App Router,
+  TypeScript strict, ESLint, `src/`, `@/*` alias, pnpm (ADR-003). One initial
+  commit on `main`; `origin` is connected.
+- Tailwind removed (uncommitted): styling is plain CSS, with global rules in
+  `src/app/globals.css` and CSS Modules per component. This matches the
+  "HTML and CSS" rendering line in ADR-042.
+- `pnpm build`, `pnpm lint` and `tsc --noEmit` pass.
+
+### What's next
+1. Move the uncommitted Tailwind removal to a branch and commit it.
+2. Finish the scaffold: the remaining AGENTS.md section 5 scripts, Prettier,
+   Vitest, Playwright, Drizzle, Better Auth, the pnpm workspace packages, CI
+   and `src/config/app.ts`.
+3. Replace the stock starter page with the calendar home screen.
+
+### Open problems
+- The plain-CSS choice is not written in AGENTS.md or as an ADR, so other
+  agents may reach for Tailwind.
+- No tests exist yet; the starter page has none.
+- The open problems in HO-014 still stand.
+
+---
+
+## HO-016: Tailwind kept; CI added; scope refocused (ADR-043 to ADR-046)
+
+- **Date:** 2026-10-10 13:00 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `main` (uncommitted working tree, by the user's choice) / not opened
+
+### What changed
+- Corrects HO-015: Tailwind was **not** removed. It stays installed as a
+  fallback; plain CSS with tokens and CSS Modules is the default (ADR-046).
+- New ADRs: ADR-043 (scope: calendar, statement parsing, Nessie, iMessage
+  agent first; supersedes ADR-037), ADR-044 (CSV and PDF both built, parsed
+  by code only; supersedes ADR-011), ADR-045 (Gemini summary on the website),
+  ADR-046 (styling). PROJECT, ARCHITECTURE, TESTING, PITCH and AGENTS.md
+  updated to match.
+- CI: `.github/` copied from the pre-event templates and adapted. Jobs
+  `lint-typecheck`, `unit`, `e2e`, `security` and `codeql` run on every pull
+  request. Added Prettier, Vitest, Playwright, `scripts/docs-check.ts`,
+  `scripts/scan-bundle.ts` and their tests, and one Playwright smoke test.
+  All AGENTS.md section 5 scripts exist and pass locally.
+- Also copied: `CLAUDE.md`, `GEMINI.md`, `.coderabbit.yaml`.
+
+### What's next
+1. Commit this work on a branch and open a PR; watch the first CI run, since
+   the workflows have only been run command by command on a laptop.
+2. Import `.github/rulesets/main.json` in the repository settings so `main`
+   is protected and the five checks are required.
+3. Replace the browser Nessie SDK from commit 6525b1b with a server client
+   (see Open problems).
+4. Choose the first bank for the PDF template (ADR-044) and record it here.
+5. Add the Drizzle schema, then the database steps in CI (TEST-09).
+
+### Open problems
+- Commit 6525b1b on `main` loads the Nessie jQuery SDK in the browser from
+  the root layout. ADR-033 says Nessie is called from the server only,
+  because the key travels in the URL. Muhammad confirmed ADR-033 stands; the
+  SDK in `public/lib` and the `<Script>` tag need replacing. Not changed in
+  this session.
+- `main` is not protected: that commit was pushed straight to it.
+- ADR-045's limits on "suggestions" are Proposed; the team should confirm
+  how far Gemini's wording may go given the no-advice rule in ADR-001.
+- PITCH.md section 5 has no statement-upload step yet.
+- `lefthook.yml` and `.env.example` from the templates were not copied.
+- The open problems in HO-014 still stand.

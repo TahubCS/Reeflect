@@ -20,8 +20,12 @@ Reeflect is personal finance for everyday people, with two faces:
 | **iMessage agent** (ADR-031) | The everyday interface. Text "how am I doing?" and get your numbers plus a picture of your week ahead. It alerts you to new subscriptions, reminds you of bills, and logs spending you text it. |
 | **Web app** (ADR-042) | The full view: a cash-flow calendar that shows what you can spend per day and what is coming, plus accounts, budgets, imports, settings and phone linking. |
 
-Data comes from Capital One's Nessie sandbox (the demo source), manual entry
-and CSV exports; Plaid and PDF statements come later.
+Data comes from Capital One's Nessie sandbox (the demo source), bank
+statements uploaded as CSV or PDF and parsed by code (ADR-044), and manual
+entry. Plaid comes later.
+
+The four main features for HackNC are the calendar, statement parsing,
+Nessie and the iMessage agent (ADR-043).
 
 - Product name: **Reeflect** (ADR-002). Code uses `APP_NAME`.
 - Event: HackNC 2026, October 9–11, 2026, a 24-hour build.
@@ -69,34 +73,34 @@ you can trust."* The full pitch, demo script and judge Q&A are in `PITCH.md`.
 
 ## 5. Feature catalogue
 
-**P0** = required for the demo path. **P1** = build after all P0 work passes
-CI. **P2** = only if time remains. **Preview** = shown as a frontend preview
-with sample data (ADR-027); any P1 or P2 feature not built in time becomes one
-too. Priorities follow ADR-037, which is Proposed: the team confirms them at
-kickoff. Lanes: A = Data, B = Web, C = Agent.
+**P0** = the four main features and their foundations; build first. **P1** =
+build next, after all P0 work passes CI. **Later** = only if time remains
+after P1; the ADR stays as the plan. A Later feature may be shown as a
+frontend preview with sample data (ADR-027), but none is required.
+Priorities follow ADR-043. Lanes: A = Data, B = Web, C = Agent.
 
 | ID | Feature | Priority | Lane | Description | ADRs |
 |---|---|---|---|---|---|
 | F-01 | Sign up / sign in | P0 | B | Email and password through Better Auth. Google sign-in is P2. | ADR-006 |
-| F-02 | Workspaces | P0 (personal), Preview (household) | B | Every user gets a Personal workspace. Household workspaces with invite links and owner / editor / viewer roles are a preview unless time allows. | ADR-007 |
+| F-02 | Workspaces | P0 (personal), Later (household) | B | Every user gets a Personal workspace. Household workspaces with invite links and owner / editor / viewer roles come later. | ADR-007 |
 | F-03 | Financial accounts | P0 | A | Checking, savings, credit-card and loan accounts: institution, type, nickname, last 4 digits. | ADR-009 |
 | F-04 | Manual transactions | P0 | A | Add, edit and delete a transaction on an account. | ADR-008 |
 | F-05 | CSV import | P0 | A | Upload a CSV to a chosen account, map columns once per institution, preview, pass guardrails, commit. | ADR-009, ADR-010 |
-| F-06 | PDF statement import | Preview | A | Text-based PDF statements with identity check and reconciliation. | ADR-010, ADR-011 |
-| F-07 | Bank linking (Plaid) | P1 | A | Link accounts through Plaid Link (Sandbox) and sync transactions. | ADR-012 |
+| F-06 | PDF statement import | P0 | A | Text-based PDF statements parsed by code with a per-institution template, with identity check and reconciliation. No AI in parsing. | ADR-010, ADR-044 |
+| F-07 | Bank linking (Plaid) | Later | A | Link accounts through Plaid Link (Sandbox) and sync transactions. | ADR-012 |
 | F-08 | Categorization | P0 | A | Keyword rules on the normalized merchant name, with a manual override that can be saved as a rule. | ADR-013 |
-| F-09 | Monthly budgets | P0 | A | One budget per category per calendar month; 6–8 preset categories, renameable. Own page, not the home screen. | ADR-015 |
-| F-10 | Subscriptions | P0 | A | Detect recurring charges; show monthly and yearly cost; the user marks keep or planning to cancel. The app never cancels anything. | ADR-014, ADR-030 |
-| F-11 | Savings goal | P1 | B | One active goal with target amount and date, shown as a progress line on the home screen. | ADR-042 |
+| F-09 | Monthly budgets | P1 | A | One budget per category per calendar month; 6–8 preset categories, renameable. Own page, not the home screen. | ADR-015 |
+| F-10 | Subscriptions | P0 (detection), P1 (keep / cancel marks) | A | Detect recurring charges; show monthly and yearly cost; the user marks keep or planning to cancel. The app never cancels anything. | ADR-014, ADR-030 |
+| F-11 | Savings goal | Later | B | One active goal with target amount and date, shown as a progress line on the home screen. | ADR-042 |
 | F-12 | Calendar home screen | P0 | B | The per-day headline with its sum, the month calendar, the balance line and the selected-day panel, plus an "Upcoming bills" list once F-22 exists. | ADR-042 |
 | F-13 | Drill-down | P0 | B | Select a day to see its activity, sources and balance; filter by kind; switch between calendar and list. | ADR-042 |
-| F-14 | End-of-month forecast | P1 | A | The dotted part of the balance line, from recurring income, bills and spending pace. | ADR-026 |
-| F-15 | AI insights on the website | P2 | C | Category suggestions and "Ask Reeflect" on the web, reusing the agent brain. | ADR-019 |
-| F-16 | Debt and credit tab | Preview | B | Cards and loans (Nessie loans or Plaid Liabilities). Any credit score is labelled "Sample". | ADR-024 |
-| F-17 | Monthly recap | Preview | B | Animated playback of the month on the calendar. | ADR-042 |
+| F-14 | End-of-month forecast | Later | A | The dotted part of the balance line, from recurring income, bills and spending pace. | ADR-026 |
+| F-15 | Gemini summary on the website | P1 | C | A panel where Gemini writes a summary of the user's finances from numbers computed by code, reusing the agent brain. Category suggestions and "Ask Reeflect" come later. | ADR-019, ADR-045 |
+| F-16 | Debt and credit tab | Later | B | Cards and loans (Nessie loans or Plaid Liabilities). Any credit score is labelled "Sample". | ADR-024 |
+| F-17 | Monthly recap | Later | B | Animated playback of the month on the calendar. | ADR-042 |
 | F-18 | Themes and accessibility | P0 | B | Light and dark themes, WCAG 2.2 AA, reduced motion, text labels, responsive from 360px. | ADR-018 |
 | F-19 | Delete data | P0 | B | Delete a workspace or an account and all its data. | ADR-025 |
-| F-20 | Audit log | P1 | A | Security-relevant events, including phone linking and unlinking. | ADR-025 |
+| F-20 | Audit log | Later | A | Security-relevant events, including phone linking and unlinking. | ADR-025 |
 | F-21 | Demo seed | P0 | A | `pnpm db:seed` builds the demo workspace, including its Nessie customer and history. | ADR-033 |
 | F-22 | Bill due-date reminders | P1 | A + C | Remind 7 days before car payments, mortgage, rent, loans and card minimums are due; low-balance warning; no reminder if already paid. In-app and by iMessage. | ADR-030, ADR-038 |
 | F-23 | Nessie import and sync | P0 | A | "Connect Capital One sandbox" creates a Nessie customer and accounts; sync maps purchases, deposits, withdrawals, transfers, bills and loans. | ADR-033 |
@@ -105,9 +109,9 @@ kickoff. Lanes: A = Data, B = Web, C = Agent.
 | F-26 | Subscription alerts | P0 | C | When a new subscription is detected, the agent texts that it found one, with the monthly and yearly cost on an image card; the user replies keep or cancel to set the mark. | ADR-031, ADR-038 |
 | F-27 | Log spending by text | P0 | C | "12 lunch": code takes the amount from the text, Gemini picks the category, the agent confirms with the category's remaining budget. | ADR-035 |
 | F-28 | Category and balance questions | P0 | C | "How much did I spend on food?" answered through tools with exact numbers. | ADR-031, ADR-035 |
-| F-29 | Receipt photos | P1 | C | Photo of a receipt becomes a proposed transaction, saved only after the user confirms. | ADR-035 |
-| F-30 | Weekly recap text | P1 | C | Sunday evening summary with the week-ahead image. | ADR-038 |
-| F-31 | Household group chat | Preview | C | The agent in a family group chat answers about the household calendar only. | ADR-034 |
+| F-29 | Receipt photos | Later | C | Photo of a receipt becomes a proposed transaction, saved only after the user confirms. | ADR-035 |
+| F-30 | Weekly recap text | Later | C | Sunday evening summary with the week-ahead image. | ADR-038 |
+| F-31 | Household group chat | Later | C | The agent in a family group chat answers about the household calendar only. | ADR-034 |
 | F-32 | Agent worker | P0 | C | Long-running Spectrum process on Render that relays messages between iMessage and the Next.js brain. | ADR-032 |
 | F-33 | Quiet hours settings | P0 | B + C | Users set quiet hours on the website (Settings → Notifications) or by texting "Reeflect, register new quiet hours 11PM to 7 AM". Default 9 PM–9 AM. | ADR-038 |
 | F-34 | Judge demo ("Try it") | P0 | C | Demo mode only: a judge scans a QR code, texts TRY, and is linked for 2 hours to a sandbox judge workspace. | ADR-034 |
@@ -138,7 +142,8 @@ confident with money.
 | Storing bank usernames or passwords | Plaid handles bank login (ADR-012) |
 | Real credit scores | Needs bureau agreements; mocked and labelled (ADR-024) |
 | Non-USD currencies | Out of scope for now (ADR-008) |
-| Scanned (image-only) PDF statements | Needs OCR, which adds misread digits (ADR-011) |
+| Scanned (image-only) PDF statements | Needs OCR, which adds misread digits (ADR-044) |
+| AI reading statements | Code extracts every number; Gemini only sees the results (ADR-044) |
 | Shame mechanics (alarms, guilt copy, failure states) | Against the product's calm tone (ADR-042) |
 | Sending financial data to an unlinked phone number | Identity must be proven first (ADR-034) |
 | A general-purpose chatbot | The agent answers about the user's money and Reeflect only (ADR-031) |

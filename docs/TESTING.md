@@ -38,6 +38,9 @@ feature without both is not mergeable.
 | `src/lib/security/**`, `src/lib/auth/**` | 95% | 90% |
 | Everything else | 80% | 70% |
 
+Coverage is measured over `src/` and `scripts/`, except `src/app/**`: routes
+are thin and are covered by Playwright (TEST-07).
+
 Coverage is a floor, not the goal. Boundary cases below are required even
 when coverage is already met.
 
@@ -54,7 +57,7 @@ when coverage is already met.
 | Transfers (ADR-020) | Checking → card payment pairs and is excluded from spending; same amount but more than 3 days apart does not pair; two candidates for one transaction pairs only once; unpairing |
 | Import guardrails (ADR-010) | Each check in the ADR-010 table passes and fails; nothing written when any blocking check fails; duplicate file; overlapping periods dedupe; reconciliation off by $0.01 blocks |
 | CSV parsing | Each sign convention; date formats; extra header rows; trailing blank lines; quoted commas; UTF-8 BOM |
-| PDF parsing | Each supported template against fixture PDFs; encrypted PDF rejected; image-only PDF rejected; wrong-bank PDF blocked by identity check |
+| PDF parsing (ADR-044) | Each supported template against fixture PDFs; encrypted PDF rejected; image-only PDF rejected; wrong-bank PDF blocked by identity check |
 | Nessie mapping (ADR-033) | `fromDollarNumber`: 12.1 → 1210, 0.1 + 0.2 style inputs, 19.999 rejected, negative and zero amounts; purchase on a credit-card account is negative; deposit positive; transfer pairs; bill → `recurring_series` kind `bill` with lender due date; loan → `liability`; re-sync creates no duplicates (external id) |
 | Nessie client | API key never appears in thrown errors or log output (spy on logger with a failing request) |
 | Agent intent parsing (ADR-035) | "12 lunch", "$12.50 coffee", "lunch 12", "spent twelve dollars" (asks instead of guessing), two numbers in one message (asks), LINK codes, STOP, keep / cancel / yes |
@@ -66,9 +69,10 @@ when coverage is already met.
 | Job tick (ADR-041) | Rejects requests without the service token; running twice in a row sends nothing twice; held quiet-hours messages are released after quiet hours end; stale Nessie data triggers a sync |
 | Judge demo (ADR-034) | TRY ignored when `DEMO_MODE` is off; links to a judge workspace when on; sixth judge gets "demo is full"; link expires after 2 hours; reset removes all judge links and workspaces |
 | Worker protocol | Shared zod schemas accept valid turns and reject malformed ones; worker refuses `/send` without the token |
-| Bill reminders (ADR-030) | Reminder created exactly 7 days before due date in the workspace time zone; due on the 31st falls on the last day of shorter months (including February in leap and non-leap years); lender date beats user date beats predicted; already-paid bill cancels the reminder; running the cron twice sends once; low-balance warning at balance one cent below, equal to, and above the amount; autopay wording; bills never appear as snails |
+| Bill reminders (ADR-030) | Reminder created exactly 7 days before due date in the workspace time zone; due on the 31st falls on the last day of shorter months (including February in leap and non-leap years); lender date beats user date beats predicted; already-paid bill cancels the reminder; running the cron twice sends once; low-balance warning at balance one cent below, equal to, and above the amount; autopay wording; bills never appear as subscriptions |
 | Forecast (ADR-026) | No recurring data; income later in month; last day of month |
 | AI (ADR-019) | Placeholder filling; digit scan rejects model-invented digits; fallback template used on rejection |
+| Website summary (ADR-045) | Every figure in the panel equals the value code computed; a Gemini error or timeout shows the fixed template with the same figures; no statement text is sent to Gemini |
 | Crypto | Encrypt/decrypt round trip; tampered ciphertext fails; wrong key fails |
 
 ## TEST-05: Required integration tests (Vitest + real PostgreSQL)
@@ -137,27 +141,34 @@ must match the required checks in `.github/rulesets/main.json`.
 | CI job | Runs |
 |---|---|
 | `lint-typecheck` | `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm docs:check` |
-| `unit` | `pnpm db:migrate` on a fresh database, then `pnpm test:unit` with coverage thresholds |
+| `unit` | `pnpm test:unit` with coverage thresholds |
 | `e2e` | `pnpm build`, `pnpm scan:bundle`, `pnpm test:e2e --grep-invert @external` |
 | `security` | `pnpm audit --prod --audit-level high` |
-| `CodeQL` (separate workflow) | Static analysis for JavaScript/TypeScript |
+| `codeql` (separate workflow) | Static analysis for JavaScript/TypeScript |
+
+Until the Drizzle schema exists (ADR-005), `unit` and `e2e` run without a
+database. The PR that adds the schema also adds a PostgreSQL service and a
+`pnpm db:migrate` step before the tests in both jobs.
 
 The workspace isolation matrix (TEST-06) includes `/api/agent/turn`: a
 linked handle for user A can never cause a tool call against user B's
 workspace, whatever the message text says.
 
-Skipped tests (`.skip`, `.only`) fail the lint step.
+Skipped tests (`.skip`, `.only`) fail the lint step, through an ESLint rule
+on test files.
 
-`pnpm docs:check` is one Node script with no extra dependencies, written
-during the scaffold. It fails when any of these is false:
+`pnpm docs:check` is one Node script with no extra dependencies
+(`scripts/docs-check.ts`). It fails when any of these is false:
 
 1. Every `ADR-`, `ARCH-`, `TEST-` and `HO-` id cited in `docs/`, `AGENTS.md`,
    `.coderabbit.yaml`, `.github/` or `src/` matches a heading that exists.
-2. Ids are unique and in sequence, and every ADR has a Status line.
+2. Ids are unique and in sequence, and every ADR has a Status line. Retired
+   ADR numbers may be cited but not reused.
 3. Every "Superseded by ADR-N" names an ADR that exists.
-4. The command table in `AGENTS.md` section 5 and the `scripts` in
+4. The first command table in `AGENTS.md` section 5 and the `scripts` in
    `package.json` list the same commands.
-5. The required checks in `.github/rulesets/main.json` match the CI job names.
+5. The required checks in `.github/rulesets/main.json` match the names of the
+   jobs in workflows that run on pull requests.
 6. Every relative file link in the docs points to a file that exists.
 
 It checks references only. Whether the prose still matches the build is left

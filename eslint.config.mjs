@@ -12,7 +12,28 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "coverage/**",
+    "playwright-report/**",
+    "test-results/**",
+    // Vendored Nessie SDK.
+    "public/lib/**",
   ]),
+  {
+    // Skipped and focused tests must not reach main (TEST-09).
+    files: ["**/*.test.{ts,tsx}", "tests/**/*.ts"],
+    rules: {
+      "no-restricted-properties": [
+        "error",
+        ...["describe", "it", "test"].flatMap((object) =>
+          ["only", "skip"].map((property) => ({
+            object,
+            property,
+            message: "Remove .only and .skip before committing.",
+          })),
+        ),
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

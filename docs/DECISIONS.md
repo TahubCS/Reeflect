@@ -20,8 +20,8 @@ by ADR-042) and ADR-039 (free-tier Gemini limits, replaced by ADR-040).
 Rules:
 - From here on, never edit the Decision of an Accepted ADR. Write a new ADR
   that supersedes it and change only the old one's status line.
-- New ADRs take the next free number (ADR-043 is next). Use the template at
-  the bottom.
+- New ADRs take the next free number after the highest in the Index. Use the
+  template at the bottom.
 - When the team confirms a Proposed ADR, change its status to Accepted and add
   the date.
 
@@ -39,7 +39,7 @@ Rules:
 | ADR-008 | Money as integer cents; USD only | Accepted |
 | ADR-009 | Data sources share one transaction shape | Accepted |
 | ADR-010 | Import guardrails: identity, duplicates, reconciliation | Accepted |
-| ADR-011 | PDF statement parsing pipeline | Accepted |
+| ADR-011 | PDF statement parsing pipeline | Superseded by ADR-044 |
 | ADR-012 | Bank linking through Plaid; no raw credentials | Accepted |
 | ADR-013 | Categorization by keyword rules with manual override | Accepted |
 | ADR-014 | Recurring charge detection | Accepted |
@@ -63,11 +63,15 @@ Rules:
 | ADR-034 | Phone linking, agent identity, judge demo flow | Accepted |
 | ADR-035 | Agent number rules (refines ADR-019) | Proposed |
 | ADR-036 | Prize tracks entered | Accepted |
-| ADR-037 | MVP scope and build order | Proposed (Plaid P1 and bills P1 Accepted) |
+| ADR-037 | MVP scope and build order | Superseded by ADR-043 |
 | ADR-038 | Proactive messages: opt-in, quiet hours, lock-screen privacy | Accepted |
 | ADR-040 | Gemini used without tier-driven limits | Accepted |
 | ADR-041 | Keeping the Render worker awake; worker as the job clock | Accepted (job clock Proposed) |
 | ADR-042 | Cash-flow calendar is the home screen | Accepted (six sub-items Proposed) |
+| ADR-043 | HackNC scope and build order | Accepted |
+| ADR-044 | Statement parsing: CSV and PDF, by code only | Accepted |
+| ADR-045 | Gemini summary on the website (refines ADR-019) | Accepted (suggestion wording Proposed) |
+| ADR-046 | Styling: plain CSS first, Tailwind as a fallback | Accepted |
 
 ---
 
@@ -132,8 +136,7 @@ Rules:
 
 ### ADR-037: MVP scope and build order
 
-- **Status:** Proposed (confirm at kickoff). Already Accepted: Plaid is P1 and
-  bill reminders are P1.
+- **Status:** Superseded by ADR-043
 - **Decision:** Priorities in PROJECT.md section 5 are:
   - **P0:** sign-in, personal workspace, accounts, manual entry, CSV, Nessie
     import and sync, categorization, budgets, subscriptions, the calendar and
@@ -149,6 +152,41 @@ Rules:
     C Agent (worker, brain, images). Milestones are in HANDOFF.md.
 - **Consequences:** Features outside P0 that are not finished become previews
   (ADR-027).
+
+### ADR-043: HackNC scope and build order
+
+- **Status:** Accepted (2026-10-10), decided by Muhammad during the hacking
+  window. Supersedes ADR-037.
+- **Context:** ADR-037 spread the weekend across many features and left PDF
+  statements as a preview. The team now wants the main product working first
+  and everything else added only if time allows.
+- **Decision:**
+  - **P0, build first.** Four areas, plus the foundations they need:
+
+| Area | Features | ADRs |
+|---|---|---|
+| Calendar UI | Calendar home screen, drill-down, themes and accessibility | ADR-042, ADR-018 |
+| Bank statement parsing | CSV import and PDF import, equally, with the import guardrails; categorization; transfer pairing; recurring detection | ADR-044, ADR-010, ADR-013, ADR-020, ADR-014 |
+| Nessie | Connect the Capital One sandbox, sync, demo seed | ADR-033 |
+| iMessage agent | Worker, phone linking, "how am I doing?", subscription alerts, logging spending by text, category and balance questions, quiet hours, judge demo | ADR-031, ADR-032, ADR-034, ADR-035, ADR-038, ADR-040, ADR-041 |
+| Foundations | Sign-in, personal workspace, financial accounts, manual transactions, delete data | ADR-005, ADR-006, ADR-007, ADR-008, ADR-025 |
+
+  - **P1, build next, in this order:** subscriptions keep / planning to
+    cancel marks (ADR-014, ADR-030); the budgets page (ADR-015); bill due-date
+    reminders (ADR-030); the Gemini summary on the website (ADR-045).
+  - **Later, only if time remains after P1:** Plaid (ADR-012), household
+    workspaces and group chats (ADR-007, ADR-034), the debt and credit tab
+    (ADR-024), the savings goal, receipt photos (ADR-035), the weekly recap
+    text, the end-of-month forecast (ADR-026), the audit log (ADR-025), the
+    monthly recap and Google sign-in. Their ADRs stay Accepted as the plan
+    for when they are built.
+  - A Later feature may be shown as a preview under ADR-027, but none is
+    required.
+  - **Three lanes** stay as in HANDOFF.md: A Data, B Web, C Agent.
+- **Consequences:** PDF import is built for real, so its fixtures and tests
+  (TEST-04, TEST-07) are required this weekend. Until the budgets page
+  exists, the agent's confirmation after logging spending leaves out the
+  category's remaining budget. PROJECT.md section 5 carries these priorities.
 
 ### ADR-042: Cash-flow calendar is the home screen
 
@@ -296,6 +334,26 @@ Rules:
 - **Consequences:** Playwright runs axe accessibility checks and a
   reduced-motion run (TEST-07).
 
+### ADR-046: Styling: plain CSS first, Tailwind as a fallback
+
+- **Status:** Accepted (2026-10-10), decided by Muhammad
+- **Context:** Three people build with coding agents, and no single agent
+  holds the whole design. Utility classes scattered through components would
+  let each agent pick its own colours and spacing. `create-next-app`
+  installed Tailwind v4.
+- **Decision:**
+  - Styling is plain CSS. Design tokens (colours for both themes, spacing,
+    type sizes, radii) are CSS custom properties in `src/app/globals.css`.
+  - Component styles are CSS Modules next to the component
+    (`Thing.module.css`) and use the tokens, not literal colours or sizes.
+  - Tailwind stays installed as a fallback. A Tailwind utility may be used on
+    one specific element when plain CSS would be clearly worse. It is never a
+    component's main styling, and it never introduces a colour or size that
+    is not a token.
+- **Consequences:** An agent can style a component correctly from
+  `globals.css` alone. The starter page from `create-next-app` still uses
+  Tailwind classes and is replaced by the calendar home screen (ADR-042).
+
 ---
 
 ## Data and imports
@@ -337,8 +395,7 @@ Rules:
 
 ### ADR-011: PDF statement parsing
 
-- **Status:** Accepted (2026-10-06). The feature is shown as a preview at
-  HackNC (ADR-037).
+- **Status:** Superseded by ADR-044
 - **Decision:**
   1. Accept only `application/pdf` with valid magic bytes, ≤ 10 MB, ≤ 50
      pages. Reject encrypted or image-only PDFs with a clear message.
@@ -353,9 +410,41 @@ Rules:
 - **Consequences:** Unsupported layouts fail clearly rather than guess. Each
   template is covered by synthetic fixture PDFs in `tests/fixtures/pdf/`.
 
+### ADR-044: Statement parsing: CSV and PDF, by code only
+
+- **Status:** Accepted (2026-10-10), decided by Muhammad. Supersedes ADR-011.
+- **Context:** ADR-011 left PDF import as a preview and planned an AI
+  fallback for unknown layouts. Statement parsing is now one of the four main
+  features (ADR-043), and the team wants every number to be read by code.
+- **Decision:**
+  - CSV and PDF statement import are both built for real, with equal
+    priority. Both run in Next.js on the server (Node runtime).
+  - **No AI takes part in parsing.** Code extracts every date, description,
+    amount and balance. Gemini only sees the resulting numbers afterwards,
+    under ADR-019 and ADR-045.
+  - **PDF pipeline:**
+    1. Accept only `application/pdf` with valid magic bytes, ≤ 10 MB, ≤ 50
+       pages. Reject encrypted or image-only PDFs with a clear message.
+    2. Extract the text layer with word positions.
+    3. Parse with a per-institution template (anchors such as "Beginning
+       Balance"). The first version ships one institution's layout; the
+       institution is chosen when the work starts and recorded in HANDOFF.md.
+    4. Run the import guardrails (ADR-010), including mandatory balance
+       reconciliation.
+    5. Delete the raw file after extraction; keep only its SHA-256 (ADR-025).
+  - **CSV pipeline:** as ADR-010 and ARCH-05 describe: the user maps columns
+    once per institution, then the same guardrails run.
+- **Alternatives considered:** Gemini locating fields for code to read (works
+  on more banks, but adds a model to the path that produces numbers); Gemini
+  extracting transactions directly (breaks ADR-019).
+- **Consequences:** A statement from an unsupported bank fails clearly rather
+  than guessing. Each template is covered by synthetic fixture PDFs in
+  `tests/fixtures/pdf/` (TEST-08). Supporting another bank means writing
+  another template.
+
 ### ADR-012: Bank linking through Plaid
 
-- **Status:** Accepted (2026-10-06). Priority P1 (ADR-037).
+- **Status:** Accepted (2026-10-06). Built later (ADR-043).
 - **Decision:**
   - Users authenticate with their bank inside Plaid Link (Plaid's own UI). The
     app never sees, stores or transmits bank credentials.
@@ -445,7 +534,7 @@ Rules:
 
 ### ADR-024: Debt and credit tab
 
-- **Status:** Accepted (2026-10-06). Shown as a preview at HackNC (ADR-037).
+- **Status:** Accepted (2026-10-06). Built later (ADR-043).
 - **Decision:** A separate tab shows credit cards and loans: balance, APR,
   minimum payment, due date. Data comes from Nessie loans, Plaid Liabilities
   in sandbox, or mock data. A credit score, if shown, is mock data labelled
@@ -470,7 +559,7 @@ Rules:
 
 ### ADR-026: End-of-month forecast
 
-- **Status:** Accepted (2026-10-06). Priority P1.
+- **Status:** Accepted (2026-10-06). Built later (ADR-043).
 - **Decision:** Projected month-end liquid balance =
   current liquid balance
   \+ expected recurring income not yet received this month
@@ -483,7 +572,7 @@ Rules:
 
 ### ADR-030: Bill due-date reminders
 
-- **Status:** Accepted (2026-10-06). Priority P1.
+- **Status:** Accepted (2026-10-06). Priority P1 (ADR-043).
 - **Context:** Users should be reminded before recurring obligations such as
   car payments and mortgages are due. These are obligations with due dates,
   not optional spending.
@@ -746,6 +835,31 @@ Rules:
 - **Consequences:** No free-tier workarounds in the design. Free-tier rate
   limits may still occur during judging; the error fallback covers them, and
   the team load-tests the demo path at hour 20 (HANDOFF.md).
+
+### ADR-045: Gemini summary on the website (refines ADR-019)
+
+- **Status:** Accepted (2026-10-10), decided by Muhammad. The wording limits
+  on suggestions are Proposed.
+- **Context:** ADR-019 put website AI features at P2. The team wants Gemini
+  to turn the numbers that code has computed, from statements and Nessie,
+  into a plain summary of where the user stands.
+- **Decision (Accepted):**
+  - The website has a summary panel written by Gemini. It is P1 (ADR-043).
+  - Code computes every figure (balance, what is due before payday, spending
+    by category, subscriptions). Gemini receives those aggregates and writes
+    sentences with placeholders; code fills them in and the digit scan runs
+    (ADR-019, ARCH-07). Gemini never reads a statement and never produces a
+    number.
+  - The panel reuses the agent brain's tools and `src/lib/ai`. If Gemini
+    fails, the panel shows a fixed template with the same figures.
+- **Decision (Proposed):** "Suggestions" are observations about the user's own
+  data, such as their largest category or a subscription marked planning to
+  cancel. The panel does not recommend financial products, tell the user to
+  buy, switch or invest, or use guilt (ADR-001, ADR-042).
+- **Consequences:** ADR-019's line placing website AI features at P2 no longer
+  applies to the summary panel; category suggestions and "Ask Reeflect" stay
+  later. The tier rule in ADR-019 still holds: only sandbox or synthetic data
+  reaches a free-tier Gemini key.
 
 ### ADR-041: Keeping the Render worker awake; worker as the job clock
 
