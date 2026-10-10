@@ -1,5 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { authFailureMessage, parseSignIn, parseSignUp } from "./credentials";
+import {
+  authFailureMessage,
+  parseSignIn,
+  parseSignUp,
+  prefillEmail,
+} from "./credentials";
+
+describe("prefillEmail", () => {
+  it("keeps one valid address", () => {
+    expect(prefillEmail("sam@example.test")).toBe("sam@example.test");
+  });
+
+  it("ignores a missing, invalid, repeated or over-long address", () => {
+    expect(prefillEmail(undefined)).toBe("");
+    expect(prefillEmail("not-an-email")).toBe("");
+    expect(prefillEmail(["a@example.test", "b@example.test"])).toBe("");
+    expect(prefillEmail(`${"a".repeat(250)}@example.test`)).toBe("");
+  });
+});
 
 const VALID = {
   name: "Sam Rivera",

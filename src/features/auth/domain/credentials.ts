@@ -47,6 +47,16 @@ function parse<T>(schema: z.ZodType<T>, raw: unknown): Parsed<T> {
   return { ok: false, errors };
 }
 
+/**
+ * An email address passed in the page's address (`/sign-up?email=…`, sent by
+ * the landing page), used only to fill in the form. Anything that is not one
+ * valid address, including a repeated `?email=`, is ignored.
+ */
+export function prefillEmail(raw: unknown): string {
+  const result = email.max(254).safeParse(raw);
+  return result.success ? result.data : "";
+}
+
 export function parseSignIn(raw: unknown): Parsed<SignInInput> {
   return parse(signInSchema, raw);
 }

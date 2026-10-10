@@ -44,9 +44,19 @@ type FieldProps = {
   autoComplete: string;
   error: string | undefined;
   hint?: string;
+  /** What the field starts with; the person can still change it. */
+  defaultValue?: string;
 };
 
-function Field({ name, label, type, autoComplete, error, hint }: FieldProps) {
+function Field({
+  name,
+  label,
+  type,
+  autoComplete,
+  error,
+  hint,
+  defaultValue,
+}: FieldProps) {
   const describedBy = error
     ? `${name}-error`
     : hint
@@ -59,6 +69,7 @@ function Field({ name, label, type, autoComplete, error, hint }: FieldProps) {
         name={name}
         type={type}
         autoComplete={autoComplete}
+        defaultValue={defaultValue}
         aria-invalid={error !== undefined}
         aria-describedby={describedBy}
       />
@@ -101,7 +112,14 @@ async function authenticate(
   return error ? { kind: "failed", failure: error } : { kind: "signed-in" };
 }
 
-export function AuthForm({ mode }: { mode: Mode }) {
+export function AuthForm({
+  mode,
+  defaultEmail = "",
+}: {
+  mode: Mode;
+  /** Already checked by `prefillEmail`. */
+  defaultEmail?: string;
+}) {
   const router = useRouter();
   const [errors, setErrors] = useState<FieldErrors>({});
   const [failure, setFailure] = useState("");
@@ -154,6 +172,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           type="email"
           autoComplete="email"
           error={errors.email}
+          defaultValue={defaultEmail}
         />
         <Field
           name="password"

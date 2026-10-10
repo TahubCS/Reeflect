@@ -36,6 +36,43 @@
   }
 }
 
+/* Landing page (src/features/landing). It keeps one look in both themes, a
+   light ground with dark bands, so these are not redefined for dark mode.
+   Every text pairing meets WCAG AA. */
+:root {
+  --landing-ground: #e4e4e4;
+  --landing-ink: #171717;
+  --landing-ink-soft: #474747;
+  --landing-ink-muted: #5c5c5c;
+  --landing-line: #cfcfcf;
+  --landing-tag-line: #a8a8a8;
+  --landing-accent: #525252;
+  --landing-on-accent: #ffffff;
+  --landing-sheet: #f0f0f0;
+  --landing-sheet-sunk: #e8e8e8;
+  --landing-sheet-tag: #eeeeee;
+  --landing-sheet-tag-ink: #383838;
+  --landing-night: #161616;
+  --landing-night-field: #232323;
+  --landing-deep: #11161b;
+  --landing-card: #161b21;
+  --landing-card-lit: #1d252d;
+  --landing-card-fill: #1e262d;
+  --landing-bubble-app: #222a33;
+  --landing-bubble-you: #e8ecef;
+  --landing-light: #f5f5f5;
+  --landing-light-soft: #b5b5b5;
+  --landing-mist: #c9ced1;
+  --landing-mist-soft: #a3a9ae;
+  --landing-mist-faint: #7d858b;
+  --landing-in: #6bd49a;
+  --landing-hairline: rgb(255 255 255 / 0.1);
+  --landing-hairline-strong: rgb(255 255 255 / 0.2);
+  --landing-hairline-lit: rgb(255 255 255 / 0.45);
+  --landing-grid: rgb(255 255 255 / 0.035);
+  --landing-shadow: rgb(0 0 0 / 0.6);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
