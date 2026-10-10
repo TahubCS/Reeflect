@@ -18,14 +18,16 @@ test("the home page leads to sign up and sign in", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Know what you can spend each day until payday.",
+    "Reeflect lives in your texts.",
   );
-  await page.getByRole("link", { name: "Create your account" }).click();
+  const nav = page.getByRole("navigation", { name: "Main" });
+  await nav.getByRole("link", { name: "Sign up free" }).click();
   await expect(
     page.getByRole("heading", { name: "Create your account" }),
   ).toBeVisible();
 
-  await page.getByRole("link", { name: "Sign in" }).click();
+  await page.goto("/");
+  await nav.getByRole("link", { name: "Sign in" }).click();
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
 });
 
@@ -36,6 +38,19 @@ test("the dashboard sends a signed-out visitor to sign in", async ({
 
   await expect(page).toHaveURL(/\/sign-in$/);
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+});
+
+test("sign-up fills in an email passed from the landing page", async ({
+  page,
+}) => {
+  await page.goto("/sign-up?email=sam%40example.test");
+
+  // getByRole skips the hidden, filled-in form while it streams in, and
+  // retries until it replaces the empty one.
+  await expect(page.getByRole("textbox", { name: "Email" })).toHaveValue(
+    "sam@example.test",
+  );
+  await expect(page.getByLabel("Password")).toHaveValue("");
 });
 
 test("sign-up explains what is wrong before anything is sent", async ({

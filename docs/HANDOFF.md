@@ -804,7 +804,82 @@ recommendation, not a decision.
 
 ---
 
-## HO-021: Signed-in header with a navbar; a placeholder page per feature
+## HO-021: Sign-up fills in the email passed from the landing page
+
+- **Date:** 2026-10-10 15:20 (EDT)
+- **Author:** Simon Ormond with Claude
+- **Branch / PR:** `feat/landing-page` / not opened
+
+### What changed
+- `/sign-up?email=…` now starts the Email field with that address, so the
+  new landing page's email box doesn't make people type it twice.
+- `prefillEmail` in `src/features/auth/domain/credentials.ts` validates it
+  with the same zod email rule as the form (max 254 characters). Anything
+  else, including a repeated `?email=`, is ignored. The person can still edit
+  the field; only the email is ever prefilled, never the password.
+- `src/app/(auth)/sign-up/page.tsx` reads `searchParams` inside `<Suspense>`,
+  as Cache Components requires: the empty form is the static shell and the
+  filled-in form streams in. The build lists `/sign-up` as Partial Prerender.
+- Tests: Vitest cases for `prefillEmail`; Playwright "sign-up fills in an
+  email passed from the landing page" in `auth.spec.ts`.
+
+### What's next
+- Point the landing page's email form at `/sign-up` (method GET, field
+  `email`) when it moves into the app.
+
+### Open problems
+- Checked with typecheck, lint, format, the credentials unit tests, a
+  production build, and the new Playwright test against that build. The full
+  unit and E2E suites were not run: no local PostgreSQL in that environment.
+
+---
+
+## HO-022: Landing page rebuilt from the design canvas
+
+- **Date:** 2026-10-10 16:10 (EDT)
+- **Author:** Simon Ormond with Claude
+- **Branch / PR:** `feat/landing-page` / not opened
+
+### What changed
+- `/` is now the "Reeflect Landing Page" design from the claude.ai canvas,
+  built as `src/features/landing`. `src/app/page.tsx` only renders
+  `LandingPage`, and the old `page.module.css` is gone.
+- Sections: dark hero with the per-day headline and balance line, three
+  features (Today card, statement import, text conversation), the
+  Nessie-to-calendar pipeline, three steps, and an email sign-up box that
+  sends `/sign-up?email=…` (HO-021's next step, done).
+- The demos loop on one shared clock (`ui/demo-clock.tsx`). Their sample
+  figures are integer cents in `domain/demo.ts`, formatted and tweened
+  through `src/lib/money`. With `prefers-reduced-motion` the clock never
+  starts and every demo is shown in full.
+- The mockup's month switch and remove buttons are not real buttons on the
+  landing page; they do nothing there, so they are decorative and hidden
+  from screen readers. The chat is a captioned list, not a live log, so it
+  isn't announced on every loop.
+- Colours are new `--landing-*` tokens in `globals.css` (ADR-046). The page
+  keeps one look in both themes, so they have no dark-mode values. Fonts are
+  Geist and Geist Mono through `next/font`, scoped to the landing page.
+- Tests: Vitest `src/features/landing/domain/demo.test.ts`; Playwright
+  `tests/e2e/landing.spec.ts` (email hand-off, section links, reduced motion,
+  screen-reader labels, 360px width). The home-page test in `auth.spec.ts`
+  follows the new copy.
+- Fixed a race in HO-021's Playwright test: while the filled-in sign-up
+  form streams in, a hidden copy of the Email field exists, so the test now
+  uses `getByRole("textbox", { name: "Email" })`, which skips hidden fields.
+
+### What's next
+- Point the "Sign in" and "Sign up" links at the dashboard for visitors who
+  are already signed in, if we want that.
+
+### Open problems
+- The Nessie sync and statement import shown on the page are labelled
+  "Preview"; drop the labels when they ship.
+- `pnpm exec playwright install chromium` was needed locally after the
+  Playwright update.
+
+---
+
+## HO-023: Signed-in header with a navbar; a placeholder page per feature
 
 - **Date:** 2026-10-10 15:40 (EDT)
 - **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
@@ -844,11 +919,11 @@ recommendation, not a decision.
 ### Open problems
 - URLs are flat (`/accounts`), not under `/w/[workspaceId]` (ADR-007);
   the group moves when workspaces exist.
-- The open problems in HO-020 still stand.
+- The open problems in HO-022 still stand.
 
 ---
 
-## HO-022: Signed-in header stays on screen and is larger
+## HO-024: Signed-in header stays on screen and is larger
 
 - **Date:** 2026-10-10 16:10 (EDT)
 - **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
@@ -871,5 +946,4 @@ recommendation, not a decision.
 ### Open problems
 - Below about 1100 pixels wide, the last links are reached by scrolling the
   link row sideways. A menu for small screens is left for the design cleanup.
-- The open problems in HO-021 still stand.
-
+- The open problems in HO-023 still stand.
