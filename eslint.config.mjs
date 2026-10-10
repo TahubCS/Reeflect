@@ -15,8 +15,6 @@ const eslintConfig = defineConfig([
     "coverage/**",
     "playwright-report/**",
     "test-results/**",
-    // Vendored Nessie SDK.
-    "public/lib/**",
   ]),
   {
     // Skipped and focused tests must not reach main (TEST-09).
