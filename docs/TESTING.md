@@ -141,14 +141,14 @@ must match the required checks in `.github/rulesets/main.json`.
 | CI job | Runs |
 |---|---|
 | `lint-typecheck` | `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm docs:check` |
-| `unit` | `pnpm test:unit` with coverage thresholds |
-| `e2e` | `pnpm build`, `pnpm scan:bundle`, `pnpm test:e2e --grep-invert @external` |
+| `unit` | `pnpm db:migrate` on a fresh database, then `pnpm test:unit` with coverage thresholds |
+| `e2e` | `pnpm db:migrate`, `pnpm build`, `pnpm scan:bundle`, `pnpm test:e2e --grep-invert @external` |
 | `security` | `pnpm audit --prod --audit-level high` |
 | `codeql` (separate workflow) | Static analysis for JavaScript/TypeScript |
 
-Until the Drizzle schema exists (ADR-005), `unit` and `e2e` run without a
-database. The PR that adds the schema also adds a PostgreSQL service and a
-`pnpm db:migrate` step before the tests in both jobs.
+`unit` and `e2e` each start a PostgreSQL service and apply every migration
+to it first. Locally the same database comes from `docker compose up -d`.
+Tests never connect to Neon.
 
 The workspace isolation matrix (TEST-06) includes `/api/agent/turn`: a
 linked handle for user A can never cause a tool call against user B's

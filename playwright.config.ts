@@ -18,5 +18,11 @@ export default defineConfig({
     command: "pnpm start",
     url: "http://localhost:3000",
     reuseExistingServer: !isCi,
+    env: {
+      // Never the Neon database from .env.local: the local or CI Postgres.
+      DATABASE_URL:
+        process.env.DATABASE_URL ??
+        "postgres://test:test@localhost:5433/app_test",
+    },
   },
 });
