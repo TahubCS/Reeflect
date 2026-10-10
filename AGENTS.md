@@ -46,7 +46,9 @@ Best Use of Nessie (ADR-036).
 Do not build, suggest, or scaffold any of the following:
 
 - Investing, trading, brokerage, crypto, or stock features
-- Financial advice or product recommendations ("you should buy/switch to…")
+- Financial product recommendations or investing advice ("you should
+  buy/switch to…"). Gemini may suggest what the user could do with their own
+  spending, from numbers code computed (ADR-045).
 - Money movement of any kind: payments, transfers, bill pay, cancelling
   subscriptions on the user's behalf. The app only reads, displays, and lets
   the user mark intentions.

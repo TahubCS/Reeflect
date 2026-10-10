@@ -615,20 +615,18 @@ recommendation, not a decision.
    the workflows have only been run command by command on a laptop.
 2. Import `.github/rulesets/main.json` in the repository settings so `main`
    is protected and the five checks are required.
-3. Replace the browser Nessie SDK from commit 6525b1b with a server client
-   (see Open problems).
-4. Choose the first bank for the PDF template (ADR-044) and record it here.
+3. Build the Capital One PDF template first (ADR-044).
+4. Settle the Nessie approach (see Open problems).
 5. Add the Drizzle schema, then the database steps in CI (TEST-09).
 
 ### Open problems
 - Commit 6525b1b on `main` loads the Nessie jQuery SDK in the browser from
   the root layout. ADR-033 says Nessie is called from the server only,
-  because the key travels in the URL. Muhammad confirmed ADR-033 stands; the
-  SDK in `public/lib` and the `<Script>` tag need replacing. Not changed in
-  this session.
+  because the key travels in the URL. Muhammad confirmed ADR-033 stands, but
+  the team is still working out Nessie: keep `public/lib` and the `<Script>`
+  tag in place for now and do not remove them without asking.
 - `main` is not protected: that commit was pushed straight to it.
-- ADR-045's limits on "suggestions" are Proposed; the team should confirm
-  how far Gemini's wording may go given the no-advice rule in ADR-001.
-- PITCH.md section 5 has no statement-upload step yet.
+- PITCH.md section 5 has no statement-upload step yet; the pitch is being
+  revisited later.
 - `lefthook.yml` and `.env.example` from the templates were not copied.
 - The open problems in HO-014 still stand.

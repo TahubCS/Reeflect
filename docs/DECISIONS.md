@@ -70,7 +70,7 @@ Rules:
 | ADR-042 | Cash-flow calendar is the home screen | Accepted (six sub-items Proposed) |
 | ADR-043 | HackNC scope and build order | Accepted |
 | ADR-044 | Statement parsing: CSV and PDF, by code only | Accepted |
-| ADR-045 | Gemini summary on the website (refines ADR-019) | Accepted (suggestion wording Proposed) |
+| ADR-045 | Gemini summary on the website (refines ADR-019) | Accepted |
 | ADR-046 | Styling: plain CSS first, Tailwind as a fallback | Accepted |
 
 ---
@@ -427,11 +427,14 @@ Rules:
        pages. Reject encrypted or image-only PDFs with a clear message.
     2. Extract the text layer with word positions.
     3. Parse with a per-institution template (anchors such as "Beginning
-       Balance"). The first version ships one institution's layout; the
-       institution is chosen when the work starts and recorded in HANDOFF.md.
-    4. Run the import guardrails (ADR-010), including mandatory balance
+       Balance"). The first template is for **Capital One** statements, to
+       match the Nessie track (ADR-036). Other banks come later.
+    4. Emit the same normalized rows a CSV import produces (ADR-009), so
+       everything after parsing is shared. Gemini is given data derived from
+       those rows, never the PDF itself.
+    5. Run the import guardrails (ADR-010), including mandatory balance
        reconciliation.
-    5. Delete the raw file after extraction; keep only its SHA-256 (ADR-025).
+    6. Delete the raw file after extraction; keep only its SHA-256 (ADR-025).
   - **CSV pipeline:** as ADR-010 and ARCH-05 describe: the user maps columns
     once per institution, then the same guardrails run.
 - **Alternatives considered:** Gemini locating fields for code to read (works
@@ -838,24 +841,26 @@ Rules:
 
 ### ADR-045: Gemini summary on the website (refines ADR-019)
 
-- **Status:** Accepted (2026-10-10), decided by Muhammad. The wording limits
-  on suggestions are Proposed.
+- **Status:** Accepted (2026-10-10), decided by Muhammad
 - **Context:** ADR-019 put website AI features at P2. The team wants Gemini
   to turn the numbers that code has computed, from statements and Nessie,
   into a plain summary of where the user stands.
-- **Decision (Accepted):**
-  - The website has a summary panel written by Gemini. It is P1 (ADR-043).
+- **Decision:**
+  - The website has a panel where Gemini writes a summary and suggestions.
+    It is P1 (ADR-043).
   - Code computes every figure (balance, what is due before payday, spending
     by category, subscriptions). Gemini receives those aggregates and writes
     sentences with placeholders; code fills them in and the digit scan runs
-    (ADR-019, ARCH-07). Gemini never reads a statement and never produces a
-    number.
+    (ADR-019, ARCH-07). Gemini never reads a statement file and never
+    produces a number. Its input is data that code derived from the parsed
+    rows (ADR-044) and from Nessie.
+  - **Suggestions are allowed.** Gemini may suggest what the user could do
+    with their own money, based on their own data: for example, which
+    subscriptions cost the most over a year, or where spending rose. It does
+    not recommend financial products, investing, or a company to switch to,
+    and it uses no guilt (ADR-001, ADR-042).
   - The panel reuses the agent brain's tools and `src/lib/ai`. If Gemini
     fails, the panel shows a fixed template with the same figures.
-- **Decision (Proposed):** "Suggestions" are observations about the user's own
-  data, such as their largest category or a subscription marked planning to
-  cancel. The panel does not recommend financial products, tell the user to
-  buy, switch or invest, or use guilt (ADR-001, ADR-042).
 - **Consequences:** ADR-019's line placing website AI features at P2 no longer
   applies to the summary panel; category suggestions and "Ask Reeflect" stay
   later. The tier rule in ADR-019 still holds: only sandbox or synthetic data

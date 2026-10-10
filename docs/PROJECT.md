@@ -86,7 +86,7 @@ Priorities follow ADR-043. Lanes: A = Data, B = Web, C = Agent.
 | F-03 | Financial accounts | P0 | A | Checking, savings, credit-card and loan accounts: institution, type, nickname, last 4 digits. | ADR-009 |
 | F-04 | Manual transactions | P0 | A | Add, edit and delete a transaction on an account. | ADR-008 |
 | F-05 | CSV import | P0 | A | Upload a CSV to a chosen account, map columns once per institution, preview, pass guardrails, commit. | ADR-009, ADR-010 |
-| F-06 | PDF statement import | P0 | A | Text-based PDF statements parsed by code with a per-institution template, with identity check and reconciliation. No AI in parsing. | ADR-010, ADR-044 |
+| F-06 | PDF statement import | P0 | A | Text-based PDF statements parsed by code with a per-institution template (Capital One first), with identity check and reconciliation. No AI in parsing. | ADR-010, ADR-044 |
 | F-07 | Bank linking (Plaid) | Later | A | Link accounts through Plaid Link (Sandbox) and sync transactions. | ADR-012 |
 | F-08 | Categorization | P0 | A | Keyword rules on the normalized merchant name, with a manual override that can be saved as a rule. | ADR-013 |
 | F-09 | Monthly budgets | P1 | A | One budget per category per calendar month; 6–8 preset categories, renameable. Own page, not the home screen. | ADR-015 |
@@ -95,7 +95,7 @@ Priorities follow ADR-043. Lanes: A = Data, B = Web, C = Agent.
 | F-12 | Calendar home screen | P0 | B | The per-day headline with its sum, the month calendar, the balance line and the selected-day panel, plus an "Upcoming bills" list once F-22 exists. | ADR-042 |
 | F-13 | Drill-down | P0 | B | Select a day to see its activity, sources and balance; filter by kind; switch between calendar and list. | ADR-042 |
 | F-14 | End-of-month forecast | Later | A | The dotted part of the balance line, from recurring income, bills and spending pace. | ADR-026 |
-| F-15 | Gemini summary on the website | P1 | C | A panel where Gemini writes a summary of the user's finances from numbers computed by code, reusing the agent brain. Category suggestions and "Ask Reeflect" come later. | ADR-019, ADR-045 |
+| F-15 | Gemini summary on the website | P1 | C | A panel where Gemini writes a summary and suggestions about the user's finances from numbers computed by code, reusing the agent brain. Category suggestions and "Ask Reeflect" come later. | ADR-019, ADR-045 |
 | F-16 | Debt and credit tab | Later | B | Cards and loans (Nessie loans or Plaid Liabilities). Any credit score is labelled "Sample". | ADR-024 |
 | F-17 | Monthly recap | Later | B | Animated playback of the month on the calendar. | ADR-042 |
 | F-18 | Themes and accessibility | P0 | B | Light and dark themes, WCAG 2.2 AA, reduced motion, text labels, responsive from 360px. | ADR-018 |
