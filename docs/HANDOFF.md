@@ -1389,3 +1389,46 @@ recommendation, not a decision.
   page until that page is reloaded; the linked card does not poll.
 - The linked reply says the agent cannot answer yet. Do not show the agent
   to users before F-25.
+
+---
+
+## HO-032: Signed-in pages no longer block a click (Next.js instant navigation)
+
+- **Date:** 2026-10-10 20:10 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `feat/photon-agent` (uncommitted) / not opened
+
+### What changed
+- `next dev` reported "uncached data during a navigation" on most signed-in
+  pages. A click from one page to another waited on the server before
+  showing anything, because the page read the URL or the session with no
+  Suspense boundary of its own. A boundary in a layout that is already on
+  screen does not count: only what is below it is rendered again.
+- **`PageLoading`** (`src/components/ui/page-loading.tsx`) is the shared
+  fallback.
+- **Workspace layout:** the membership check moved into a `Member`
+  component inside a Suspense boundary. The check itself is unchanged.
+- **Accounts pages (list, new, edit) and Settings:** the page is now a
+  plain function that renders its old async body inside
+  `<Suspense fallback={<PageLoading />}>`.
+- **The nine workspace-free URLs** (`/dashboard`, `/accounts`, …) render
+  `PersonalWorkspaceRedirect` (`src/components/ui/`), which does the same.
+- `<body>` has `suppressHydrationWarning`, for attributes that browser
+  extensions add to it.
+- Checked by clicking through every signed-in page in a browser against
+  `next dev`: no findings. `loading.tsx` and `template.tsx` files were tried
+  first and did not clear them.
+
+### What's next
+- **When you build a page** under `src/app/(app)/w/[workspaceId]/`: do not
+  `await params`, the session or data at the top of the page. Put that work
+  in an async component and render it inside
+  `<Suspense fallback={<PageLoading />}>`, as
+  `src/app/(app)/w/[workspaceId]/accounts/page.tsx` does.
+
+### Open problems
+- Hydration warnings that name `bis_skin_checked` on every `div` come from a
+  browser extension and cannot be fixed in code. Turn the extension off for
+  `localhost`, or develop in a profile without it.
+- No automated test guards this. Next's `@next/playwright` `instant()`
+  helper could, at the cost of a new dev dependency.

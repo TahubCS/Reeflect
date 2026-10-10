@@ -17,7 +17,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={body.variable}>
-      <body>{children}</body>
+      {/* Browser extensions add attributes to <body> before React loads;
+          this keeps that from being reported as a hydration mismatch. It
+          covers this one element only, not what is inside it. */}
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }
