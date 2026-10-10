@@ -75,6 +75,7 @@ Rules:
 | ADR-047 | Better Auth Infrastructure dashboard | Proposed |
 | ADR-048 | Nessie as it behaves today (refines ADR-033) | Proposed |
 | ADR-049 | Synthetic data batches and the batch-testing branch | Accepted |
+| ADR-050 | Manual transactions and the typed balance | Proposed |
 
 ---
 
@@ -795,6 +796,41 @@ Rules:
     Old batches then replay only from a matching checkout.
   - **A cross-workspace insights page** over synthetic batches needs its own
     ADR before it is built.
+
+### ADR-050: Manual transactions and the typed balance
+
+- **Status:** Proposed (2026-10-10)
+- **Context:** A manual account's balance is what the person typed, dated
+  `balance_as_of` (F-03). Manual transactions (F-04, and later F-27's
+  "12 lunch") must keep that balance right without a schema change, and
+  without counting twice what the typed balance already holds.
+- **Decision:**
+  - **The balance rule.** A manual transaction moves its account's stored
+    balance when the account is manual and the transaction is dated on or
+    after `balance_as_of`. One dated earlier is already inside the typed
+    balance and moves nothing. Synced accounts (Nessie, Plaid) keep the
+    balance their source gives them. Code: `balanceEffect` in
+    `src/features/transactions/domain`.
+  - **Edits and deletes** take back the old effect and apply the new one, in
+    one database transaction with the account rows locked (in id order).
+  - **Fingerprints.** A typed row gets `manual:<id>`, so two identical
+    entries on one day (two $4 coffees) are two transactions. ADR-010's
+    duplicate check is for imports and does not apply to typed rows.
+  - **Imported and synced rows** (`source` other than `manual`) keep their
+    account, date, amount and status; only the description and the transfer
+    mark can be edited, so re-sync and re-import still match them. They can
+    be deleted; their delete does not move the balance.
+  - **Dates** are today or earlier, in `DEFAULT_TIME_ZONE`, and no earlier
+    than 2000. Money still to come is F-22's (bills), not a transaction.
+- **Alternatives considered:** Never moving the stored balance and having
+  the calendar add later transactions to it. Rejected for now: every reader
+  of the balance (accounts page, calendar, agent) would need that sum.
+- **Consequences:**
+  - If someone re-types a balance on the same day as earlier entries, those
+    entries stay "on or after" the new date; editing or deleting one then
+    moves the balance by its amount. Accepted as an edge case.
+  - F-27 (log spending by text) reuses `createTransaction`, so it follows the
+    same rule.
 
 ---
 

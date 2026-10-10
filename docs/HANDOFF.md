@@ -43,7 +43,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-01 Sign up / sign in | B | Unassigned | — | Done (HO-018, HO-020, HO-021, HO-027) |
 | F-02 Personal workspace | B | Simon Ormond | `feat/personal-workspace` | Personal workspace and `/w/[workspaceId]` done (HO-027); household later |
 | F-03 Financial accounts | A | Simon Ormond | `feat/financial-accounts` | Done: manual accounts, list, edit, delete (HO-030) |
-| F-04 Manual transactions | A | Unassigned | — | Not started |
+| F-04 Manual transactions | A | Simon Ormond | `feat/manual-transactions` | Built: add, edit, delete, list by day, account filter (HO-031); ADR-050 Proposed |
 | F-05 CSV import | A | Unassigned | — | Not started |
 | F-06 PDF statement import (P0, ADR-044) | A | Unassigned | — | Not started |
 | F-08 Categorization | A | Unassigned | — | Not started |
@@ -1325,3 +1325,51 @@ recommendation, not a decision.
   must be by role (which skips hidden elements); `getByLabel` can match
   the hidden copy.
 - No audit event is written on delete yet (ADR-025, P1).
+
+## HO-031: Manual transactions (F-04); ADR-050 balance rule
+
+- **Date:** 2026-10-10 19:26 (EDT)
+- **Author:** Simon Ormond with Claude (Claude Code)
+- **Branch / PR:** `feat/manual-transactions` (uncommitted) / not opened
+
+### What changed
+- **F-04 is built** on the `transaction` table from migration 0002. There
+  is no schema change.
+  - `/w/[workspaceId]/transactions` lists transactions newest first,
+    grouped by day, with signed exact amounts ("Money out, −$12.50" for
+    screen readers) and "Pending" / "Transfer" labels. A GET form narrows
+    it to one account (`?account=`). At most 200 rows (`LIST_LIMIT`).
+  - Add at `/transactions/new` (account, date, money out or in, amount,
+    description, pending, transfer). Edit or delete at
+    `/transactions/[transactionId]`; delete takes two steps.
+  - With no accounts, the page asks for one first.
+  - Same server-action pattern as HO-030; viewers see no add or edit links.
+- **ADR-050 (Proposed): the balance rule.** A manual transaction dated on
+  or after the account's `balance_as_of` moves a manual account's balance;
+  earlier ones are already in the typed balance. Edits and deletes take the
+  effect back, in one database transaction with the account rows locked.
+  Typed rows get fingerprint `manual:<id>`. Imported or synced rows can
+  change only description and transfer mark. **The team should confirm
+  ADR-050.**
+- **TEST-06:** `EntryPointTarget` now has `transactionId`;
+  `TRANSACTION_ENTRY_POINTS` is in the matrix, and the B snapshot includes
+  transactions.
+- `src/features/accounts/index.ts` also exports `isoDateIn`.
+- `src/features/transactions/index.ts` exports `listTransactions`,
+  `getTransaction` and `TransactionSummary` for F-12 and F-27.
+- **Tests:** Vitest for the domain (parsing, balance rule, grouping), the
+  repository and actions (against Docker) and the matrix;
+  `tests/e2e/transactions.spec.ts`. Full `pnpm test:unit` (505) and
+  `pnpm test:e2e` (47) pass.
+
+### What's next
+- **F-12:** build the calendar from `listAccounts` and `listTransactions`
+  instead of `demo-data.ts`.
+- **F-08:** add `category_id` and a category field to the form.
+- **F-27** reuses `createTransaction` with `source: "text"` once the agent
+  exists (it currently always writes `manual`).
+
+### Open problems
+- ADR-050 is Proposed, not Accepted.
+- The list has no paging past 200 rows.
+- No audit event on delete yet (ADR-025, P1).
