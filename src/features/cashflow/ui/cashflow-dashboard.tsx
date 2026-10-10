@@ -151,10 +151,10 @@ export function CashflowDashboard() {
   return (
     <MotionConfig reducedMotion="user">
       <div className="page">
-        <header className="top">
-          <p className="wordmark">{APP_NAME}</p>
-          <p className="top-note">Sample data. Today is {formatLong(TODAY)}.</p>
-        </header>
+        {/* The wordmark and navigation are in the shared header: src/app/(app)/layout.tsx. */}
+        <p className="top-note sample-note">
+          Sample data. Today is {formatLong(TODAY)}.
+        </p>
 
         <main>
           <section className="hero" aria-live="polite">

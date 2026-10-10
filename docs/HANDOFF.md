@@ -802,7 +802,6 @@ recommendation, not a decision.
   `auth-api.spec.ts` with 429; wait a few seconds and re-run.
 - The open problems in HO-019 still stand.
 
-
 ---
 
 ## HO-021: Sign-up fills in the email passed from the landing page
@@ -877,3 +876,74 @@ recommendation, not a decision.
   "Preview"; drop the labels when they ship.
 - `pnpm exec playwright install chromium` was needed locally after the
   Playwright update.
+
+---
+
+## HO-023: Signed-in header with a navbar; a placeholder page per feature
+
+- **Date:** 2026-10-10 15:40 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `feat/app-nav` (uncommitted) / not opened
+
+### What changed
+- `src/app/(app)/layout.tsx` is the header for every signed-in page:
+  wordmark, a navbar, "Signed in as … / Sign out". It also sends signed-out
+  visitors to `/sign-in`, so pages in the group need no check of their own
+  until they load data (then ARCH-04 applies).
+- The navbar reads `src/config/nav.ts`. Nine links: Dashboard, Accounts,
+  Transactions, Import, Subscriptions, Bills, Budgets, Insights, Settings.
+- Each link has a page in `src/app/(app)/<name>/page.tsx`. All but the
+  dashboard render `PagePlaceholder` (`src/components/ui/`) with the feature
+  ids the page is for.
+- The dashboard moved to `src/app/(app)/dashboard/` (URL unchanged). Its own
+  wordmark was removed, since the shared header shows it.
+- `getSession` is wrapped in React `cache()`, so the header and the sign-in
+  check share one lookup per request.
+- Tests: `src/config/nav.test.ts` (every link has a page) and
+  `tests/e2e/app-nav.spec.ts` (links, current-page mark, signed-out
+  redirects).
+
+### What's next
+- **To build your feature:** open your page in `src/app/(app)/<name>/`,
+  replace `<PagePlaceholder … />` with your component from
+  `src/features/<feature>/ui/`, and style it with a CSS Module using the
+  tokens in `globals.css` (ADR-046). The link is already in the navbar.
+- **To add a page that is not listed:** create its folder in
+  `src/app/(app)/` and add one line to `src/config/nav.ts`. Update the list
+  in `tests/e2e/app-nav.spec.ts` too.
+- When a page gets a real `<h1>` that differs from its nav label, update its
+  row in `app-nav.spec.ts`.
+- Design cleanup of the header and pages happens after everyone's frontend
+  work is in.
+
+### Open problems
+- URLs are flat (`/accounts`), not under `/w/[workspaceId]` (ADR-007);
+  the group moves when workspaces exist.
+- The open problems in HO-022 still stand.
+
+---
+
+## HO-024: Signed-in header stays on screen and is larger
+
+- **Date:** 2026-10-10 16:10 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `feat/app-nav` (uncommitted) / not opened
+
+### What changed
+- The header in `src/app/(app)/layout.tsx` is `position: sticky`, so it
+  stays at the top while a page scrolls. It is still rendered on the server
+  as part of the layout; no script is involved.
+- The wordmark and links are larger, with more padding.
+- When space runs short the email address shortens, then disappears, before
+  any link is cut off; after that the links scroll sideways.
+- `html` has `scroll-padding-top`, so an element that receives keyboard
+  focus is not hidden under the header.
+
+### What's next
+- Give pages enough top spacing of their own; the header takes 75 to 115
+  pixels of every signed-in screen.
+
+### Open problems
+- Below about 1100 pixels wide, the last links are reached by scrolling the
+  link row sideways. A menu for small screens is left for the design cleanup.
+- The open problems in HO-023 still stand.

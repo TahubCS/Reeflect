@@ -81,6 +81,9 @@
 /* Everything is sized in rem, so the whole page grows on large monitors. */
 html {
   font-size: clamp(16px, 11px + 0.42vw, 20px);
+  /* Room for the sticky header (src/app/(app)/layout.tsx), so a focused or
+     linked-to element is never hidden underneath it. */
+  scroll-padding-top: 5.5rem;
 }
 
 body {
@@ -138,6 +141,10 @@ strong {
 .top-note {
   color: var(--ink-soft);
   font-size: 0.875rem;
+}
+
+.sample-note {
+  text-align: right;
 }
 
 /* Hero: the one number that matters, and the sum behind it */
