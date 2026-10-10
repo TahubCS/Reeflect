@@ -739,6 +739,8 @@ Rules:
     anything in `public/` is served by every deployment. The key does not
     match the team key, so it is probably the sample key that ships with
     Capital One's SDK, but treat it as exposed (see HANDOFF.md).
+  - **Update (HO-029):** `public/lib` and the `<Script>` tag that loaded it
+    were deleted. The key remains in git history.
 
 ### ADR-049: Synthetic data batches and the batch-testing branch
 

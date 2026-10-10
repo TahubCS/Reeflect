@@ -263,8 +263,6 @@ agent-worker/               Photon Spectrum relay process (planned, ADR-032)
 packages/agent-protocol/    zod schemas shared by the worker and /api/agent/turn (planned)
 docs/                       PROJECT, ARCHITECTURE, DECISIONS, HANDOFF, TESTING,
                             PITCH, SYNTHETIC
-public/lib/                 vendored Nessie browser SDK: holds a public key and
-                            is loaded by the root layout; ask before changing (HO-016, HO-026)
 ```
 
 Features import from `lib/` and `components/ui/`, never from another feature's

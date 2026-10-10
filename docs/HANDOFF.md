@@ -1219,3 +1219,40 @@ recommendation, not a decision.
   - Production's migration record.
   - The public Nessie key in `public/lib`; the root layout still loads that
     SDK.
+
+---
+
+## HO-029: Clutter removed: duplicate skills, Nessie browser SDK, template images
+
+- **Date:** 2026-10-10 18:00 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `chore/remove-clutter` (uncommitted) / not opened
+
+### What changed
+- **Root `skills/` deleted.** It was a byte-for-byte copy of
+  `.claude/skills/`, and nothing referenced it. `.claude/skills/` (Claude)
+  and `.agents/skills/` (Codex, Gemini) stay, with `skills-lock.json`.
+- **`.claude/skills/` gains `neon` and `neon-postgres`**, copied from
+  `.agents/skills/`, so both folders hold the same skills.
+- **`public/lib/` and `NESSIEREADME.md` deleted** (Capital One's browser
+  SDK; HO-016 said to ask first, and Muhammad approved).
+  - The root layout loaded it on every page through a `<Script>` tag with
+    `strategy="beforeInteractive"`; that tag is removed from
+    `src/app/layout.tsx`. No code used the SDK.
+  - Its ignore lines are gone from `eslint.config.mjs` and
+    `.prettierignore`.
+  - ARCH-08, ARCH-14 and ADR-048 now say it was removed.
+- **Five create-next-app images deleted** from `public/` (`next`, `vercel`,
+  `globe`, `window`, `file`). `public/` is now empty, so the folder no
+  longer exists; create it again when the first real asset arrives.
+
+### What's next
+- The iMessage agent, one feature per plan, starting with F-24 phone
+  linking on `feat/photon-agent`.
+
+### Open problems
+- **The hard-coded Nessie key is still in git history** (commit 6525b1b) of
+  a public repository. Deleting the files only stops deployments serving
+  it. Whoever owns that key should treat it as public (HO-026).
+- Jacob's PR #9 also edited `ARCHITECTURE.md` and this file. It merged
+  first, so this entry was renumbered from HO-028 to HO-029.

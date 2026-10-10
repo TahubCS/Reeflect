@@ -2,9 +2,6 @@
 pnpm-lock.yaml
 next-env.d.ts
 
-# Vendored Nessie SDK
-public/lib/
-
 # Docs keep their hand-wrapped lines and tables
 *.md
 

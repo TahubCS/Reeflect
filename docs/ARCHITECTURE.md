@@ -251,7 +251,7 @@ Governed by: ADR-006, ADR-007, ADR-010, ADR-012, ADR-019, ADR-025
 | AI data leakage or invented numbers | Minimal data to the model; placeholders; digit scan (ARCH-07) |
 | Vulnerable dependencies | `pnpm audit` in CI; CodeQL; Dependabot alerts |
 | Sensitive data in logs | Log ids only; redaction helper in `lib/security/redact.ts` |
-| Secrets in `public/` | Everything in `public/` is served as is and is not covered by `scan:bundle`. Never put a key there. `public/lib/example.html` and `unit_tests.html` (the vendored Nessie SDK) hold a hard-coded Nessie key today (ADR-048, HO-026) |
+| Secrets in `public/` | Everything in `public/` is served as is and is not covered by `scan:bundle`. Never put a key there. The vendored Nessie SDK that held a hard-coded key was removed in HO-029; the key is still in git history (ADR-048, HO-026) |
 | Scripts writing to the wrong database | Scripts take a named `--target`, print its endpoint id, and refuse production unless `NEON_PRODUCTION_ENDPOINT_ID` matches (ADR-049) |
 
 ## ARCH-09: Configuration
@@ -488,5 +488,5 @@ Nessie as verified on 2026-10-10 (ADR-048):
 - **Transfers:** carry no second account, so card payments are paired by
   ADR-020's rules.
 - **Deleting:** customers cannot be deleted, only their accounts.
-- **Call it from the server only.** The browser SDK in `public/lib` is not
-  the integration path.
+- **Call it from the server only.** The browser SDK that was in
+  `public/lib` was removed in HO-029.
