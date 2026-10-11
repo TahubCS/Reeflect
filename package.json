@@ -19,7 +19,8 @@
     "db:migrate:to": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register-paths.ts scripts/db/migrate-to.ts",
     "db:whoami": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register-paths.ts scripts/db/whoami.ts",
     "ai:check": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register-paths.ts scripts/ai-check.ts",
-    "batch": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register-paths.ts scripts/batch/cli.ts"
+    "batch": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register-paths.ts scripts/batch/cli.ts",
+    "nessie": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register-paths.ts scripts/nessie/cli.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1149.0",
