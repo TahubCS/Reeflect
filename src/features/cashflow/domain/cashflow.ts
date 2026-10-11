@@ -52,7 +52,7 @@ export type Entry = {
 
 /**
  * Something that repeats: a confirmed payday, bill or subscription from
- * Recurring payments (F-10, ADR-058, ADR-060). It falls every `every` days or
+ * Recurring payments (F-10, ADR-058, ADR-061). It falls every `every` days or
  * calendar months from `nextOn`; a monthly date past the end of a short month
  * falls on its last day.
  */

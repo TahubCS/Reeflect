@@ -75,8 +75,15 @@
     {
       "idx": 10,
       "version": "7",
-      "when": 1791698782168,
-      "tag": "0010_recurring_income",
+      "when": 1791697938101,
+      "tag": "0010_monthly_budgets",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791700775396,
+      "tag": "0011_recurring_income",
       "breakpoints": true
     }
   ]

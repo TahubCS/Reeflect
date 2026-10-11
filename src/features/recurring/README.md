@@ -55,7 +55,7 @@ within safe integer arithmetic. Exceeding the analysis bound shows the page's
 retry state; it never silently computes totals from a partial history. Exceeding
 the saved-series bound returns an error before a refresh writes anything.
 
-## Paydays (ADR-060)
+## Paydays (ADR-061)
 
 - The same timing rules read posted **deposits into checking and savings** and
   suggest them as kind `income`, shown as **Payday**. Card credits, transfers,
@@ -142,7 +142,7 @@ only recurring metadata and an account ownership index. That index precedes its
 dependent foreign key in the SQL. Apply migrations before running the feature.
 
 F-22 reminder scheduling, F-26 proactive iMessage alerts and lender provenance
-remain separate work; the calendar reads confirmed payments (ADR-060). This feature supplies APIs
+remain separate work; the calendar reads confirmed payments (ADR-061). This feature supplies APIs
 for those callers; it does not send messages or create ledger transactions.
 
 ## Verification

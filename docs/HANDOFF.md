@@ -47,9 +47,9 @@ Update this table when work is assigned or finished. Features are listed in
 | F-05 CSV import | A | Simon Ormond | `feat/csv-statement-import` | Built for Capital One 360 and credit-card CSV exports (HO-040, ADR-054 Proposed); no mapping screen yet |
 | F-06 PDF statement import (P0, ADR-044) | A | Simon Ormond | `feat/pdf-statement-import` | Built for Capital One 360 checking and savings (HO-038); CSV kept in Neon object storage (ADR-053 Proposed); needs `neon deploy` and Vercel vars |
 | F-08 Categorization | A | Codex | `feat/transaction-categorization` | Full feature merged in PR #12 (HO-037) |
-| F-09 Monthly budgets (P1) | A | Unassigned | — | Not started |
+| F-09 Monthly budgets (P1) | A | Codex | `feat/monthly-budgets` | Complete page and persistence built; validation and migration rollout recorded in the latest handoff |
 | F-10 Recurring payments (detection P0, marks P1) | A | Codex | `feat/subscriptions` | Full website built (HO-045, ADR-058); local checks pass; external Neon storage regressions pending |
-| F-12 Calendar home screen | B | Simon Ormond | `feat/calendar-recurring` | On real accounts and transactions (HO-048); confirmed paydays, bills and subscriptions from F-10 (HO-051, ADR-060 Proposed) |
+| F-12 Calendar home screen | B | Simon Ormond | `feat/calendar-recurring` | On real accounts and transactions (HO-048); confirmed paydays, bills and subscriptions from F-10 (HO-054, ADR-061 Proposed) |
 | F-13 Drill-down | B | Simon Ormond | `feat/real-cashflow-dashboard` | Day panel adds and removes real typed transactions (HO-048) |
 | F-18 Themes and accessibility | B | Unassigned | — | Not started |
 | F-19 Delete data | B | Unassigned | — | Not started |
@@ -2486,7 +2486,140 @@ recommendation, not a decision.
 - ADR-019's rule about which kind of key may see real users' text is set
   aside for now (ADR-059).
 
-## HO-051: Paydays from deposits (ADR-060); the calendar reads confirmed recurring payments
+
+## HO-051: Next-feature review recommends complete monthly budgets (F-09)
+
+- **Date:** 2026-10-11 05:36 (UTC)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `chore/next-feature-review` / not opened
+
+### What changed
+- Reviewed main `b852d82`, product/architecture/decisions/testing docs, all
+  current feature areas and the ledger/category boundaries for candidate work.
+- User confirmed Simon owns dashboard integration and Jacob owns Insights
+  and a previous year of mock activity for the team's accounts.
+- Added [NEXT_FEATURE_PLAN](NEXT_FEATURE_PLAN.md): recommends full F-09 on
+  `feat/monthly-budgets`, with scope, competing candidates, financial rules,
+  ownership boundaries, domain/PostgreSQL/browser tests and migration rollout.
+- Verified main's CI and CodeQL passed on the reviewed commit. No application
+  changes, database writes, commits, pushes or PR were made.
+
+### What's next
+- User reviews the proposal. If approved, build the complete budgets page,
+  persistence, permissions and tests from fresh main, keeping dashboard,
+  Insights, mock-data generation and imports with their existing owners.
+
+### Open problems
+- Imports do not automatically pair transfers/card payments; budget accuracy
+  requires correct transfer marks and categories. Document recorded-data scope.
+- Shared schema/migration metadata, isolation registration and docs can still
+  conflict with concurrent branches; synchronize before final verification.
+
+## HO-052: Complete F-09 monthly budgets, with migration and regression evidence
+
+- **Date:** 2026-10-11 02:20 (EDT)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `feat/monthly-budgets` / not opened; worktree `/workspace/Reeflect-budgets`
+
+### What changed
+
+- User approved the complete [budget plan](NEXT_FEATURE_PLAN.md). Built the
+  page, pure calculations, server read/actions, allocation persistence and
+  generated migration `0010_monthly_budgets.sql`. ADR-060 records the approved
+  interactions; [feature README](../src/features/budgets/README.md) documents
+  the behavior, APIs and rollout.
+- Current/next-month allocations, historical reads, copy into missing plans,
+  zero vs unset, refund-adjusted actuals, unbudgeted/Uncategorized visibility,
+  editor controls, read-only viewers, validation, success/pending states and
+  retry recovery are included. No dashboard, Insights, import, generator or
+  agent implementation was changed.
+- Reads use owned account/category joins, effective rules/manual choices and
+  one repeatable-read snapshot. Writes are workspace-scoped and serialized;
+  copy is atomic, idempotent and never overwrites existing zero allocations.
+  No budget operation changes ledger rows or balances.
+- Synced with main `8c4a472f5c1e4009d99fd23dae8f47392874f0ae` (agent PR #22),
+  checked again at the end. Preserved main's ADR-059 and HO-049/HO-050; moved
+  the previously uncommitted planning entry to HO-051. Application files
+  merged without conflicts; the handoff append was resolved.
+- Validation:
+  - 95 budget Vitest tests pass. Domain and server operation files have 100%
+    line/branch coverage; registration callbacks are exercised separately by
+    all 16 budget cases in the shared isolation matrix, which pass.
+  - All 9 budget Playwright flows plus auth setup pass against the production
+    build. Synthetic phone/desktop light/dark screenshots are in
+    `docs/screenshots/budgets/`.
+  - Production build, bundle scan, lint, types, formatting and docs checks pass.
+  - Fresh local database accepts all 11 migrations. A separately seeded
+    main-schema database upgrades from 10 to 11 with every existing account,
+    transaction and category row unchanged. `pnpm db:migrate` was rerun on
+    `reeflect_budgets_test` after the changes, as requested; regeneration
+    reports no schema drift.
+  - Attempted full regressions: 1,477/1,503 unit tests passed; 26 tests and two
+    cleanup hooks timed out on blocked Neon storage. Full browser run had
+    96/102 pass: five storage-dependent failures and one budget navigation
+    assertion race. The race was corrected; the full budget browser suite
+    then passed. Full regression gates remain incomplete, not waived.
+
+### What's next
+
+- Restore managed Neon networking, then rerun the complete unit/browser
+  regressions and apply `pnpm db:migrate` to the verified production direct
+  endpoint before deploying the new route. Production was checked through
+  Neon: database `neondb`, 10 migrations, recurring table present, budget
+  table absent. No production migration or fixture writes were made.
+- Obtain explicit commit/push/PR authorization under [AGENTS.md](../AGENTS.md)
+  section 7 before publishing this new feature. Suggested commit:
+  `feat(budgets): add complete monthly category budgets`.
+- Required CI, CodeQL and teammate review still gate merging. The feature is
+  uncommitted, with its complete code/tests/docs available for review.
+
+### Open problems
+
+- The user saved networking changes, but this running environment continues
+  to report enforced revision 25 without Neon hosts. Storage HTTPS returns
+  proxy 403; the configured TCP proxy refuses connections and its destination
+  grants are empty. Tools can inspect but cannot edit that configuration.
+- Financial coverage depends on recorded rows and marked transfers. Automatic
+  transfer/card-payment pairing is still separate work. Historical actuals
+  follow current category rules; saved allocation amounts remain unchanged.
+
+## HO-053: Publish complete budgets feature after checking current main
+
+- **Date:** 2026-10-11 02:34 (EDT)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `feat/monthly-budgets` / publishing into `main` at the user's request
+
+### What changed
+
+- User explicitly requested resolving all conflicts with main and opening a
+  PR. Fetched main again: it remains `8c4a472f5c1e4009d99fd23dae8f47392874f0ae`,
+  already included in this branch. `git merge --ff-only origin/main` reports
+  up to date; there are no unmerged paths or conflict markers in the feature.
+- The earlier handoff append conflict is resolved, preserving main's entries.
+  Publish the entire F-09 implementation, tests, generated migration, docs and
+  synthetic screenshots together using
+  `feat(budgets): add complete monthly category budgets`.
+- No application changes were needed after HO-052's successful feature,
+  isolation, browser, build and migration checks. Recheck documentation and
+  the staged diff before committing; verify GitHub mergeability after opening
+  the PR.
+
+### What's next
+
+- Required CI, CodeQL and teammate review must pass before merging. The PR
+  description records the completed checks and incomplete full regressions.
+- Apply `pnpm db:migrate` to the verified production direct endpoint before
+  deploying budgets. Local migration checks passed; production remains pending
+  because managed networking blocks its connection.
+
+### Open problems
+
+- Runtime configuration now reports enforced revision 26, but its effective
+  allowed hosts still omit Neon. A fresh storage connectivity check returns
+  proxy HTTP 403. Full storage-dependent regression checks remain blocked;
+  this is not a waived test gate.
+
+## HO-054: Paydays from deposits (ADR-061); the calendar reads confirmed recurring payments
 
 - **Date:** 2026-10-11 (EDT)
 - **Author:** Simon Ormond with Claude (Claude Code)
@@ -2495,11 +2628,11 @@ recommendation, not a decision.
 ### What changed
 - **Gemini is not used for detection.** The team chose code: F-10's own
   timing rules (ADR-058).
-- **ADR-060 (Proposed, Muhammad should confirm):** paydays are found in
+- **ADR-061 (Proposed, Muhammad should confirm):** paydays are found in
   deposits into checking and savings with ADR-058's rules. They are kind
   `income`, shown as "Payday", and are confirmed like any payment. Pay stays
   out of cost totals.
-- **Migration `0010_recurring_income`:** `recurring_series.kind` allows
+- **Migration `0011_recurring_income`:** `recurring_series.kind` allows
   `income`. Run `pnpm db:migrate:to production` after merge.
 - **F-10 (`src/features/recurring`):**
   - **Detection:** `groupCharges` takes a direction, and `groupAll` merges
@@ -2564,14 +2697,14 @@ recommendation, not a decision.
     - `lint`, `typecheck`, `format:check`, `build`, `scan:bundle` and
       `docs:check` pass.
 - **Docs:**
-  - ADR-060 and its index row
+  - ADR-061 and its index row
   - the F-10 README
   - PROJECT's F-10 row
   - PITCH's note: confirm the demo workspace's payday and bills before
     the 1:00 step
 
 ### What's next
-- **Muhammad:** confirm ADR-060 (it changes F-10).
+- **Muhammad:** confirm ADR-061 (it changes F-10).
 - **F-25:** "owed before payday" and the per-day figure can now use
   confirmed paydays and bills. The cashflow domain's `summarize` already
   computes them.

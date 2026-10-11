@@ -1,5 +1,5 @@
 {
-  "id": "82ae9f26-aa52-43de-a375-31a4398fb5c5",
+  "id": "c0204b85-7c1e-4c7a-bce2-fbf64404c9e6",
   "prevId": "0fd7815c-b25a-49b3-8df4-755b8990c76c",
   "version": "7",
   "dialect": "postgresql",
@@ -2480,11 +2480,134 @@
         },
         "recurring_choice_check": {
           "name": "recurring_choice_check",
-          "value": "\"recurring_series\".\"decision\" IN ('candidate', 'confirmed', 'dismissed') AND \"recurring_series\".\"kind\" IN ('bill', 'subscription', 'income') AND \"recurring_series\".\"amount_mode\" IN ('fixed', 'variable') AND \"recurring_series\".\"user_intent\" IN ('none', 'keep', 'cancel')"
+          "value": "\"recurring_series\".\"decision\" IN ('candidate', 'confirmed', 'dismissed') AND \"recurring_series\".\"kind\" IN ('bill', 'subscription') AND \"recurring_series\".\"amount_mode\" IN ('fixed', 'variable') AND \"recurring_series\".\"user_intent\" IN ('none', 'keep', 'cancel')"
         },
         "recurring_merchant_check": {
           "name": "recurring_merchant_check",
           "value": "char_length(\"recurring_series\".\"merchant_normalized\") BETWEEN 1 AND 500 AND char_length(\"recurring_series\".\"name\") BETWEEN 1 AND 80"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.budget": {
+      "name": "budget",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "month": {
+          "name": "month",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_cents": {
+          "name": "amount_cents",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "budget_workspace_month_category_uidx": {
+          "name": "budget_workspace_month_category_uidx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "month",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "category_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "budget_workspace_id_organization_id_fk": {
+          "name": "budget_workspace_id_organization_id_fk",
+          "tableFrom": "budget",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "budget_workspace_category_fk": {
+          "name": "budget_workspace_category_fk",
+          "tableFrom": "budget",
+          "tableTo": "category",
+          "columnsFrom": [
+            "workspace_id",
+            "category_id"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "budget_month_check": {
+          "name": "budget_month_check",
+          "value": "\"budget\".\"month\" ~ '^(20[0-9]{2}|21[0-9]{2})-(0[1-9]|1[0-2])$'"
+        },
+        "budget_amount_check": {
+          "name": "budget_amount_check",
+          "value": "\"budget\".\"amount_cents\" >= 0 AND \"budget\".\"amount_cents\" <= 10000000000"
         }
       },
       "isRLSEnabled": false

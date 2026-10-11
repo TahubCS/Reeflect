@@ -203,7 +203,7 @@ export function summarizePayments(payments: readonly Payment[]) {
   const confirmedAll = payments.filter(
     (payment) => payment.decision === "confirmed",
   );
-  // Pay is money in: it never counts toward recurring costs (ADR-060).
+  // Pay is money in: it never counts toward recurring costs (ADR-061).
   const confirmed = confirmedAll.filter((payment) => payment.kind !== "income");
   const active = confirmed.filter((payment) => payment.active);
   const pay = sum(

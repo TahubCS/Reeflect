@@ -33,14 +33,14 @@ export const chargeSchema = z.object({
   isTransfer: z.boolean(),
   categoryKey: z.string().nullable(),
   source: z.string().max(32),
-  /** Paydays are read only from checking and savings (ADR-060). */
+  /** Paydays are read only from checking and savings (ADR-061). */
   accountType: z
     .enum(["checking", "savings", "credit_card", "loan"])
     .optional(),
 });
 export type Charge = z.infer<typeof chargeSchema>;
 export type Kind = "bill" | "subscription" | "income";
-/** Money out of the account, or money into it (ADR-060). */
+/** Money out of the account, or money into it (ADR-061). */
 export type Direction = "out" | "in";
 export type AmountMode = "fixed" | "variable";
 export type ScheduleUnit = "days" | "months";
@@ -94,7 +94,7 @@ const isLiquid = (charge: Charge) =>
 /**
  * Eligible evidence only. No description truncation or prefix matching.
  * `out` reads charges (ADR-058); `in` reads deposits into checking or savings,
- * for paydays (ADR-060).
+ * for paydays (ADR-061).
  */
 export function groupCharges(
   input: readonly Charge[],
@@ -135,7 +135,7 @@ export function groupCharges(
 /**
  * Both directions' groups under one key space. A payee that has charges on an
  * account is not also read as income there (refunds from a shop are not pay),
- * since one account and payee hold one saved payment (ADR-060).
+ * since one account and payee hold one saved payment (ADR-061).
  */
 export function groupAll(
   input: readonly Charge[],

@@ -463,7 +463,7 @@ describe("recurring persistence with real PostgreSQL", () => {
     await db.delete(organization).where(eq(organization.id, ws));
     expect(await row(ws, merchant)).toBeUndefined();
   });
-  it("suggests, confirms and keeps a payday from deposits into checking (ADR-060)", async () => {
+  it("suggests, confirms and keeps a payday from deposits into checking (ADR-061)", async () => {
     const merchant = name();
     await charges(merchant, a, accountA, [145000, 145000, 145000]);
 

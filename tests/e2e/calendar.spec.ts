@@ -205,7 +205,7 @@ test("a card purchase shows as spending on card without moving the balance", asy
   ).toContainText("$30.00");
 });
 
-// F-10 with ADR-060: paydays and subscriptions confirmed on Recurring payments
+// F-10 with ADR-061: paydays and subscriptions confirmed on Recurring payments
 // show on the calendar. History goes straight into the test database, as in
 // recurring.spec.ts, so the patterns are there without typing every row.
 const pool = new Pool({

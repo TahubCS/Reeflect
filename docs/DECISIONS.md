@@ -85,7 +85,8 @@ Rules:
 | ADR-057 | More preset categories; sample people arrive categorized (refines ADR-015) | Proposed |
 | ADR-058 | Recurring payment patterns, confirmation and variable bills | Accepted |
 | ADR-059 | Agent replies: one request with labels, and a chain of models (refines ADR-019, ADR-040) | Proposed |
-| ADR-060 | Paydays found in deposits, confirmed like recurring payments (refines ADR-058) | Proposed |
+| ADR-060 | Monthly budget interactions and recorded actual spending (refines ADR-015) | Accepted |
+| ADR-061 | Paydays found in deposits, confirmed like recurring payments (refines ADR-058) | Proposed |
 
 ---
 
@@ -1637,7 +1638,7 @@ Rules:
 
 ---
 
-### ADR-060: Paydays found in deposits, confirmed like recurring payments (refines ADR-058)
+### ADR-061: Paydays found in deposits, confirmed like recurring payments (refines ADR-058)
 
 - **Status:** Proposed (2026-10-11), from Simon. **Muhammad (F-10 owner)
   should confirm it.**
@@ -1667,7 +1668,7 @@ Rules:
     agree. A card's payments do not move the balance line (ADR-024). The
     headline's next payday is the next confirmed payday.
 - **Consequences:**
-  - Migration `0010_recurring_income` widens `recurring_series.kind`.
+  - Migration `0011_recurring_income` widens `recurring_series.kind`.
   - A payday needs three deposits before it is suggested; until then the
     person can add it by hand.
   - Someone paid irregularly gets no suggestion and the headline shows the
@@ -1686,3 +1687,40 @@ Rules:
 - **Alternatives considered:** Optional.
 - **Consequences:** What follows, including costs and follow-up work.
 ```
+
+### ADR-060: Monthly budget interactions and recorded actual spending (refines ADR-015)
+
+- **Status:** Accepted (2026-10-11), user approved the complete monthly-budget plan.
+- **Context:** recurring patterns describe repeating payments, while Insights
+  shows rolling averages. Users also need to compare a deliberate category
+  allocation with recorded spending for one calendar month. The feature must
+  stay independent of concurrent dashboard and Insights work.
+- **Decision:**
+  - Keep budgets on their own page. One allocation per workspace, spending
+    category and calendar month; nonnegative USD cents. Zero is a saved plan,
+    distinct from removing a budget.
+  - Default to the current month in the existing app zone, America/New_York.
+    Inspect historical months read-only; edit this month or next month. Do not
+    add workspace time-zone settings under this feature.
+  - Actuals use posted ledger dates: through today for this month, the full
+    range for historical months, and no future actuals. Current rules and
+    manual choices determine effective categories; renaming preserves IDs.
+  - Refunds reduce spending, including negative net spending. Exclude marked
+    transfers, Income, Retirement and Investing using the current category
+    definitions. Unknown credits are not inferred refunds. Show Uncategorized
+    and unbudgeted spending, and state that these are recorded activity totals.
+  - Explicit copying fills missing allocations only; preserve existing zero
+    and nonzero allocations. Copy is atomic and repeatable, without rollover.
+  - Viewers read; editors and owners write. Budget operations change metadata,
+    never ledger rows or balances. Consistent bounded reads fail into a local
+    retry state rather than returning partial or fabricated zero totals.
+- **Alternatives considered:** editing past allocations (changes saved history);
+  automatic rollover/overwrite (changes the user's plan); using Insights'
+  rolling averages as actuals (different date range); inferring transfers
+  from merchant text (ambiguous, belongs to transfer pairing).
+- **Consequences:** F-09 is independent of the calendar and recurring estimates.
+  Historical actuals can change when current categorization changes, while
+  saved allocation amounts stay in their original months. Accuracy depends
+  on recorded coverage and transfer marks. Apply migration 0010 to the intended
+  deployment database before deploying the new page. Agent budget replies
+  remain separate work.

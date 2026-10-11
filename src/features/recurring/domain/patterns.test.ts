@@ -524,7 +524,7 @@ describe("date and form boundaries", () => {
   });
 });
 
-describe("paydays (ADR-060)", () => {
+describe("paydays (ADR-061)", () => {
   const pay = (postedOn: string, extra: Partial<Charge> = {}) =>
     charge(postedOn, 145000, {
       descriptionRaw: "ACME CORP PAYROLL",
