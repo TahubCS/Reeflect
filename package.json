@@ -9,7 +9,7 @@
     "lint": "eslint --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "next typegen && tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit && tsc --noEmit -p agent-worker",
     "docs:check": "node scripts/docs-check.ts",
     "test:unit": "vitest run --coverage",
     "test:e2e": "playwright test",
@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@better-auth/infra": "^0.4.16",
+    "@reeflect/agent-protocol": "workspace:*",
     "better-auth": "^1.7.7",
     "drizzle-orm": "^0.45.4",
     "motion": "^14.0.0",

@@ -1,6 +1,7 @@
 import {
   type TurnResponse,
   hasServiceToken,
+  platformAllowed,
   runAgentTurn,
   turnRequestSchema,
 } from "@/features/agent";
@@ -16,7 +17,7 @@ export async function POST(request: Request): Promise<Response> {
   const turn = turnRequestSchema.safeParse(
     await request.json().catch(() => null),
   );
-  if (!turn.success) {
+  if (!turn.success || !platformAllowed(turn.data.platform)) {
     return Response.json({ error: "invalid turn" }, { status: 400 });
   }
 

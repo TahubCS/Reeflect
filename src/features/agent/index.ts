@@ -4,6 +4,7 @@ export {
   type TurnResponse,
   turnRequestSchema,
   turnResponseSchema,
-} from "./domain/protocol";
+} from "@reeflect/agent-protocol";
+export { platformAllowed } from "./server/platform";
 export { runAgentTurn } from "./server/runAgentTurn";
 export { hasServiceToken } from "./server/service-token";

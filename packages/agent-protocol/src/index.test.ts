@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { turnRequestSchema, turnResponseSchema } from "./protocol";
+import { PLATFORMS, turnRequestSchema, turnResponseSchema } from "./index";
 
 const valid = {
   platform: "imessage",
@@ -12,6 +12,15 @@ const valid = {
 describe("turnRequestSchema", () => {
   it("accepts a well-formed turn", () => {
     expect(turnRequestSchema.parse(valid)).toEqual(valid);
+  });
+
+  it("accepts every platform in the list, and no other", () => {
+    for (const platform of PLATFORMS) {
+      expect(turnRequestSchema.safeParse({ ...valid, platform }).success).toBe(
+        true,
+      );
+    }
+    expect(PLATFORMS).toEqual(["imessage", "terminal"]);
   });
 
   it("accepts an empty text and trims the handle", () => {

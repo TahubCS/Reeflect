@@ -1,0 +1,18 @@
+{
+  "name": "agent-worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env src/index.ts",
+    "start": "node src/index.ts"
+  },
+  "dependencies": {
+    "@reeflect/agent-protocol": "workspace:*",
+    "spectrum-ts": "12.10.1",
+    "zod": "^4.6.5"
+  }
+}
