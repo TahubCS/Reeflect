@@ -1,6 +1,9 @@
 import { inArray } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
+import { APP_NAME } from "@/config/app";
+import { DEFAULT_QUIET_HOURS } from "@/features/messaging/domain/quiet-hours";
 import { approveLink, createLinkCode } from "@/features/messaging/server/link";
+import { getQuietHours } from "@/features/messaging/server/notifications";
 import {
   ensurePersonalWorkspace,
   personalSlug,
@@ -12,7 +15,8 @@ import {
   getAccount,
 } from "@/features/accounts/server/repository";
 import { cents } from "@/lib/money";
-import { UNCLEAR_REPLIES } from "../domain/log-replies";
+import { LOG_REPLIES, UNCLEAR_REPLIES } from "../domain/log-replies";
+import { QUIET_HOURS_REPLIES } from "../domain/quiet-hours-replies";
 import { REPLIES } from "../domain/replies";
 import { runAgentTurn } from "./runAgentTurn";
 
@@ -21,6 +25,7 @@ import { runAgentTurn } from "./runAgentTurn";
 
 const userIds: string[] = [];
 const handles: string[] = [];
+const NIGHT = { startMinute: 23 * 60, endMinute: 7 * 60 };
 
 async function newUser(): Promise<{ userId: string; workspaceId: string }> {
   const userId = crypto.randomUUID();
@@ -152,6 +157,73 @@ describe("runAgentTurn", () => {
     // LINK and STOP are still read first.
     expect(await text(handle, "STOP")).toBe(REPLIES.stopped);
     expect(await text(handle, "12 lunch")).toBe(REPLIES.signUp);
+    expect(await balance()).toBe(50_000);
+  });
+
+  it("sets quiet hours by text for a linked phone, and for no one else", async () => {
+    const me = await newUser();
+    const handle = newPhone();
+    await text(handle, `LINK ${await newCode(me.userId)}`);
+    await approveLink(me.userId, me.workspaceId);
+
+    expect(await text(newPhone(), "quiet hours 11pm to 7am")).toBe(
+      REPLIES.signUp,
+    );
+    expect(await getQuietHours(me.userId)).toEqual(DEFAULT_QUIET_HOURS);
+
+    expect(
+      await text(handle, `${APP_NAME}, register new quiet hours 11PM to 7 AM`),
+    ).toBe("Quiet hours set: 11:00 PM to 7:00 AM. Reply UNDO to go back.");
+    expect(await getQuietHours(me.userId)).toEqual(NIGHT);
+
+    // Unclear times change nothing and are not read as spending.
+    expect(await text(handle, "quiet hours 11 to 7")).toBe(
+      QUIET_HOURS_REPLIES.unclear,
+    );
+    expect(await text(handle, "quiet hours?")).toContain(
+      "Your quiet hours are 11:00 PM to 7:00 AM",
+    );
+
+    expect(await text(handle, "UNDO")).toBe(
+      "Done. Quiet hours are back to 9:00 PM to 9:00 AM.",
+    );
+    expect(await getQuietHours(me.userId)).toEqual(DEFAULT_QUIET_HOURS);
+    expect(await text(handle, "UNDO")).toBe(LOG_REPLIES.nothingToUndo);
+  });
+
+  it("undoes whichever came last: a log or a quiet-hours change", async () => {
+    const me = await newUser();
+    const handle = newPhone();
+    await text(handle, `LINK ${await newCode(me.userId)}`);
+    await approveLink(me.userId, me.workspaceId);
+    const accountId = await createAccount(me.workspaceId, {
+      type: "checking",
+      institutionName: "Test Bank",
+      nickname: "Everyday",
+      maskLast4: null,
+      balanceCents: cents(50_000),
+    });
+    const balance = async () =>
+      (await getAccount(me.workspaceId, accountId))!.balanceCents;
+
+    // Quiet hours, then a log: UNDO takes the log, then the quiet hours.
+    await text(handle, "quiet hours 11pm to 7am");
+    await text(handle, "12 lunch");
+    expect(await text(handle, "UNDO")).toBe('Removed $12.00 for "lunch".');
+    expect(await balance()).toBe(50_000);
+    expect(await getQuietHours(me.userId)).toEqual(NIGHT);
+    expect(await text(handle, "UNDO")).toBe(
+      "Done. Quiet hours are back to 9:00 PM to 9:00 AM.",
+    );
+
+    // A log, then quiet hours: UNDO takes the quiet hours, then the log.
+    await text(handle, "5 coffee");
+    await text(handle, "quiet hours 11pm to 7am");
+    expect(await text(handle, "UNDO")).toBe(
+      "Done. Quiet hours are back to 9:00 PM to 9:00 AM.",
+    );
+    expect(await balance()).toBe(49_500);
+    expect(await text(handle, "UNDO")).toBe('Removed $5.00 for "coffee".');
     expect(await balance()).toBe(50_000);
   });
 
