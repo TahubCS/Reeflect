@@ -53,3 +53,6 @@ next-env.d.ts
 # real or redacted sample statements: never committed (TEST-08)
 tests/fixtures/**/private/
 .neon
+
+# Nessie demo customers' ids (scripts/nessie/manifest.ts)
+scripts/nessie/.manifest.json

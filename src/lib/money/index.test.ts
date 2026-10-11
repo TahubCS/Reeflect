@@ -9,6 +9,7 @@ import {
   formatCents,
   formatSigned,
   fraction,
+  fromDollarNumber,
   negate,
   parseBalance,
   parseDecimalString,
@@ -22,6 +23,7 @@ import {
   sum,
   times,
   toDecimalString,
+  toWholeDollarNumber,
   truncateToDollars,
 } from "./index";
 
@@ -303,5 +305,41 @@ describe("quantile and fiveNumbers", () => {
       upperQuartile: 40,
       highest: 50,
     });
+  });
+});
+
+describe("fromDollarNumber (Nessie, ADR-033)", () => {
+  it.each([
+    [12.1, 1210],
+    [12, 1200],
+    [0.1 + 0.2, 30],
+    [82.5, 8250],
+    [-35.1, -3510],
+    [0, 0],
+    [-0, 0],
+  ])("reads %s dollars as %s cents", (dollars, expected) => {
+    expect(fromDollarNumber(dollars)).toBe(expected);
+    expect(Object.is(fromDollarNumber(dollars), -0)).toBe(false);
+  });
+
+  it.each([19.999, 1.005, 0.001, Number.NaN, Number.POSITIVE_INFINITY, 2 ** 53])(
+    "rejects %s",
+    (dollars) => {
+      expect(() => fromDollarNumber(dollars)).toThrow(RangeError);
+    },
+  );
+});
+
+describe("toWholeDollarNumber", () => {
+  it.each([
+    [1200, 12],
+    [-9000, -90],
+    [0, 0],
+  ])("sends %s cents as %s dollars", (amount, expected) => {
+    expect(toWholeDollarNumber(cents(amount))).toBe(expected);
+  });
+
+  it("refuses amounts with cents", () => {
+    expect(() => toWholeDollarNumber(cents(1250))).toThrow(RangeError);
   });
 });

@@ -2,6 +2,11 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PageLoading } from "@/components/ui/page-loading";
 import { AccountList, listAccounts } from "@/features/accounts";
+import {
+  NessieSyncPanel,
+  lastNessieSync,
+  syncNessieAction,
+} from "@/features/nessie";
 import { requireWorkspaceAccess } from "@/lib/auth/authz";
 import { roleAtLeast } from "@/lib/auth/roles";
 import { getSession } from "@/lib/auth/session";
@@ -19,13 +24,26 @@ async function Accounts({ params }: Pick<Props, "params">) {
     workspaceId,
     "viewer",
   );
-  const accounts = await listAccounts(access.workspaceId);
+  const [accounts, nessie] = await Promise.all([
+    listAccounts(access.workspaceId),
+    lastNessieSync(access.workspaceId),
+  ]);
+  const canEdit = roleAtLeast(access.role, "editor");
 
   return (
     <AccountList
       workspaceId={access.workspaceId}
       accounts={accounts}
-      canEdit={roleAtLeast(access.role, "editor")}
+      canEdit={canEdit}
+      sourcePanel={
+        nessie.linked ? (
+          <NessieSyncPanel
+            action={syncNessieAction.bind(null, access.workspaceId)}
+            lastSyncedAt={nessie.lastSyncedAt}
+            canSync={canEdit}
+          />
+        ) : null
+      }
     />
   );
 }

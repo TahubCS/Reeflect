@@ -82,6 +82,11 @@ const envSchema = z
      * default chain in `src/lib/ai/models.ts`.
      */
     GEMINI_MODELS: optionalText,
+    /**
+     * Capital One Nessie sandbox key (ADR-033). Without it the Sync button
+     * says Nessie is not set up; the key never leaves the server.
+     */
+    NESSIE_API_KEY: optionalText,
     /** Set by Vercel on every deployment ("1"). */
     VERCEL: optionalText,
   })
