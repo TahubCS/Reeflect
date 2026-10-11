@@ -119,6 +119,11 @@ Priorities follow ADR-043. Lanes: A = Data, B = Web, C = Agent.
 | F-36 | Retirement question | Later | B | An action-required item: is money going into a retirement plan through your employer, your own account, or not right now. Retirement and investing count as saving. | ADR-055 |
 | F-37 | Planned transactions | P1 | B | On the calendar, plan money out or in on a later day and see the expected balance and what is owed before payday change. When the day comes, confirm "It happened" (it becomes a manual transaction) or remove it. Plans are not transactions. | ADR-102, ADR-042 |
 
+Transactions now includes an explicit transfer review subroute (ADR-066).
+Suggestions require a selected counterpart and confirmation; independent
+labels and pair relationships are reversible metadata, with Bills evidence
+guards and no change to recorded account balances.
+
 ## 6. The calendar (summary; full spec in ADR-042)
 
 The home screen is a cash-flow calendar built for people who are not

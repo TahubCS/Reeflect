@@ -23,3 +23,25 @@ pnpm dev
 ```
 
 Open http://localhost:3000. Every command is listed in AGENTS.md section 5.
+
+In a cloud workspace that allows HTTPS but cannot reach PostgreSQL over TCP,
+set `DATABASE_TRANSPORT=websocket` in `.env.local`. The app then uses Neon's
+WebSocket Pool; deployments still use `pg` when this variable is empty. The
+WebSocket and storage clients honor the runtime's `HTTPS_PROXY` and `NO_PROXY`
+settings on Node 24.5 or later. Migrations still use a direct TCP connection.
+
+Local statement imports need the five storage variables in `.env.example`
+from the Neon `storage-tests` branch. Put them in `.env.local` for the app and
+`.env.storage-tests` for tests. Both files are ignored by Git; tests always use
+local PostgreSQL and never the production storage bucket.
+
+Before release, run `pnpm db:verify --target app` with the intended runtime
+connection role. It checks financial schema and read access without changing
+data; a successful health check or migration journal alone is insufficient.
+See [database readiness](docs/DATABASE_READINESS.md) for targets, limitations
+and the migrate/verify/release sequence.
+
+Review recorded transfers from Transactions → **Review transfers**. Choose a
+specific counterpart and confirm the classification; removing a pairing keeps
+the existing labels. See [transfer review](docs/TRANSFER_REVIEW.md) for the
+window, limits, Bills evidence rules and the separate normal-activity action.

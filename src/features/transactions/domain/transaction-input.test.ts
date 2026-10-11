@@ -185,6 +185,7 @@ describe("formValues", () => {
     description: "Lunch",
     status: "pending",
     isTransfer: false,
+    transferPairId: null,
     source: "manual",
     editableInFull: true,
   };

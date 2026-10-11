@@ -76,6 +76,7 @@ and never connects to a database.
 | `lib/money` | Parsing "$1,234.56", "(12.00)", "-12", "12.5" (→ 1250 cents); rejecting non-USD and malformed input; rounding half to even; splitting without losing cents (e.g. $10.00 / 3); formatting negatives; `Number.isSafeInteger` enforcement |
 | Money properties (fast-check) | Sum of category spending equals total spending; splitting then summing returns the original; add/subtract are inverse; no operation produces a non-integer |
 | Cash flow (`src/features/cashflow/domain`, ADR-042) | Per-day amount with balance above, equal to and below what is due before payday (never negative); payday tomorrow (N = 1) and no expected income; repeating items clamped to the last day of short months; a month's end balance equals its start plus its items; later months carry the earlier months' balance; a no-spend day needs nothing going out; yearly subscription cost and saving; every number shown has a text label |
+| Transfer review (ADR-066) | Calendar boundaries, safe opposite cents, explicit choice/confirmation, immutable expected states and legacy group validity. Real PG: metadata-only snapshots, rollback, duplicate/competing confirmation, edit/delete races, scoped orphans, Bills evidence races and unchanged labelled debt evidence. Test actual Budgets, Insights, recurring and daily cashflow results through pair/detach/reclassification. All six read/write entries join the isolation matrix |
 | Web Bills (ADR-063) | Stable monthly/day anchors; bounded projections without invented overdue history; explicit due/expected provenance; zero vs unknown invoice; variable amounts; partial/full/overpayment; manual marks; edited/deleted/pending/future/refund evidence; repayment transfers; integer cash coverage; validation and pagination |
 | Budgets | Calendar month boundaries and DST in the app's zone; leap years and year navigation; mid-month edits; posted/current-day cutoff; refunds including negative net spending; marked transfers, income and saving excluded; unknown credits not treated as refunds; zero vs unset; bounded progress; immutable paged reductions and integer overflow |
 | Categorization | Rule priority and deterministic ties; `contains` / `starts_with` / `exact`; merchant normalization (store numbers, reference codes); manual override including Uncategorized beats rules; form validation and limits |
@@ -162,6 +163,7 @@ and never connects to a database.
 | `bills.spec.ts` | Add a manual car payment due in 7 days; run the reminder job; reminder appears in Upcoming bills with amount and date; mark it paid by adding the payment; reminder disappears |
 | `recurring.spec.ts` | Confirm fixed subscriptions and variable bills; show evidence and actual spending separately from estimates; preserve Keep/planning-to-cancel through refresh; later imports/credits and fingerprint duplicates; manual rent create/edit/remove/restore; persistent dismissal; kind/amount corrections and invalid inputs; viewers/outsiders; filtering/pagination; retry boundary and 360px dark/reduced-motion layout |
 | `budgets.spec.ts` | Set/edit/remove/zero allocations; retained validation input; refunds, card spending, transfers, pending/future rows and Uncategorized; copy without overwriting zero or history; next-month planning; over 500 monthly rows and a year of historical data; changed rules/renames; viewer/outsider access; failed-read retry without fake totals; keyboard, 360px, themes and reduced motion |
+| `transfers.spec.ts` | Explicit ambiguous choice and confirmation; persistence; detach keeps labels; separate normal activity; stale retained selection; paired edit/delete cleanup; old-window padding and counterpart pages; viewer/outsider; Bills allocation feedback; failed-read retry; keyboard, 360px, light/dark and reduced motion. Synthetic screenshots are in `docs/screenshots/transfers/` |
 | `demo-path.spec.ts` | The exact demo script from sign-in to final screen, on the seeded workspace |
 | `a11y.spec.ts` | axe checks on every main page in light and dark themes; zero serious or critical violations |
 | `reduced-motion.spec.ts` | With reduced motion emulated, no animation runs and all labels still show |
@@ -201,14 +203,16 @@ must match the required checks in `.github/rulesets/main.json`.
 | CI job | Runs |
 |---|---|
 | `lint-typecheck` | `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm docs:check` |
-| `unit` | `pnpm db:migrate` on a fresh database, then `pnpm test:unit` with coverage thresholds |
-| `e2e` | `pnpm db:migrate`, `pnpm build`, `pnpm scan:bundle`, `pnpm test:e2e --grep-invert @external` |
+| `unit` | `pnpm db:migrate` on a fresh database, `pnpm db:verify --target app`, then `pnpm test:unit` with coverage thresholds |
+| `e2e` | `pnpm db:migrate`, `pnpm db:verify --target app`, `pnpm build`, `pnpm scan:bundle`, `pnpm test:e2e --grep-invert @external` |
 | `security` | `pnpm audit --prod --audit-level high` |
 | `codeql` (separate workflow) | Static analysis for JavaScript/TypeScript |
 
 `unit` and `e2e` each start a PostgreSQL service and apply every migration
 to it first. Locally the same database comes from `docker compose up -d`.
-Tests never connect to Neon.
+Database tests never connect to Neon; storage tests use the dedicated test
+bucket. [Database readiness](DATABASE_READINESS.md) explains the verifier's
+isolated fault fixtures, permission checks and release limitations.
 
 The workspace isolation matrix (TEST-06) includes `/api/agent/turn`: a
 linked handle for user A can never cause a tool call against user B's

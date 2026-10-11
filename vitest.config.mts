@@ -2,6 +2,16 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 import { testStorageEnv } from "./tests/support/storage-env";
 
+// Cloud workspaces may inject the app's Neon production URL. Test workers
+// and any scripts they launch must use local PostgreSQL instead.
+if (
+  process.env.DATABASE_URL &&
+  new URL(process.env.DATABASE_URL).hostname.endsWith(".neon.tech")
+) {
+  process.env.DATABASE_URL = "postgres://test:test@localhost:5433/app_test";
+  process.env.DATABASE_URL_UNPOOLED = process.env.DATABASE_URL;
+}
+
 const fromRoot = (path: string): string =>
   fileURLToPath(new URL(path, import.meta.url));
 
@@ -25,6 +35,7 @@ export default defineConfig({
       DATABASE_URL:
         process.env.DATABASE_URL ??
         "postgres://test:test@localhost:5433/app_test",
+      DATABASE_TRANSPORT: "tcp",
       BETTER_AUTH_SECRET: "test-only-not-a-real-secret-0123456789",
       BETTER_AUTH_URL: "http://localhost:3000",
       AGENT_SERVICE_TOKEN: "test-only-agent-service-token-0123456789",

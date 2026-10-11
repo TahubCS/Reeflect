@@ -31,6 +31,7 @@ test.describe("signed in", () => {
     );
 
     for (const [label, url] of PAGES) {
+      await hydrated(page, `nav[aria-label='Pages'] a[href$='${url}']`);
       await nav.getByRole("link", { name: label }).click();
 
       await expect(page).toHaveURL(new RegExp(`/w/[^/]+${url}$`));

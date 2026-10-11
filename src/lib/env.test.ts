@@ -26,6 +26,21 @@ describe("parseEnv", () => {
     expect(env.DATABASE_URL_UNPOOLED).toBe(DIRECT);
   });
 
+  it("accepts optional database transports and rejects unsupported ones", () => {
+    const base = { DATABASE_URL: POOLED, ...AUTH };
+    expect(
+      parseEnv({ ...base, DATABASE_TRANSPORT: "" }).DATABASE_TRANSPORT,
+    ).toBeUndefined();
+    for (const DATABASE_TRANSPORT of ["tcp", "websocket"]) {
+      expect(parseEnv({ ...base, DATABASE_TRANSPORT }).DATABASE_TRANSPORT).toBe(
+        DATABASE_TRANSPORT,
+      );
+    }
+    expect(() => parseEnv({ ...base, DATABASE_TRANSPORT: "http" })).toThrow(
+      /DATABASE_TRANSPORT/,
+    );
+  });
+
   it("names every missing variable", () => {
     const attempt = (): unknown => parseEnv({});
 
