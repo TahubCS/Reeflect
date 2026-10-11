@@ -110,6 +110,45 @@ describe("parseSpec", () => {
     expect(problems(spec).length).toBeGreaterThan(0);
   });
 
+  it("accepts each retirement answer and investing, leaving both out by default (ADR-052)", () => {
+    const plain = parseSpec(copy());
+    expect(plain.ok && plain.spec.people[0]!.retirement).toBeUndefined();
+    expect(plain.ok && plain.spec.people[0]!.investing).toEqual([]);
+
+    const spec = copy();
+    spec.people[0]!.retirement = { plan: "none" };
+    spec.people[1]!.retirement = {
+      plan: "employer",
+      youMonthlyCents: 90_000,
+      employerMonthlyCents: 0,
+    };
+    spec.people[1]!.investing = [
+      { name: "SCHWAB BROKERAGE TRANSFER", amountCents: 50_000, day: 20 },
+    ];
+    spec.people[2]!.retirement = {
+      plan: "own",
+      name: "VANGUARD BUY INVESTMENT",
+      amountCents: 25_000,
+      day: 3,
+    };
+    expect(problems(spec)).toEqual([]);
+  });
+
+  it("rejects an employer plan nobody pays into, and an unknown plan", () => {
+    const spec = copy();
+    spec.people[0]!.retirement = {
+      plan: "employer",
+      youMonthlyCents: 0,
+      employerMonthlyCents: 0,
+    };
+    spec.people[1]!.retirement = { plan: "pension" };
+    const found = problems(spec);
+    expect(found).toContain(
+      "people.0.retirement: someone must be putting money in",
+    );
+    expect(found.some((p) => p.startsWith("people.1.retirement"))).toBe(true);
+  });
+
   it("rejects an unknown persona and a bad start month", () => {
     const spec = copy();
     spec.people[0]!.persona = "investor";

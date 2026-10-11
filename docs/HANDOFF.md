@@ -63,6 +63,8 @@ Update this table when work is assigned or finished. Features are listed in
 | F-32 Agent worker | C | Unassigned | — | Not started |
 | F-22 Bill reminders (P1) | A + C | Unassigned | — | Not started |
 | F-15 Gemini summary on the website (P1, ADR-045) | C | Unassigned | — | Not started |
+| F-35 Compare with people like you (Later, ADR-053) | A + B | Jacob Heminway | `feat/insights` | Planned; ADR-053 Proposed; 100-person year batch loaded on the batch-testing branch (HO-034) |
+| F-36 Retirement question (Later, ADR-052) | B | Jacob Heminway | `feat/insights` | Planned; generator models the answers (HO-034) |
 | Later (ADR-043): Plaid, household, debt tab, savings goal, receipt photos, recaps, forecast, audit log | — | Unassigned | — | Only if time remains |
 
 ---
@@ -1482,3 +1484,61 @@ recommendation, not a decision.
   `localhost`, or develop in a profile without it.
 - No automated test guards this. Next's `@next/playwright` `instant()`
   helper could, at the cost of a new dev dependency.
+
+---
+
+## HO-034: Generator v2 (retirement, investing), ADR-052 and ADR-053, a 100-person year batch
+
+- **Date:** 2026-10-10 21:20 (EDT)
+- **Author:** Jacob Heminway with Claude (Claude Code)
+- **Branch / PR:** `feat/insights` (uncommitted) / not opened
+
+### What changed
+- **ADR-052 (Proposed):** money into retirement (an IRA) or a brokerage
+  counts as saving, not spending (refines ADR-020). A 401(k) is known only
+  from the user's answer to an action-required retirement question, shown
+  without alarms. AGENTS.md section 2 and SYNTHETIC.md rule 7 now draw the
+  line: amounts in are fine; holdings, prices, returns and trades are not.
+- **ADR-053 (Proposed):** the insights comparison that ADR-049 asked for.
+  Each sample person's figures are stored at batch load in an
+  `insight_sample` table (not built yet); the page compares you with the
+  10 sample people just above and 10 just below you by take-home, or with
+  everyone, over the last 30, 90 or 365 days.
+- **PROJECT.md:** F-35 (compare with people like you) and F-36 (retirement
+  question), both Later under ADR-043.
+- **Generator v2** (`src/features/synthetic`): spec fields `retirement`
+  (`employer` / `own` / `none`) and `investing[]`; new rows of kind
+  `investment` with category "Retirement" or "Investing", out of checking,
+  stored with `is_transfer = true` and no pair; `personStats` leaves them
+  out of spending. `GENERATOR_VERSION` is 2: a spec without the new fields
+  gives the same rows as v1 (tested), but a v1 checkout would silently drop
+  the new rows. SYNTHETIC.md documents the fields and a retirement mix
+  (rule 10).
+- **Batch `year-100-nc`** (`scripts/batch/specs/year-100-nc.json`) loaded on
+  the batch-testing branch: id `01a12882-d73f-72be-8d84-60e5d2de94fb`, seed
+  `year100`, 100 people, 2025-10 to 2026-10-10, 234 accounts, 48,743
+  transactions, about 10 seconds to load. The first 50 people are
+  `first-50-nc`'s; the other 50 are varied copies. Students overdraw and
+  outspend, which was accepted.
+- **Tests:** Vitest for the new spec fields, the expander rows, stats and the
+  loader's transfer mark. `pnpm lint`, `pnpm typecheck` and `pnpm docs:check`
+  pass. All non-database unit tests pass.
+
+### What's next
+- The fast-path steps are in Jacob's `insights_plan.md` (gitignored):
+  `quantile` in `src/lib/money`, then `insights/domain` (periods, metrics,
+  cohort), then the `insight_sample` table, the page, `pnpm batch attach`,
+  the retirement question, and the production load.
+- The team to confirm ADR-052 and ADR-053.
+- F-08 (categories) is unassigned; our own accounts need it for spending by
+  category on Insights.
+
+### Open problems
+- **`first-50-nc` is generator v1**, so `promote` refuses it from this code.
+  Reloading it under v2 gives the same rows.
+- **`pnpm db:migrate` was run by mistake** with no local database. Every
+  target in Jacob's `.env.local` points at the batch-testing branch, so it
+  went there and at most applied `0003_phone_linking` (three empty tables).
+  Production was not touched.
+- **No Docker on Jacob's machine:** the 38 database-backed unit tests and
+  the e2e suite were not run for this change.

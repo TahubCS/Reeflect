@@ -49,6 +49,8 @@ export const SYSTEM_CATEGORIES = [
   "Subscriptions",
   "Transfers",
   "Interest",
+  "Retirement",
+  "Investing",
 ] as const;
 
 export const CATEGORIES = [
@@ -153,6 +155,43 @@ const event = z.object({
   category: z.enum(CATEGORIES),
 });
 
+/**
+ * The person's answer to "is money going into a retirement plan?" (ADR-052).
+ * Left out: not answered yet.
+ */
+const retirement = z.discriminatedUnion("plan", [
+  /** A 401(k) or similar: taken from pay before it lands, so it makes no rows. */
+  z
+    .object({
+      plan: z.literal("employer"),
+      /** What the person puts in a month, from gross pay. */
+      youMonthlyCents: z.number().int().min(0).max(MAX_AMOUNT),
+      /** What the employer adds a month (0 = no match). */
+      employerMonthlyCents: z.number().int().min(0).max(MAX_AMOUNT),
+    })
+    .refine(
+      (r) => r.youMonthlyCents + r.employerMonthlyCents > 0,
+      "someone must be putting money in",
+    ),
+  /** An IRA the person pays into from checking each month. */
+  z.object({
+    plan: z.literal("own"),
+    /** As it reads on a statement, e.g. "VANGUARD BUY INVESTMENT". */
+    name: text(60),
+    amountCents: amount,
+    day: dayOfMonth,
+  }),
+  z.object({ plan: z.literal("none") }),
+]);
+
+/** Money moved from checking to a brokerage each month: saving, not spending (ADR-052). */
+const investing = z.object({
+  /** As it reads on a statement, e.g. "SCHWAB BROKERAGE TRANSFER". */
+  name: text(60),
+  amountCents: amount,
+  day: dayOfMonth,
+});
+
 const cardPayment = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("full") }),
   /** The larger of $25 and 2% of the statement balance. */
@@ -196,6 +235,8 @@ const person = z
     subscriptions: z.array(subscription).max(30),
     spending: z.array(spending).max(20),
     events: z.array(event).max(50).default([]),
+    retirement: retirement.optional(),
+    investing: z.array(investing).max(4).default([]),
   })
   .superRefine((p, ctx) => {
     const usesCard =

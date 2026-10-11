@@ -103,8 +103,9 @@ Console and reload the batches you want, since they are recipes.
    that kind of person.
 7. **Synthetic only.** Invent every person's name; never use a real person.
    Real merchant and employer-style payer names are fine, for example
-   "Harris Teeter" or "SSA TREAS 310 XXSOC SEC". USD only. No investing,
-   brokerage or crypto accounts or transactions (AGENTS.md section 2).
+   "Harris Teeter" or "SSA TREAS 310 XXSOC SEC". USD only. Money paid into
+   retirement or a brokerage goes in `retirement` and `investing` only
+   (ADR-052); no holdings, trades or crypto (AGENTS.md section 2).
 8. **Write one `summary` line per person** that a reviewer can scan, with
    the key numbers: "Nurse, biweekly $2,140, rent $1,325, pays the card in
    full."
@@ -112,6 +113,12 @@ Console and reload the batches you want, since they are recipes.
    capitals ("NORTHGATE LOGISTICS PAYROLL"). Use local merchants for North
    Carolina (Food Lion, Harris Teeter, Sheetz, Duke Energy) unless the
    request says otherwise.
+10. **Give everyone a retirement answer** (ADR-052) unless the request says
+    otherwise. Higher earners mostly save through an employer plan, some use
+    their own IRA, and a minority save nothing. Lower earners are more
+    likely to save nothing. Students mostly save nothing; retirees answer
+    `none` (they draw down, they do not pay in). Some higher earners also
+    move money to a brokerage each month (`investing`).
 
 ### Personas
 
@@ -150,6 +157,8 @@ parents. Scale it for other sizes.
 | `subscriptions[]` | As bills, without `category` |
 | `spending[]` | `category`, `merchants`, `perMonth` range, `amountCents` range, `cardShare` (percent on the card) |
 | `events[]` | One-offs: `date`, `description`, signed `amountCents`, `account`, `category` |
+| `retirement` | The person's answer (ADR-052). `{ plan: "employer", youMonthlyCents, employerMonthlyCents }` (a 401(k): taken from pay, so no rows), `{ plan: "own", name, amountCents, day }` (an IRA paid from checking each month) or `{ plan: "none" }`. Left out = not answered yet |
+| `investing[]` | Monthly transfers from checking to a brokerage: `name`, `amountCents`, `day` |
 
 How the generator behaves:
 - **Paydays** that fall on a weekend move back to the Friday before.
@@ -158,6 +167,10 @@ How the generator behaves:
   `paymentDay` of the next month, is a transfer pair from checking. Interest
   is charged at month end on whatever was carried over.
 - **Savings transfers** are transfer pairs too.
+- **IRA and brokerage payments** leave checking on their day each month,
+  with category "Retirement" or "Investing". They have no other side in the
+  workspace, so they are stored marked as transfers and never count as
+  spending (ADR-052).
 
 ---
 

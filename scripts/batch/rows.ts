@@ -80,7 +80,9 @@ export function buildRows(
         amountCents: t.amount,
         descriptionRaw: t.description,
         status: "posted",
-        isTransfer: t.transferPair !== null,
+        // Money into an IRA or brokerage leaves the workspace unpaired, but
+        // is marked so it never counts as spending (ADR-020, ADR-052).
+        isTransfer: t.transferPair !== null || t.kind === "investment",
         transferPairId,
         source: "synthetic",
         // The generator's own id: the same row on every replay of the batch.

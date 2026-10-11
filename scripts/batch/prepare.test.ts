@@ -140,6 +140,32 @@ describe("buildRows", () => {
   });
 });
 
+describe("buildRows with investing", () => {
+  it("marks money into an IRA or brokerage as not spending, with no pair (ADR-052)", () => {
+    const input = structuredClone(example);
+    (input.people[1] as Record<string, unknown>).investing = [
+      { name: "SCHWAB BROKERAGE TRANSFER", amountCents: 150_000, day: 20 },
+    ];
+    let n = 0;
+    const rows = buildRows(prepareBatch(input, options).expansion, {
+      batchId: "batch-1",
+      now: new Date("2026-10-10T12:00:00Z"),
+      newId: () => `id-${(n += 1)}`,
+    });
+    const invested = rows.transactions.filter(
+      (t) => t.descriptionRaw === "SCHWAB BROKERAGE TRANSFER",
+    );
+    expect(invested).toHaveLength(3);
+    for (const t of invested) {
+      expect(t).toMatchObject({
+        amountCents: -150_000,
+        isTransfer: true,
+        transferPairId: null,
+      });
+    }
+  });
+});
+
 describe("report", () => {
   it("summarises each persona in a table", () => {
     const prepared = prepareBatch(structuredClone(example), options);

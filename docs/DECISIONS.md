@@ -77,6 +77,8 @@ Rules:
 | ADR-049 | Synthetic data batches and the batch-testing branch | Accepted |
 | ADR-050 | Manual transactions and the typed balance | Proposed |
 | ADR-051 | Phone linking: six digits, approved on the website (refines ADR-034) | Proposed |
+| ADR-052 | Retirement and investing count as saving, not spending (refines ADR-020) | Proposed |
+| ADR-053 | Insights: compare with sample people (refines ADR-049) | Proposed |
 
 ---
 
@@ -832,6 +834,113 @@ Rules:
     moves the balance by its amount. Accepted as an edge case.
   - F-27 (log spending by text) reuses `createTransaction`, so it follows the
     same rule.
+
+### ADR-052: Retirement and investing count as saving, not spending (refines ADR-020)
+
+- **Status:** Proposed (2026-10-10), agreed by the team in conversation,
+  written by Jacob.
+- **Context:**
+  - ADR-020 counts money sent outside the workspace as spending unless the
+    user marks it. Money paid into an IRA or a brokerage account leaves the
+    workspace, so someone who saves would look like a big spender.
+  - A 401(k) is taken out of pay before it lands, so it never appears in
+    bank data. We can only know about it if the user tells us.
+  - AGENTS.md section 2 rules out investing features. Showing how much went
+    in is not one, but the line needs writing down.
+- **Decision:**
+  - **Saving, not spending.** Money moved into a retirement account (an
+    IRA) or an investment account (a brokerage) counts as saving, like a
+    transfer to savings. It is left out of spending and budgets, and shown
+    under the system categories "Retirement" and "Investing".
+  - **How it is recognised.** Until categories exist (F-08), such a
+    transaction is marked as a transfer with no pair. Afterwards,
+    categorization rules (ADR-013) put it in "Retirement" or "Investing",
+    and both are excluded from spending.
+  - **The retirement question.** Every workspace has one open question,
+    shown as an action-required item until it is answered: "Is money going
+    into a retirement plan for you?"
+
+| Answer | What we store | What we show |
+|---|---|---|
+| Through my employer (401(k), 403(b)) | Optional monthly amounts: what you put in, and what your employer adds | The amounts the user typed (ADR-035's rule for amounts the user gives) |
+| Into my own account (an IRA) | The answer only | The "Retirement" transactions we find |
+| Not right now | The answer only | Nothing more; we do not ask again |
+
+  - **Action required, without alarms (ADR-042).** The item sits in a
+    "Needs your answer" list on Insights and in Settings, in neutral words,
+    with no red, no badges that count up and no reminders by text. "Not
+    right now" is a complete answer.
+  - **Where the line is.** Reeflect shows how much money went in. It never
+    shows holdings, prices or returns, never trades, and never recommends a
+    plan, a fund or an amount.
+  - **Synthetic people** (docs/SYNTHETIC.md) carry a `retirement` answer and
+    `investing` transfers in the spec. Generator version 2.
+- **Alternatives considered:** Treating IRA and brokerage payments as
+  spending (wrong for savers); guessing a 401(k) from the gap between gross
+  and net pay (we never see gross pay).
+- **Consequences:**
+  - A table for the answer (workspace, plan, the two optional amounts, when
+    answered) needs a migration (ARCH-03).
+  - F-08's preset categories gain "Retirement" and "Investing", excluded
+    from spending.
+  - AGENTS.md section 2 and docs/SYNTHETIC.md rule 7 now say this.
+  - Batches made by generator v1 replay only from a v1 checkout. A v1 spec
+    reloaded with v2 gives the same rows.
+
+### ADR-053: Insights: compare with sample people (refines ADR-049)
+
+- **Status:** Proposed (2026-10-10), by Jacob. Not in ADR-043's P0 or P1:
+  built as Later unless the team moves it up.
+- **Context:** ADR-049 asks for this record before a cross-workspace page is
+  built. Users want to see how their money compares with people like them.
+  Real-user aggregates wait for legal review (ADR-028), so the comparison is
+  with synthetic people only.
+- **Decision:**
+  - **Who you are compared with.** The synthetic workspaces of one batch:
+    the newest in the database the app points at. The batch-testing branch
+    and production can therefore show different figures. Every group
+    figure is labelled "Sample".
+  - **Each sample person's figures are computed once, by code, when a
+    batch is loaded**, and stored in an `insight_sample` table (one row per
+    person, period and measure) that references `synthetic_batch` and is
+    deleted with it. They are never hardcoded. A backfill command fills it
+    for batches loaded earlier.
+  - **Your figures are computed on request**, from your workspace only, by
+    the same function. The page reads your workspace and the stored sample
+    figures, never another workspace's transactions.
+  - **Periods:** the last 30, 90 and 365 days, shown per month (amount ×
+    30.4375 ÷ days). For the group they end at the batch's `asOf`; for you,
+    yesterday.
+  - **Groups**, built on request from the stored figures (at most a few
+    hundred rows):
+    - **People like you:** the 10 sample people just above you and the 10
+      just below you by take-home pay for the period. At either end of the
+      range, the 20 nearest.
+    - **Everyone:** the whole batch.
+    - The page shows the group's size, its take-home range and its persona
+      mix. A batch needs at least 50 people; generating more is the answer
+      to small groups.
+  - **Measures:** spending per category (in dollars and as a share of
+    take-home), kept after spending, moved to savings, retirement and
+    investing (ADR-052), bills as a share of take-home, subscription count
+    and cost, lowest balance before payday, no-spend days.
+  - **Wording** stays neutral ("a bit higher than typical"), with no
+    rankings framed as failure (ADR-042). No number comes from a model
+    (ADR-019).
+- **Alternatives considered:** Hardcoded group figures (the same on every
+  branch, and they go stale); computing from transactions on each request
+  (reads other workspaces' rows on every visit); fixed take-home bands
+  (the team preferred neighbours above and below); a cash-flow window
+  (cash flow is what is being compared, so the groups look alike by
+  construction).
+- **Consequences:**
+  - A migration adds `insight_sample` (ARCH-03).
+  - Your own figures by category need F-08. Until then, a sample workspace's
+    own figures can come from the batch's stored recipe.
+  - Developers see a sample workspace by being added to it as a member
+    (`pnpm batch attach`, still to be built), as `editor`. Their edits make
+    that workspace drift from its recipe: its stored figures go stale until
+    a backfill, and `promote` replays the recipe without the edits.
 
 ---
 

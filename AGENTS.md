@@ -46,7 +46,9 @@ Best Use of Nessie, MLH Best Use of Gemini API (ADR-036).
 
 Do not build, suggest, or scaffold any of the following:
 
-- Investing, trading, brokerage, crypto, or stock features
+- Investing, trading, brokerage, crypto, or stock features. Showing how much
+  money went into retirement or investing, as saving, is allowed (ADR-052);
+  holdings, prices, returns and trades are not.
 - Financial product recommendations or investing advice ("you should
   buy/switch to…"). Gemini may suggest what the user could do with their own
   spending, from numbers code computed (ADR-045).

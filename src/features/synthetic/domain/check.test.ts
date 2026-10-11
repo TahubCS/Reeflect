@@ -132,6 +132,22 @@ describe("personStats and checkExpansion", () => {
     expect(stats.closingChecking).toBe(walter.accounts[0]!.closingBalance);
   });
 
+  it("leaves money into retirement and investing out of spending (ADR-052)", () => {
+    const base = expandSpec(spec(), { seed: "seed-1" });
+    const saving = expandSpec(
+      spec((s) => {
+        s.people[1]!.investing = [
+          { name: "SCHWAB BROKERAGE TRANSFER", amountCents: 150_000, day: 20 },
+        ];
+      }),
+      { seed: "seed-1" },
+    );
+    const before = personStats(base.people[1]!, base);
+    const after = personStats(saving.people[1]!, saving);
+    expect(after.spendingPerMonth).toBe(before.spendingPerMonth);
+    expect(after.closingChecking).toBe(before.closingChecking - 450_000);
+  });
+
   it("flags an overdrawn checking account and spending above income", () => {
     const s = spec((s) => {
       s.people = [s.people[0]!];

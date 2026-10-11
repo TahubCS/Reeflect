@@ -221,6 +221,69 @@ describe("expandSpec", () => {
     expect(rowsOf(walter, "savings")).toEqual([]);
   });
 
+  it("pays into an IRA and a brokerage from checking each month, as saving (ADR-052)", () => {
+    const saver = person(
+      expandSpec(
+        spec((s) => {
+          s.people[1]!.retirement = {
+            plan: "own",
+            name: "VANGUARD BUY INVESTMENT",
+            amountCents: 58_300,
+            day: 3,
+          };
+          s.people[1]!.investing = [
+            {
+              name: "SCHWAB BROKERAGE TRANSFER",
+              amountCents: 150_000,
+              day: 20,
+            },
+          ];
+        }),
+        { seed: SEED },
+      ),
+      "tech-01",
+    );
+    const rows = saver.transactions.filter((t) => t.kind === "investment");
+    expect(
+      rows.map((t) => [t.postedOn, t.amount, t.account, t.category]),
+    ).toEqual([
+      ["2026-07-03", -58_300, "checking", "Retirement"],
+      ["2026-07-20", -150_000, "checking", "Investing"],
+      ["2026-08-03", -58_300, "checking", "Retirement"],
+      ["2026-08-20", -150_000, "checking", "Investing"],
+      ["2026-09-03", -58_300, "checking", "Retirement"],
+      ["2026-09-20", -150_000, "checking", "Investing"],
+    ]);
+    // They leave the workspace, so there is no other side to pair with.
+    expect(rows.every((t) => t.transferPair === null)).toBe(true);
+    expect(saver.retirement).toMatchObject({ plan: "own" });
+  });
+
+  it("makes no rows for an employer plan or no plan, and records the answer", () => {
+    const answered = expandSpec(
+      spec((s) => {
+        s.people[0]!.retirement = { plan: "none" };
+        s.people[1]!.retirement = {
+          plan: "employer",
+          youMonthlyCents: 90_000,
+          employerMonthlyCents: 45_000,
+        };
+      }),
+      { seed: SEED },
+    );
+    expect(person(answered, "tech-01").retirement).toEqual({
+      plan: "employer",
+      youMonthlyCents: 90_000,
+      employerMonthlyCents: 45_000,
+    });
+    expect(person(answered, "p2p-01").retirement).toEqual({ plan: "none" });
+    expect(walter.retirement).toBeNull();
+    // A 401(k) comes out before pay lands: the rows are the same as without it.
+    answered.people.forEach((p, i) => {
+      expect(p.transactions).toEqual(expansion.people[i]!.transactions);
+    });
+  });
+
   it("pays a card in full from the last statement", () => {
     const payments = rowsOf(priya, "card", "transfer");
     expect(payments[0]).toMatchObject({
