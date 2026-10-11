@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FALLBACK_REPLY } from "./relay.ts";
 import type { IncomingMessage } from "./turn.ts";
-import { type ReplySpace, runWorker } from "./worker.ts";
+import { type ReplySpace, failure, runWorker } from "./worker.ts";
 
 const TOKEN = "worker-test-token-0123456789-0123456789";
 
@@ -10,13 +10,11 @@ function fakeSpace(id: string, log: string[], type?: string) {
   const space: ReplySpace = {
     id,
     type,
-    async responding(fn) {
+    async startTyping() {
       log.push(`${id}: typing on`);
-      try {
-        return await fn();
-      } finally {
-        log.push(`${id}: typing off`);
-      }
+    },
+    async stopTyping() {
+      log.push(`${id}: typing off`);
     },
     async send(content) {
       log.push(`${id}: sent "${content}"`);
@@ -124,6 +122,48 @@ describe("runWorker", () => {
     expect(log).toContain(`alice: sent "${FALLBACK_REPLY}"`);
   });
 
+  it("still sends the reply when the typing indicator is refused", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const log: string[] = [];
+    const space = fakeSpace("alice", log, "dm");
+    // What Photon's client throws: a named error with a fixed code.
+    const refused = Object.assign(new Error("chat +15551230001 not ready"), {
+      name: "ValidationError",
+      code: "preconditionFailed",
+    });
+    space.startTyping = async () => {
+      throw refused;
+    };
+    space.stopTyping = async () => {
+      throw refused;
+    };
+
+    await run([[space, text("m1", "+15551230001", "hello")]]);
+
+    expect(log).toEqual(['alice: sent "re: hello"']);
+    // Said once, with the code, and never the error's own words.
+    expect(logged).toHaveBeenCalledTimes(1);
+    expect(logged).toHaveBeenCalledWith("worker: typing indicator refused", {
+      messageId: "m1",
+      reason: "ValidationError",
+      code: "preconditionFailed",
+    });
+    expect(JSON.stringify(logged.mock.calls)).not.toContain("+15551230001");
+  });
+
+  it("hides the typing indicator again when the reply cannot be sent", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const log: string[] = [];
+    const space = fakeSpace("alice", log, "dm");
+    space.send = async () => {
+      throw new Error("line unavailable");
+    };
+
+    await run([[space, text("m1", "+15551230001", "hello")]]);
+
+    expect(log).toEqual(["alice: typing on", "alice: typing off"]);
+  });
+
   it("keeps going when a reply cannot be sent, logging ids only", async () => {
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     const log: string[] = [];
@@ -146,5 +186,21 @@ describe("runWorker", () => {
     const output = JSON.stringify(logged.mock.calls);
     expect(output).not.toContain("+15551230001");
     expect(output).not.toContain("secret question");
+  });
+});
+
+describe("failure", () => {
+  it("gives the name, and the code only when it is a word", () => {
+    expect(failure(new TypeError("fetch failed"))).toEqual({
+      reason: "TypeError",
+    });
+    expect(
+      failure(Object.assign(new Error("x"), { code: "dailyLimitExceeded" })),
+    ).toEqual({ reason: "Error", code: "dailyLimitExceeded" });
+    expect(failure(Object.assign(new Error("x"), { code: 9 }))).toEqual({
+      reason: "Error",
+    });
+    expect(failure("boom")).toEqual({ reason: "unknown" });
+    expect(failure(null)).toEqual({ reason: "unknown" });
   });
 });

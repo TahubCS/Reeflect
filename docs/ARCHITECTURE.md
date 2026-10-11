@@ -495,7 +495,7 @@ sequenceDiagram
 
 | Module | Location | Responsibility |
 |---|---|---|
-| Worker loop | `agent-worker/src/index.ts`, `worker.ts` | Spectrum connection, typing indicator, forward turn, send reply. One conversation is answered in order (`queue.ts`); images arrive with F-25 |
+| Worker loop | `agent-worker/src/index.ts`, `worker.ts` | Spectrum connection, typing indicator, forward turn, send reply. The indicator is best-effort: if the platform refuses it, the reply is still sent. Failures are logged with the error's name and the platform's code, never its message. One conversation is answered in order (`queue.ts`); images arrive with F-25 |
 | Worker relay | `agent-worker/src/relay.ts`, `turn.ts`, `config.ts` | `turn.ts` picks what is forwarded: inbound text in direct chats only. `relay.ts` posts it with the service token, waits up to 20 seconds, and falls back to a fixed reply on any failure. `config.ts` validates the worker's env |
 | Worker send API | `agent-worker/src/server.ts` | `POST /send`: the app asks the worker to text a conversation. 404 without the service token, 400 for a body that does not match the protocol, 502 when the send fails. Used by the link confirmation (ADR-062); proactive messages arrive with F-26 |
 | Texts the app sends first | `src/features/messaging/server/notify.ts` | `sendToPhone` posts to the worker's `/send`, waits up to 5 seconds and never throws. `approveLinkAction` uses it to tell a phone it is linked (ADR-062) |
