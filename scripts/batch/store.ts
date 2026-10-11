@@ -70,7 +70,7 @@ export async function insertBatch(
       rows.transactions,
     );
     // Figures for the insights comparison, from the rows just written
-    // (ADR-055), so they can never disagree with them.
+    // (ADR-056), so they can never disagree with them.
     await writeSampleFigures(tx, batch.id, batch.asOf);
   });
 }
@@ -78,7 +78,7 @@ export async function insertBatch(
 /**
  * Recomputes the batch's `insight_sample` rows from its database rows: the
  * backfill for batches loaded before the table existed, or after developers
- * edited a sample workspace (ADR-055). Returns how many rows it wrote.
+ * edited a sample workspace (ADR-056). Returns how many rows it wrote.
  */
 export async function rollupBatch(db: Db, batchId: string): Promise<number> {
   const batch = await getBatch(db, batchId);

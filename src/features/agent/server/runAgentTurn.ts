@@ -1,4 +1,5 @@
 import "server-only";
+import type { TurnRequest } from "@reeflect/agent-protocol";
 import {
   type ClaimResult,
   claimLinkCode,
@@ -6,7 +7,6 @@ import {
   revokeByHandle,
 } from "@/features/messaging";
 import { parseCommand } from "../domain/parse";
-import type { TurnRequest } from "../domain/protocol";
 import { REPLIES } from "../domain/replies";
 
 // The brain's entry point for one inbound message (ARCH-13). Linking and

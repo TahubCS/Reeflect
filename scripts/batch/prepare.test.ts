@@ -141,7 +141,7 @@ describe("buildRows", () => {
   });
 });
 
-describe("buildRows categories (ADR-056)", () => {
+describe("buildRows categories (ADR-057)", () => {
   const prepared = prepareBatch(structuredClone(example), options);
   let n = 0;
   const rows = buildRows(prepared.expansion, {
@@ -191,7 +191,7 @@ describe("buildRows categories (ADR-056)", () => {
 });
 
 describe("buildRows with investing", () => {
-  it("marks money into an IRA or brokerage as not spending, with no pair (ADR-054)", () => {
+  it("marks money into an IRA or brokerage as not spending, with no pair (ADR-055)", () => {
     const input = structuredClone(example);
     (input.people[1] as Record<string, unknown>).investing = [
       { name: "SCHWAB BROKERAGE TRANSFER", amountCents: 150_000, day: 20 },

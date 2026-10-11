@@ -65,7 +65,7 @@ describe("measure", () => {
     expect(m.bills).toBe(monthly(120_000));
   });
 
-  it("never counts transfers as spending or income, and counts saving (ADR-020, ADR-054)", () => {
+  it("never counts transfers as spending or income, and counts saving (ADR-020, ADR-055)", () => {
     const m = measure(
       [
         row("2026-09-01", -50_000, null, { isTransfer: true }),
@@ -84,7 +84,7 @@ describe("measure", () => {
           isTransfer: true,
           accountType: "credit_card",
         }),
-        // An IRA and a brokerage, unpaired but marked (ADR-054).
+        // An IRA and a brokerage, unpaired but marked (ADR-055).
         row("2026-09-15", -25_000, "retirement", { isTransfer: true }),
         row("2026-09-15", -10_000, "investing", { isTransfer: true }),
       ],

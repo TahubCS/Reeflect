@@ -44,7 +44,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-02 Personal workspace | B | Simon Ormond | `feat/personal-workspace` | Personal workspace and `/w/[workspaceId]` done (HO-027); household later |
 | F-03 Financial accounts | A | Simon Ormond | `feat/financial-accounts` | Done: manual accounts, list, edit, delete (HO-030) |
 | F-04 Manual transactions | A | Simon Ormond | `feat/manual-transactions` | Built: add, edit, delete, list by day, account filter (HO-031); ADR-050 Proposed |
-| F-05 CSV import | A | Unassigned | — | Not started |
+| F-05 CSV import | A | Simon Ormond | `feat/csv-statement-import` | Built for Capital One 360 and credit-card CSV exports (HO-040, ADR-054 Proposed); no mapping screen yet |
 | F-06 PDF statement import (P0, ADR-044) | A | Simon Ormond | `feat/pdf-statement-import` | Built for Capital One 360 checking and savings (HO-038); CSV kept in Neon object storage (ADR-053 Proposed); needs `neon deploy` and Vercel vars |
 | F-08 Categorization | A | Codex | `feat/transaction-categorization` | Full feature implemented and verified (HO-037); PR #12 awaits merge |
 | F-09 Monthly budgets (P1) | A | Unassigned | — | Not started |
@@ -60,11 +60,11 @@ Update this table when work is assigned or finished. Features are listed in
 | F-26 Subscription alerts | C | Unassigned | — | Not started |
 | F-27 Log spending by text | C | Unassigned | — | Not started |
 | F-28 Category and balance questions | C | Unassigned | — | Not started |
-| F-32 Agent worker | C | Unassigned | — | Not started |
+| F-32 Agent worker | C | Muhammad Tahub Khatri | `feat/agent-worker` | Built, replies only (HO-039); not yet deployed to Render |
 | F-22 Bill reminders (P1) | A + C | Unassigned | — | Not started |
 | F-15 Gemini summary on the website (P1, ADR-045) | C | Unassigned | — | Not started |
-| F-35 Compare with people like you (Later, ADR-055) | A + B | Jacob Heminway | `feat/insights` | Built: the Insights page, stored sample figures and `pnpm batch rollup` (HO-041); ADR-055 and ADR-056 Proposed |
-| F-36 Retirement question (Later, ADR-054) | B | Jacob Heminway | `feat/insights` | Planned; generator models the answers (HO-039) |
+| F-35 Compare with people like you (Later, ADR-056) | A + B | Jacob Heminway | `feat/insights` | Built: the Insights page, stored sample figures and `pnpm batch rollup` (HO-043); ADR-056 and ADR-057 Proposed |
+| F-36 Retirement question (Later, ADR-055) | B | Jacob Heminway | `feat/insights` | Planned; generator models the answers (HO-041) |
 | Later (ADR-043): Plaid, household, debt tab, savings goal, receipt photos, recaps, forecast, audit log | — | Unassigned | — | Only if time remains |
 
 ---
@@ -1763,19 +1763,164 @@ recommendation, not a decision.
 - Imported rows are not categorized or paired as transfers yet (F-08,
   ADR-020).
 
-## HO-039: Generator v2 (retirement, investing), ADR-054 and ADR-055, a 100-person year batch
+---
+
+## HO-039: F-32 agent worker: relays texts between Photon and the app
+
+- **Date:** 2026-10-10 22:30 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `feat/agent-worker` (uncommitted) / not opened
+
+### What changed
+- **The repo is a pnpm workspace** (ADR-032): the app at the root,
+  `agent-worker/` and `packages/agent-protocol/`. Root `pnpm lint`,
+  `pnpm typecheck` and `pnpm test:unit` cover all three.
+- **`agent-worker/`**, written by hand (Photon's scaffold command was not
+  run). For each inbound text in a direct chat it shows the typing
+  indicator, posts the text to `/api/agent/turn` with the service token, and
+  sends the reply. On any failure it sends a fixed "try again" reply.
+  - It has no business logic and reaches nothing but Photon and the app.
+  - Own messages, group chats and anything that is not text are ignored.
+  - One conversation is answered in order; others do not wait.
+  - `GET`/`HEAD /health`, and a self-ping every 10 minutes when
+    `RENDER_EXTERNAL_URL` is set (ADR-041).
+  - It runs on Node 24 directly from TypeScript; its only new dependency is
+    `spectrum-ts` 12.10.1.
+- **`packages/agent-protocol/`** holds the turn schemas, moved from
+  `src/features/agent/domain/protocol.ts`, and the platform list.
+- **`terminal` platform** for development: Spectrum's terminal chat. A
+  deployed app (on Vercel) answers 400 to it, because its handles are not
+  phone numbers anyone has proven they own.
+- **Email outbox writes are atomic** (`src/lib/email/send.ts`): the file
+  is written under a temporary name and renamed. Playwright specs were
+  failing now and then with "Unexpected end of JSON input" because they
+  read the outbox while the server was still writing to it.
+- `.gitignore` ignores `node_modules/` in workspace packages too.
+- **Tests:** Vitest for the worker's settings, message mapping, relay,
+  queue, health server and loop. Run by hand with the terminal provider
+  against a local production build: three texts answered in order.
+
+### What's next
+- **Try it locally:** copy `agent-worker/.env.example` to
+  `agent-worker/.env`, set `AGENT_SERVICE_TOKEN` to the same value as in
+  `.env.local`, run `pnpm dev`, then `pnpm --filter agent-worker dev` in a
+  second terminal and type in the chat.
+- **Real texts:** in `agent-worker/.env` set `AGENT_PROVIDER=imessage`,
+  `PHOTON_PROJECT_ID` and `PHOTON_PROJECT_SECRET`. On Photon's free plan the
+  phone must be registered as a project user in the Photon dashboard.
+- **Deploy to Render** as a web service from this repository:
+  - Build command: `pnpm install --frozen-lockfile`
+  - Start command: `pnpm --filter agent-worker start`
+  - Health check path: `/health`
+  - Environment: `NODE_VERSION=24`, `AGENT_PROVIDER=imessage`,
+    `PHOTON_PROJECT_ID`, `PHOTON_PROJECT_SECRET`,
+    `REEFLECT_URL` (the production origin), `AGENT_SERVICE_TOKEN` (the same
+    value as on Vercel).
+- **`POST /send` and the 5-minute job tick** arrive with F-26, the first
+  feature where the agent texts first.
+- **F-25** makes a linked phone get real answers.
+
+### Open problems
+- **Tried with a real phone on 2026-10-10:** worker run locally with
+  `AGENT_PROVIDER=imessage` against the local app. Sign-up reply, LINK,
+  Approve on the website and the linked reply all worked over iMessage.
+- **Photon's free plan allows 10 people, each added by hand.** Photon
+  dashboard > Spectrum > Users > Add user. Each person's row shows a "Texts
+  on" number: that is the number that person texts, and it can differ from
+  person to person (shared pool). So there is no open sign-up on this plan,
+  and `AGENT_PHONE_NUMBER` should stay unset: one number shown to everyone
+  would be wrong for some of them. For the demo, add each judge's phone
+  first (ADR-034's "Try it" flow assumes one number for all judges).
+- Not tried: a text from a phone that is not in the Users list, and the
+  worker on Render.
+- A burst of texts gets one reply each. Photon's debounce pipeline is left
+  until Gemini answers (F-25).
+- The worker does not retry a failed send, and the app does not yet ignore
+  a turn it has already seen.
+
+## HO-040: CSV import (F-05) for Capital One exports, through the PDF pipeline
+
+- **Date:** 2026-10-10 (EDT)
+- **Author:** Simon Ormond with Claude (Claude Code)
+- **Branch / PR:** `feat/csv-statement-import` / not opened
+
+### What changed
+- **ADR-054 (Proposed):** CSV import reads Capital One's two exports with
+  built-in formats, recognized by header names: 360 checking and savings
+  (a balance after every row) and credit card (no balances). There is no
+  column-mapping screen or `csv_mapping` table yet. ADR-044's status line
+  now says ADR-054 refines its CSV pipeline. **The team should confirm it.**
+- **Migration `0007_import_batch_optional_balances`:** `import_batch`'s
+  opening and closing balances can be null, for a card export.
+- **`src/features/imports/`:**
+  - `domain/csv-records.ts`: the RFC 4180 reader, taken out of `csv.ts`. Upload
+    mode accepts a BOM, LF or CRLF and blank lines; canonical mode is as
+    strict as before.
+  - `domain/templates/capital-one-csv.ts`:
+    - 360: the sign comes from Transaction Type, the row order from the
+      balance chain (the export lists newest first), and the opening
+      balance is worked out from the first row.
+    - Card: Debit is negative and Credit positive, and there are no
+      balances.
+    - Only the chosen account's rows are read, and only the last 4 digits
+      of the account number are kept.
+  - `ParsedStatement`: `accountType` became `accountTypes` (a 360 export can
+    be checking or savings), and the balances can be null.
+  - Checks: when a file has no balances, reconciliation, running balance
+    and continuity are skipped. `readStoredRows` re-reconciles only when
+    there are balances.
+  - Pipeline: `previewStatement` picks a PDF or CSV reader, and everything
+    from the parsed statement on is shared. `import_batch.kind` and
+    `transaction.source` are `csv` for these imports. A file without
+    balances never changes the account's balance.
+  - Actions were renamed to `previewImportAction` and `commitImportAction`.
+    A CSV is limited to 2 MB and 10,000 rows.
+  - UI:
+    - one field, "Statement (PDF or CSV)"
+    - "Not in this file" for missing balances, with a note
+    - no Balance column when there are none
+    - the waiting list names the format
+- `src/lib/money`: `parseExportAmount`, for plain export amounts with 0 to 2
+  decimals.
+- **Fixtures:** `tests/fixtures/csv/`, synthetic and hand-written.
+- **Tests:** `pnpm test:unit` (1115) and `pnpm test:e2e` (83, including the
+  new `csv-import.spec.ts`) pass. `pnpm lint`, `typecheck`, `build` and
+  `scan:bundle` pass. Storage tests ran against the `storage-tests` bucket.
+
+### What's next
+- Upload a **real Capital One CSV export** (360 and card) and check its
+  header names against ADR-054. Keep it in a gitignored
+  `tests/fixtures/**/private/` folder. Adjust the names in
+  `capital-one-csv.ts` if they differ.
+- `pnpm db:migrate:to production` for migration 0007 when this merges,
+  after HO-038's 0006.
+- Gemini reading the stored CSVs (ADR-053, ADR-019, ADR-040), the same
+  canonical file for PDF and CSV imports.
+- The mapping screen and `csv_mapping`, when another bank is needed.
+
+### Open problems
+- ADR-054 and ADR-053 are Proposed, not Accepted.
+- The column names come from Capital One's documented exports, not from a
+  real file.
+- A PDF and a CSV of the same period dedupe only where their descriptions
+  match, so importing both may add some rows twice.
+- A card export never updates the card's balance; it stays as typed.
+- Imported rows are not categorized or paired as transfers yet (F-08,
+  ADR-020): a card payment shows on both accounts.
+
+## HO-041: Generator v2 (retirement, investing), ADR-055 and ADR-056, a 100-person year batch
 
 - **Date:** 2026-10-10 21:20 (EDT)
 - **Author:** Jacob Heminway with Claude (Claude Code)
 - **Branch / PR:** `feat/insights` (uncommitted) / not opened
 
 ### What changed
-- **ADR-054 (Proposed):** money into retirement (an IRA) or a brokerage
+- **ADR-055 (Proposed):** money into retirement (an IRA) or a brokerage
   counts as saving, not spending (refines ADR-020). A 401(k) is known only
   from the user's answer to an action-required retirement question, shown
   without alarms. AGENTS.md section 2 and SYNTHETIC.md rule 7 now draw the
   line: amounts in are fine; holdings, prices, returns and trades are not.
-- **ADR-055 (Proposed):** the insights comparison that ADR-049 asked for.
+- **ADR-056 (Proposed):** the insights comparison that ADR-049 asked for.
   Each sample person's figures are stored at batch load in an
   `insight_sample` table (not built yet); the page compares you with the
   10 sample people just above and 10 just below you by take-home, or with
@@ -1805,7 +1950,7 @@ recommendation, not a decision.
   `quantile` in `src/lib/money`, then `insights/domain` (periods, metrics,
   cohort), then the `insight_sample` table, the page, `pnpm batch attach`,
   the retirement question, and the production load.
-- The team to confirm ADR-054 and ADR-055.
+- The team to confirm ADR-055 and ADR-056.
 - F-08 (categories) is unassigned; our own accounts need it for spending by
   category on Insights.
 
@@ -1821,7 +1966,7 @@ recommendation, not a decision.
 
 ---
 
-## HO-040: Eighteen preset categories (ADR-056); sample people arrive categorized
+## HO-042: Eighteen preset categories (ADR-057); sample people arrive categorized
 
 - **Date:** 2026-10-10 23:10 (EDT)
 - **Author:** Jacob Heminway with Claude (Claude Code)
@@ -1829,7 +1974,7 @@ recommendation, not a decision.
   main) / not opened
 
 ### What changed
-- **ADR-056 (Proposed):** F-08's presets go from eight to eighteen. The
+- **ADR-057 (Proposed):** F-08's presets go from eight to eighteen. The
   first eight are unchanged and in the same order. Added after them:
   health, insurance, loans, subscriptions, personal care, kids & childcare,
   gifts, travel, retirement, investing. Existing workspaces gain them on the
@@ -1859,14 +2004,14 @@ recommendation, not a decision.
   - **Result:** 1,800 categories, 18–40 rules per person and 195 manual
     rows. About $35.7k of $3.9M spending is Uncategorized.
 - **Docs:**
-  - DECISIONS (ADR-056).
+  - DECISIONS (ADR-057).
   - ARCHITECTURE (category table row).
   - PROJECT (F-09).
   - SYNTHETIC (how the loader categorizes).
   - The categorization README.
 
 ### What's next
-- Muhammad (F-08 owner) to look over ADR-056 and the new presets.
+- Muhammad (F-08 owner) to look over ADR-057 and the new presets.
 - Insights steps 4 onward in Jacob's `insights_plan.md`: `quantile`, then
   `insights/domain` (periods, metrics by preset key, cohort).
 - Starter rules for the Nessie demo accounts: Jacob, on a separate branch,
@@ -1882,7 +2027,7 @@ recommendation, not a decision.
 - `first-50-nc` (generator v1, no categories) is still on the branch.
 
 
-## HO-041: Insights page (F-35): compare with sample people (ADR-055)
+## HO-043: Insights page (F-35): compare with sample people (ADR-056)
 
 - **Date:** 2026-10-11 00:30 (EDT)
 - **Author:** Jacob Heminway with Claude (Claude Code)
@@ -1891,8 +2036,8 @@ recommendation, not a decision.
 
 ### What changed
 - **Merged main** (Simon's PDF import, #16). Simon's ADR-053 and HO-038
-  keep their numbers, so ours moved: ADR-054 (retirement and investing as
-  saving), ADR-055 (insights), ADR-056 (presets), HO-039 and HO-040.
+  keep their numbers, so ours moved: ADR-055 (retirement and investing as
+  saving), ADR-056 (insights), ADR-057 (presets), HO-041 and HO-042.
 - **`src/lib/money`:** `quantile` (linear, rounded to the cent) and
   `fiveNumbers`.
 - **`src/features/insights/`** (new):
@@ -1912,7 +2057,7 @@ recommendation, not a decision.
   is exported from `client.ts`, so Insights and batch rollups compute
   effective categories with F-08's own code. `listCategories` returns
   `presetKey`.
-- **`insight_sample` table** (migration 0007): one row per sample person,
+- **`insight_sample` table** (migration 0007, renumbered 0008 in HO-044): one row per sample person,
   period and measure. `pnpm batch load` and `promote` write it in the
   same transaction; **`pnpm batch rollup <batchId>`** recomputes it.
 - **The page** at `/w/[workspaceId]/insights`:
@@ -1924,7 +2069,7 @@ recommendation, not a decision.
     and a line saying how much is Uncategorized, linking to Transactions.
   - Where you stand: strips with the middle half, typical and you, with
     the placement in words. Pale green or warm tints echo the words.
-- **Batch-testing branch:** migrated to 0007 (also applied main's 0006);
+- **Batch-testing branch:** migrated to our `insight_sample` migration (also applied main's 0006);
   `rollup` wrote 6,099 figures for `year-100-nc`. The page uses the
   newest batch that has figures, so `first-50-nc` (no figures) is never
   used.
@@ -1934,9 +2079,9 @@ recommendation, not a decision.
 - **Tests, now that Docker runs here:** domain, server (`getInsights`),
   store (load, rollup, delete) and the isolation matrix; Playwright
   `insights.spec.ts`. `categorization.spec.ts` expected 8 presets and now
-  expects 18 (ADR-056; it couldn't run here before). The whole e2e suite
+  expects 18 (ADR-057; it couldn't run here before). The whole e2e suite
   passes (83), and every unit test except Simon's storage tests.
-- **Docs:** ADR-055 updated with what was settled while building;
+- **Docs:** ADR-056 updated with what was settled while building;
   ARCHITECTURE (`insight_sample`, `insights`), PROJECT (F-35), SYNTHETIC
   (`rollup`), AGENTS.md section 5.
 
@@ -1955,4 +2100,29 @@ recommendation, not a decision.
 - Simon's storage tests need `.env.storage-tests` (`neon env pull --branch
   storage-tests`); without it 6 unit tests fail locally. Everything else
   passes.
-- ADR-054, ADR-055 and ADR-056 are still Proposed.
+- ADR-055, ADR-056 and ADR-057 are still Proposed.
+
+## HO-044: Main merged again (agent worker #17, CSV import #18)
+
+- **Date:** 2026-10-11 (EDT)
+- **Author:** Jacob Heminway with Claude (Claude Code)
+- **Branch / PR:** `feat/insights` / not opened
+
+### What changed
+- Main's ADR-054 (CSV import), HO-039 and HO-040 keep their numbers; ours
+  are now ADR-055 (retirement and investing), ADR-056 (insights), ADR-057
+  (presets), HO-041, HO-042 and HO-043.
+- Both branches added a migration 0007. Main's
+  (`0007_import_batch_optional_balances`) is kept; ours is regenerated as
+  `0008_insight_sample`.
+- Batch-testing branch: the old `insight_sample` record and table were
+  removed, then `pnpm db:migrate:to branch` (9 of 9) and `pnpm batch
+  rollup` (6,099 figures, as before).
+- Main's assignments row for F-05 cited HO-039; it now cites HO-040.
+
+### What's next
+- Find which e2e page logs `RangeError: Money must be a whole number of
+  cents` on the server. No test fails.
+
+### Open problems
+- Simon's storage tests (8) need `.env.storage-tests` to run locally.

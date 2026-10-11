@@ -317,7 +317,7 @@
   font-weight: 600;
 }
 
-/* Slight tints (ADR-055): the words say the same thing. */
+/* Slight tints (ADR-056): the words say the same thing. */
 .good {
   background: var(--tone-good);
 }

@@ -37,10 +37,10 @@ export function isCapitalOne(lines: readonly Line[]): boolean {
   return lines.some((line) => /capital\s*one/i.test(line.text));
 }
 
-function accountType(productName: string): StatementAccountType | null {
-  if (/checking/i.test(productName)) return "checking";
-  if (/savings|money market/i.test(productName)) return "savings";
-  return null;
+function accountTypes(productName: string): StatementAccountType[] {
+  if (/checking/i.test(productName)) return ["checking"];
+  if (/savings|money market/i.test(productName)) return ["savings"];
+  return [];
 }
 
 function isoDate(text: string): string | null {
@@ -269,7 +269,7 @@ export function parseCapitalOne(
     statement: {
       institution: INSTITUTION,
       productName: chosen.productName,
-      accountType: accountType(chosen.productName),
+      accountTypes: accountTypes(chosen.productName),
       accountLast4: chosen.last4,
       currency: "USD",
       periodStart: opening.date,

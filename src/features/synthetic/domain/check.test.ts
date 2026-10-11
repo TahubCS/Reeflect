@@ -132,7 +132,7 @@ describe("personStats and checkExpansion", () => {
     expect(stats.closingChecking).toBe(walter.accounts[0]!.closingBalance);
   });
 
-  it("leaves money into retirement and investing out of spending (ADR-054)", () => {
+  it("leaves money into retirement and investing out of spending (ADR-055)", () => {
     const base = expandSpec(spec(), { seed: "seed-1" });
     const saving = expandSpec(
       spec((s) => {

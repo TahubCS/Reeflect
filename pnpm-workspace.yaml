@@ -1,6 +1,14 @@
+# The Next.js app is the workspace root. The agent worker and the schemas it
+# shares with the app are separate packages (ADR-032).
+packages:
+  - agent-worker
+  - packages/*
+
 allowBuilds:
   "@prisma/client": false
   better-sqlite3: false
   esbuild: false
+  # Pulled in by spectrum-ts; its install script only prints a notice.
+  protobufjs: false
   sharp: false
   unrs-resolver: false

@@ -62,7 +62,7 @@ describe("batch store", () => {
     await deleteBatch(db, batchId);
   });
 
-  it("loads categories and rules with the batch, and deletes them with it (ADR-056)", async () => {
+  it("loads categories and rules with the batch, and deletes them with it (ADR-057)", async () => {
     const { batchId, rows } = await load("store-categories");
     const workspaces = rows.organizations.map((o) => o.id!);
     const categories = () =>
@@ -94,7 +94,7 @@ describe("batch store", () => {
     expect(await rules()).toEqual([]);
   });
 
-  it("writes each person's Insights figures at load, and rollup gives the same (ADR-055)", async () => {
+  it("writes each person's Insights figures at load, and rollup gives the same (ADR-056)", async () => {
     const { batchId, rows } = await load("store-insights");
     const figures = () =>
       db

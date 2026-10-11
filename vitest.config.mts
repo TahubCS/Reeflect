@@ -13,7 +13,12 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.ts"],
+    include: [
+      "src/**/*.test.{ts,tsx}",
+      "scripts/**/*.test.ts",
+      "agent-worker/src/**/*.test.ts",
+      "packages/*/src/**/*.test.ts",
+    ],
     env: {
       // Tests never read .env.local, so they cannot reach the Neon database.
       // They use the database from `docker compose up -d`, or the CI service.
@@ -30,7 +35,12 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       // Routes and feature UI are covered by Playwright (TEST-02, TEST-07).
-      include: ["src/**/*.{ts,tsx}", "scripts/**/*.ts"],
+      include: [
+        "src/**/*.{ts,tsx}",
+        "scripts/**/*.ts",
+        "agent-worker/src/**/*.ts",
+        "packages/*/src/**/*.ts",
+      ],
       exclude: [
         "src/app/**",
         "src/features/*/ui/**",
@@ -40,6 +50,9 @@ export default defineConfig({
         "scripts/batch/cli.ts",
         "scripts/db/migrate-to.ts",
         "scripts/register-paths.ts",
+        // The worker's entry point: reads the environment and connects to
+        // Photon around tested modules; checked by running it.
+        "agent-worker/src/index.ts",
         "src/lib/db/schema/**",
         "**/*.test.{ts,tsx}",
       ],

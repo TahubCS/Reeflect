@@ -4,7 +4,8 @@ import type { ParsedStatement, StatementAccountType } from "./statement";
 
 // ADR-010's import guardrails for a parsed statement, plus the checks that
 // the CSV kept in storage says exactly what the statement says (ADR-053).
-// Every check reports in plain words; a `block` stops the commit.
+// Every check reports in plain words; a `block` stops the commit. A file
+// with no balances (a card's CSV export) skips the balance checks.
 
 export type CheckOutcome = "pass" | "warn" | "block";
 
@@ -37,7 +38,8 @@ export type TargetAccount = {
 export type PreviousImport = {
   periodStart: string;
   periodEnd: string;
-  closingBalanceCents: Cents;
+  /** Null for an import whose file had no balances. */
+  closingBalanceCents: Cents | null;
 };
 
 export type CheckContext = {
@@ -103,7 +105,7 @@ function identity({ statement, account }: CheckContext): Check {
 
 function accountType({ statement, account }: CheckContext): Check {
   const label = "Account type matches";
-  if (statement.accountType === null) {
+  if (statement.accountTypes.length === 0) {
     return {
       id: "account-type",
       label,
@@ -111,12 +113,15 @@ function accountType({ statement, account }: CheckContext): Check {
       detail: `"${statement.productName}" isn't a kind of account that can be imported yet.`,
     };
   }
-  if (statement.accountType !== account.type) {
+  if (!statement.accountTypes.includes(account.type)) {
+    const kinds = statement.accountTypes
+      .map((type) => TYPE_NAMES[type])
+      .join(" or ");
     return {
       id: "account-type",
       label,
       outcome: "block",
-      detail: `This is a ${TYPE_NAMES[statement.accountType]} statement, and the chosen account is a ${TYPE_NAMES[account.type]} account.`,
+      detail: `This is a ${kinds} statement, and the chosen account is a ${TYPE_NAMES[account.type]} account.`,
     };
   }
   return {
@@ -152,37 +157,50 @@ export function reconciliationDifference(
   return subtract(closingBalanceCents, add(openingBalanceCents, sum(amounts)));
 }
 
-function reconciliation({ statement }: CheckContext): Check {
+/** The statement's balances, or null when the file has none (ADR-010). */
+function balances(statement: ParsedStatement) {
+  const { openingBalanceCents: opening, closingBalanceCents: closing } =
+    statement;
+  return opening === null || closing === null ? null : { opening, closing };
+}
+
+function reconciliation({ statement }: CheckContext): Check | null {
+  const stated = balances(statement);
+  if (!stated) return null;
   const label = "Balances add up";
   const amounts = statement.rows.map((row) => row.amountCents);
   const difference = reconciliationDifference(
-    statement.openingBalanceCents,
+    stated.opening,
     amounts,
-    statement.closingBalanceCents,
+    stated.closing,
   );
-  const sentence = `Opening ${formatCents(statement.openingBalanceCents)}, plus ${statement.rows.length} ${statement.rows.length === 1 ? "transaction" : "transactions"} totalling ${formatCents(sum(amounts))}`;
+  const sentence = `Opening ${formatCents(stated.opening)}, plus ${statement.rows.length} ${statement.rows.length === 1 ? "transaction" : "transactions"} totalling ${formatCents(sum(amounts))}`;
   if (difference !== 0) {
     return {
       id: "reconciliation",
       label,
       outcome: "block",
-      detail: `${sentence}, comes to ${formatCents(add(statement.openingBalanceCents, sum(amounts)))}, but the statement's closing balance is ${formatCents(statement.closingBalanceCents)}: a difference of ${formatCents(difference)}. Nothing will be imported from this file.`,
+      detail: `${sentence}, comes to ${formatCents(add(stated.opening, sum(amounts)))}, but the statement's closing balance is ${formatCents(stated.closing)}: a difference of ${formatCents(difference)}. Nothing will be imported from this file.`,
     };
   }
   return {
     id: "reconciliation",
     label,
     outcome: "pass",
-    detail: `${sentence}, equals the closing balance of ${formatCents(statement.closingBalanceCents)}.`,
+    detail: `${sentence}, equals the closing balance of ${formatCents(stated.closing)}.`,
   };
 }
 
 function runningBalance({ statement }: CheckContext): Check | null {
-  if (statement.rows.every((row) => row.runningBalanceCents === null)) {
+  const stated = balances(statement);
+  if (
+    !stated ||
+    statement.rows.every((row) => row.runningBalanceCents === null)
+  ) {
     return null;
   }
   const label = "Each row's balance follows";
-  let balance = statement.openingBalanceCents;
+  let balance = stated.opening;
   for (const row of statement.rows) {
     balance = add(balance, row.amountCents);
     if (
@@ -330,21 +348,29 @@ function continuity({
   statement,
   previousImports,
 }: CheckContext): Check | null {
+  const stated = balances(statement);
   const before = latestBefore(previousImports, statement.periodStart);
-  if (!before || nextDay(before.periodEnd) < statement.periodStart) return null;
+  if (
+    !stated ||
+    !before ||
+    before.closingBalanceCents === null ||
+    nextDay(before.periodEnd) < statement.periodStart
+  ) {
+    return null;
+  }
   const label = "Follows the last statement";
-  return before.closingBalanceCents === statement.openingBalanceCents
+  return before.closingBalanceCents === stated.opening
     ? {
         id: "continuity",
         label,
         outcome: "pass",
-        detail: `It opens at ${formatCents(statement.openingBalanceCents)}, where the last one closed.`,
+        detail: `It opens at ${formatCents(stated.opening)}, where the last one closed.`,
       }
     : {
         id: "continuity",
         label,
         outcome: "warn",
-        detail: `It opens at ${formatCents(statement.openingBalanceCents)}, but the last statement closed at ${formatCents(before.closingBalanceCents)}.`,
+        detail: `It opens at ${formatCents(stated.opening)}, but the last statement closed at ${formatCents(before.closingBalanceCents)}.`,
       };
 }
 

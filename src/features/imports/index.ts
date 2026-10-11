@@ -1,10 +1,10 @@
-// F-06's public interface for routes and other features (AGENTS.md section
+// F-05 and F-06's public interface for routes and other features (AGENTS.md section
 // 6, ARCH-02). The UI components are client or server components; the
 // server functions are server-only.
 export {
-  commitPdfImportAction,
+  commitImportAction,
   discardImportAction,
-  previewPdfImportAction,
+  previewImportAction,
 } from "./server/actions";
 export { loadPreview } from "./server/pipeline";
 export { listPreviews } from "./server/repository";

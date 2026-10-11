@@ -1,6 +1,6 @@
 // A workspace's stored rows → its measures. The one path for both a sample
 // person's stored figures (`pnpm batch rollup`) and your own figures on the
-// page, so the two are always worked out the same way (ADR-055).
+// page, so the two are always worked out the same way (ADR-056).
 import {
   type CategoryRule,
   type PresetKey,

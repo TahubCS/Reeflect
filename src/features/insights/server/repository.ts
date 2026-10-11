@@ -17,7 +17,7 @@ import type { WorkspaceData } from "../domain/workspace";
 
 // Callers authorize first (ARCH-04). Your workspace's reads are filtered by
 // its id; sample figures are synthetic, shared by every viewer, and never
-// include anyone's transactions (ADR-055). No shared caches.
+// include anyone's transactions (ADR-056). No shared caches.
 
 export type SampleBatch = { id: string; label: string; asOf: IsoDate };
 

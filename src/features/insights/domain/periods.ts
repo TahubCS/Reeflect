@@ -1,4 +1,4 @@
-// The three comparison periods (ADR-055): the last 30, 90 and 365 days
+// The three comparison periods (ADR-056): the last 30, 90 and 365 days
 // before a date, and how a period's totals become "per month".
 import { z } from "zod";
 import { type Cents, fraction } from "@/lib/money";
@@ -65,7 +65,7 @@ export function countPerMonth(count: number, days: number): number {
   return Math.round((count * 30.4375) / days);
 }
 
-/** The UTC calendar day before `now`: your period ends yesterday (ADR-055). */
+/** The UTC calendar day before `now`: your period ends yesterday (ADR-056). */
 export function yesterday(now: Date): IsoDate {
   return addDays(now.toISOString().slice(0, 10), -1);
 }

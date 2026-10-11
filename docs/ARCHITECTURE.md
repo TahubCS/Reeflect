@@ -83,7 +83,7 @@ batch generator, ADR-049).
 Built so far: `accounts` (F-03: add, edit and delete accounts; HO-030),
 `transactions` (F-04: add, edit and delete manual transactions; HO-031),
 `categorization` (F-08: category controls, rules and manual choices),
-`insights` (F-35: compare with sample people, ADR-055; its `index.ts` is
+`insights` (F-35: compare with sample people, ADR-056; its `index.ts` is
 pure for `scripts/batch`, and `server.ts` exports the page),
 `auth` (sign-in, sign-up, email verification and password reset, ADR-052),
 `cashflow` (the calendar, on sample
@@ -130,15 +130,15 @@ have `updated_at`.
 | `transaction` | id, workspace_id, financial_account_id, posted_on (date), amount_cents (signed, ADR-008), description_raw, merchant_normalized, category_id (nullable), category_is_manual (bool), status (`pending`/`posted`), is_transfer, transfer_pair_id (nullable; both sides of a transfer share it), source, import_batch_id (nullable), external_id (nullable), fingerprint | Unique (financial_account_id, fingerprint). Built in migration 0002; category columns arrive in 0005; `import_batch_id` added in migration 0006 (set null if the batch is deleted). Manual rows use fingerprint `manual:<id>` and the balance rule in ADR-050 |
 | `synthetic_batch` | id, label, generator_version, seed, start_month, months, as_of, spec (jsonb), notes, created_by, promoted_from | A replayable recipe (ADR-049). Built |
 | `synthetic_workspace` | workspace_id (PK, cascade), batch_id (restrict), person_key, persona, summary | The synthetic marker: a row means the workspace is synthetic, no row means real (ADR-049). Built |
-| `insight_sample` | batch_id (cascade), workspace_id (cascade), period_days, measure, value; PK (workspace_id, period_days, measure) | Each sample person's Insights figures for the last 30, 90 and 365 days to the batch's as-of: cents per month, or plain counts (ADR-055). Written at batch load and by `pnpm batch rollup`. Built in migration 0007 |
-| `category` | id, workspace_id, name, color_token, sort_order, is_preset, preset_key | Built in migration 0005. Eighteen presets (ADR-056) initialized on the first authorized editor visit, and by the batch loader for sample workspaces; unique (workspace_id, preset_key) preserves renames |
+| `insight_sample` | batch_id (cascade), workspace_id (cascade), period_days, measure, value; PK (workspace_id, period_days, measure) | Each sample person's Insights figures for the last 30, 90 and 365 days to the batch's as-of: cents per month, or plain counts (ADR-056). Written at batch load and by `pnpm batch rollup`. Built in migration 0008 |
+| `category` | id, workspace_id, name, color_token, sort_order, is_preset, preset_key | Built in migration 0005. Eighteen presets (ADR-057) initialized on the first authorized editor visit, and by the batch loader for sample workspaces; unique (workspace_id, preset_key) preserves renames |
 | `budget` | id, workspace_id, category_id, month (`YYYY-MM`), amount_cents | Unique (category_id, month) |
 | `category_rule` | id, workspace_id, pattern, match_type, category_id, priority, origin (`user`/`ai_confirmed`) | Built in migration 0005. Composite workspace/category FK; current rules are user-created |
 | `recurring_series` | id, workspace_id, financial_account_id, merchant_normalized, median_amount_cents, cadence (`weekly`/`monthly`), last_charged_on, user_intent (`none`/`keep`/`cancel`), manual (bool), kind (`subscription`/`bill`), next_due_on (nullable), due_date_source (`lender`/`user`/`predicted`), autopay (bool) | Subscriptions are `kind = subscription` only (ADR-030) |
 | `reminder` | id, workspace_id, recurring_series_id, due_on, remind_on, status (`scheduled`/`sent`/`cancelled_paid`/`dismissed`), channel (`in_app`/`imessage`), low_balance_warning (bool), sent_at | Unique (recurring_series_id, due_on) so each cycle reminds once |
 | `savings_goal` | id, workspace_id, name, target_cents, saved_cents, target_date, active | One active goal in MVP |
-| `import_batch` | id, workspace_id, financial_account_id, kind (`csv`/`pdf`/`plaid`/`nessie`), file_sha256 (nullable), statement_institution, statement_last4, product_name, period_start, period_end, opening_balance_cents, closing_balance_cents, reconciliation (`passed`/`failed`/`not_applicable`), rows_parsed, rows_imported, rows_skipped_duplicate, checks (jsonb), csv_object_key, csv_sha256, status (`previewed`/`committed`/`rejected`), created_by, committed_at | Unique (financial_account_id, file_sha256). Built (migration 0006) for PDF imports; `csv_object_key` and `csv_sha256` locate and verify the stored CSV (ADR-053). Blocked previews write no row, so `rejected` is unused so far |
-| `csv_mapping` | id, workspace_id, institution_name, column_map (jsonb), date_format, sign_convention | Reused per institution |
+| `import_batch` | id, workspace_id, financial_account_id, kind (`csv`/`pdf`/`plaid`/`nessie`), file_sha256 (nullable), statement_institution, statement_last4, product_name, period_start, period_end, opening_balance_cents (nullable), closing_balance_cents (nullable), reconciliation (`passed`/`failed`/`not_applicable`), rows_parsed, rows_imported, rows_skipped_duplicate, checks (jsonb), csv_object_key, csv_sha256, status (`previewed`/`committed`/`rejected`), created_by, committed_at | Unique (financial_account_id, file_sha256). Built (migration 0006) for PDF imports, used by CSV imports too; balances are null when the file has none, like a card's CSV export (migration 0007, ADR-054); `csv_object_key` and `csv_sha256` locate and verify the stored CSV (ADR-053). Blocked previews write no row, so `rejected` is unused so far |
+| `csv_mapping` | id, workspace_id, institution_name, column_map (jsonb), date_format, sign_convention | Reused per institution. Planned, not built: Capital One's exports are read with built-in formats (ADR-054) |
 | `plaid_item` | id, workspace_id, plaid_item_id, institution_name, access_token_ciphertext, access_token_iv, transactions_cursor, status | Ciphertext only (ADR-012) |
 | `liability` | id, workspace_id, financial_account_id, apr_bps, minimum_payment_cents, next_due_on, source (`plaid`/`mock`) | P2 |
 | `messaging_identity` | id, user_id, workspace_id (personal), platform (`imessage`), handle, space_id, verified_at, proactive_opt_in (bool), revoked_at | Unique (platform, handle) and unique (user_id), both among non-revoked rows (ADR-034, ADR-051). `alert_prefs` (jsonb) arrives with F-26 |
@@ -216,7 +216,10 @@ flowchart TD
   nothing.
 - Built so far: PDF statements, Capital One 360 checking and savings
   (`src/features/imports/`). Text is extracted with `unpdf`; the template is
-  `domain/templates/capital-one.ts`. Storage is `src/lib/storage/`.
+  `domain/templates/capital-one.ts`. CSV exports from Capital One, 360 and
+  credit card, read with built-in formats instead of a saved mapping
+  (`domain/templates/capital-one-csv.ts`, ADR-054). Storage is
+  `src/lib/storage/`.
 - `commit` is idempotent per batch: re-running a committed batch does nothing.
 - Plaid sync runs on webhook receipt and on user request; it uses the same
   normalization and post-commit steps (no preview step).
@@ -294,9 +297,11 @@ Governed by: ADR-006, ADR-007, ADR-010, ADR-012, ADR-019, ADR-025
 | `NESSIE_BASE_URL` | `features/nessie`: `https://api.nessieisreal.com` (ADR-048) | No |
 | `AGENT_SERVICE_TOKEN` | Next.js and worker (shared secret, 32+ characters). Optional in Next.js: without it `/api/agent/turn` answers 404 to everyone | Yes |
 | `AGENT_PHONE_NUMBER` | Next.js: the number shown on the Settings link card, in `+15551234567` form; optional (ADR-051) | No |
-| `AGENT_WORKER_URL` | Next.js (where to POST proactive messages) | No |
+| `AGENT_WORKER_URL` | Next.js (where to POST proactive messages); arrives with F-26 | No |
 | `REEFLECT_URL` | Worker (where to POST turns) | No |
-| `PHOTON_PROJECT_ID`, `PHOTON_PROJECT_SECRET` | Worker only | Yes (secret) |
+| `PHOTON_PROJECT_ID`, `PHOTON_PROJECT_SECRET` | Worker only; needed for `AGENT_PROVIDER=imessage` | Yes (secret) |
+| `AGENT_PROVIDER` | Worker: `terminal` (default, a development chat) or `imessage` | No |
+| `PORT`, `RENDER_EXTERNAL_URL` | Worker: set by Render. The port for `/health`, and the public URL the worker pings to stay awake (ADR-041) | No |
 | `CRON_SECRET` | Vercel Cron routes | Yes |
 | `DEMO_MODE` | Brain (`true` only on the demo deployment) | No |
 | `DATABASE_URL_BATCHTESTINGBRANCH` | Scripts only: the Neon batch-testing branch (ADR-049). `_UNPOOLED` is optional; scripts derive the direct URL | Yes |
@@ -452,9 +457,10 @@ sequenceDiagram
 
 | Module | Location | Responsibility |
 |---|---|---|
-| Worker loop | `agent-worker/src/index.ts` | Spectrum connection, typing indicator, forward turn, send reply and image |
-| Worker send API | `agent-worker/src/server.ts` | `POST /send` for proactive messages; token-protected |
-| Protocol types | `packages/agent-protocol/` | Zod schemas shared by worker and brain. Until the worker exists they live in `src/features/agent/domain/protocol.ts` |
+| Worker loop | `agent-worker/src/index.ts`, `worker.ts` | Spectrum connection, typing indicator, forward turn, send reply. One conversation is answered in order (`queue.ts`); images arrive with F-25 |
+| Worker relay | `agent-worker/src/relay.ts`, `turn.ts`, `config.ts` | `turn.ts` picks what is forwarded: inbound text in direct chats only. `relay.ts` posts it with the service token, waits up to 20 seconds, and falls back to a fixed reply on any failure. `config.ts` validates the worker's env |
+| Worker send API | `agent-worker/src/server.ts` | `POST /send` for proactive messages; token-protected. Not built yet: arrives with F-26 |
+| Protocol types | `packages/agent-protocol/` | Zod schemas shared by worker and brain, and the list of platforms. `terminal` is refused by a deployed app (`src/features/agent/server/platform.ts`) |
 | Turn endpoint | `src/app/api/agent/turn/route.ts` | Token check (`src/features/agent/server/service-token.ts`, 404 without it), zod parse, call `runAgentTurn` |
 | Identity | `src/features/messaging/server/link.ts`, `actions.ts` | Link codes, the request a user approves, `messaging_identity`, STOP and Disconnect (ADR-051). The Settings card is `src/features/messaging/ui/` |
 | Brain | `src/features/agent/server/runAgentTurn.ts` | Gemini loop with tools, reply composition. Today: LINK, STOP and fixed replies only (F-24); Gemini arrives with F-25 |

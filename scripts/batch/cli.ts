@@ -7,7 +7,7 @@
 //   pnpm batch report <batchId>
 //   pnpm batch delete <batchId> [--yes]
 //   pnpm batch promote <batchId> --target production [--from branch] [--yes]
-//   pnpm batch rollup <batchId>    recompute its Insights figures (ADR-055)
+//   pnpm batch rollup <batchId>    recompute its Insights figures (ADR-056)
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";

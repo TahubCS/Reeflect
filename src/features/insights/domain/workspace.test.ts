@@ -106,7 +106,7 @@ describe("workspace measures", () => {
     const takeHome = figures.filter((f) => f.measure === "take_home");
     expect(takeHome).toHaveLength(3);
     for (const f of takeHome) expect(f.value).toBeGreaterThan(0);
-    // Money into retirement and investing is never spending (ADR-054).
+    // Money into retirement and investing is never spending (ADR-055).
     expect(
       figures.some((f) => f.measure === ("category:retirement" as string)),
     ).toBe(false);

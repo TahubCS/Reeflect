@@ -62,7 +62,7 @@ export type InsightsView = {
 };
 
 /**
- * Everything the Insights page shows (F-35, ADR-055). Your figures come
+ * Everything the Insights page shows (F-35, ADR-056). Your figures come
  * from this workspace only; the group's from stored sample figures.
  */
 export async function getInsights(

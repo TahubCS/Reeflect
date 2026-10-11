@@ -45,7 +45,7 @@ it is labelled "Sample".
   generator version. Neon branches cannot be merged (ARCH-10), so `promote`
   replays the recipe into production and checks that the generator version
   matches.
-- **Insights figures (ADR-055).** `load` and `promote` also write each
+- **Insights figures (ADR-056).** `load` and `promote` also write each
   sample person's figures to `insight_sample`, in the same database
   transaction, computed from the rows just written. `rollup` recomputes
   them from the database: run it for a batch loaded before the table
@@ -111,7 +111,7 @@ Console and reload the batches you want, since they are recipes.
    Real merchant and employer-style payer names are fine, for example
    "Harris Teeter" or "SSA TREAS 310 XXSOC SEC". USD only. Money paid into
    retirement or a brokerage goes in `retirement` and `investing` only
-   (ADR-054); no holdings, trades or crypto (AGENTS.md section 2).
+   (ADR-055); no holdings, trades or crypto (AGENTS.md section 2).
 8. **Write one `summary` line per person** that a reviewer can scan, with
    the key numbers: "Nurse, biweekly $2,140, rent $1,325, pays the card in
    full."
@@ -119,7 +119,7 @@ Console and reload the batches you want, since they are recipes.
    capitals ("NORTHGATE LOGISTICS PAYROLL"). Use local merchants for North
    Carolina (Food Lion, Harris Teeter, Sheetz, Duke Energy) unless the
    request says otherwise.
-10. **Give everyone a retirement answer** (ADR-054) unless the request says
+10. **Give everyone a retirement answer** (ADR-055) unless the request says
     otherwise. Higher earners mostly save through an employer plan, some use
     their own IRA, and a minority save nothing. Lower earners are more
     likely to save nothing. Students mostly save nothing; retirees answer
@@ -163,7 +163,7 @@ parents. Scale it for other sizes.
 | `subscriptions[]` | As bills, without `category` |
 | `spending[]` | `category`, `merchants`, `perMonth` range, `amountCents` range, `cardShare` (percent on the card) |
 | `events[]` | One-offs: `date`, `description`, signed `amountCents`, `account`, `category` |
-| `retirement` | The person's answer (ADR-054). `{ plan: "employer", youMonthlyCents, employerMonthlyCents }` (a 401(k): taken from pay, so no rows), `{ plan: "own", name, amountCents, day }` (an IRA paid from checking each month) or `{ plan: "none" }`. Left out = not answered yet |
+| `retirement` | The person's answer (ADR-055). `{ plan: "employer", youMonthlyCents, employerMonthlyCents }` (a 401(k): taken from pay, so no rows), `{ plan: "own", name, amountCents, day }` (an IRA paid from checking each month) or `{ plan: "none" }`. Left out = not answered yet |
 | `investing[]` | Monthly transfers from checking to a brokerage: `name`, `amountCents`, `day` |
 
 How the generator behaves:
@@ -176,9 +176,9 @@ How the generator behaves:
 - **IRA and brokerage payments** leave checking on their day each month,
   with category "Retirement" or "Investing". They have no other side in the
   workspace, so they are stored marked as transfers and never count as
-  spending (ADR-054).
+  spending (ADR-055).
 
-How the loader categorizes (ADR-056):
+How the loader categorizes (ADR-057):
 - Every sample workspace gets F-08's preset categories.
 - Each generator category maps to a preset (`PRESET_FOR`); Other, Education,
   card interest and transfer pairs map to none and stay Uncategorized.

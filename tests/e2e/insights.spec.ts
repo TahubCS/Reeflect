@@ -2,7 +2,7 @@ import { type BrowserContext, type Page, expect, test } from "@playwright/test";
 import { Pool } from "pg";
 import { ownClientAddress, signUpVerified } from "./support";
 
-// Insights (F-35, ADR-055) in a real browser against the local PostgreSQL.
+// Insights (F-35, ADR-056) in a real browser against the local PostgreSQL.
 // A small sample batch's stored figures are written directly, as
 // `pnpm batch load` would leave them; your rows are entered as an importer
 // would. The page compares the two.

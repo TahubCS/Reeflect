@@ -153,6 +153,20 @@ export function parseStatementAmount(text: string): Cents | null {
 }
 
 /**
+ * Reads an amount from a bank's CSV export as signed cents: "1234",
+ * "1234.5", "1234.56", "-12.00". Exports write plain numbers and may drop
+ * trailing zeros, so 0 to 2 decimals are allowed; a currency sign,
+ * thousands separators or a third decimal are not.
+ */
+export function parseExportAmount(text: string): Cents | null {
+  const match = /^(-)?(\d{1,10})(?:\.(\d{1,2}))?$/.exec(text.trim());
+  if (!match) return null;
+  const fraction = (match[3] ?? "").padEnd(2, "0");
+  const value = cents(Number(match[2]) * 100 + Number(fraction));
+  return match[1] && value !== 0 ? negate(value) : value;
+}
+
+/**
  * An amount as a plain decimal for machine-readable files: "-12.34", "0.00",
  * "1204.50". No currency sign, no thousands separators. `parseDecimalString`
  * reads it back exactly.

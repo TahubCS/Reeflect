@@ -1,5 +1,5 @@
 {
-  "id": "361f00aa-4896-42b0-a001-acc65e2026f6",
+  "id": "10754387-f9dd-4649-a003-e5f25bb673da",
   "prevId": "bbe81682-b40e-4c72-b577-2cdbf8d097fb",
   "version": "7",
   "dialect": "postgresql",
@@ -1188,13 +1188,13 @@
           "name": "opening_balance_cents",
           "type": "bigint",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "closing_balance_cents": {
           "name": "closing_balance_cents",
           "type": "bigint",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "reconciliation": {
           "name": "reconciliation",
@@ -1941,107 +1941,6 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.insight_sample": {
-      "name": "insight_sample",
-      "schema": "",
-      "columns": {
-        "batch_id": {
-          "name": "batch_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "period_days": {
-          "name": "period_days",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "measure": {
-          "name": "measure",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "value": {
-          "name": "value",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "insight_sample_batch_period_idx": {
-          "name": "insight_sample_batch_period_idx",
-          "columns": [
-            {
-              "expression": "batch_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "period_days",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "insight_sample_batch_id_synthetic_batch_id_fk": {
-          "name": "insight_sample_batch_id_synthetic_batch_id_fk",
-          "tableFrom": "insight_sample",
-          "tableTo": "synthetic_batch",
-          "columnsFrom": [
-            "batch_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "insight_sample_workspace_id_organization_id_fk": {
-          "name": "insight_sample_workspace_id_organization_id_fk",
-          "tableFrom": "insight_sample",
-          "tableTo": "organization",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "insight_sample_workspace_id_period_days_measure_pk": {
-          "name": "insight_sample_workspace_id_period_days_measure_pk",
-          "columns": [
-            "workspace_id",
-            "period_days",
-            "measure"
-          ]
-        }
-      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},

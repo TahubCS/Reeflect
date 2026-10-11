@@ -1,4 +1,4 @@
-// One person's measures for one period (ADR-055). Pure: the same function
+// One person's measures for one period (ADR-056). Pure: the same function
 // computes a sample person's stored figures at batch load and your figures
 // on request, from the same plain row shape.
 import type { PresetKey } from "@/features/categorization/client";
@@ -26,7 +26,7 @@ export type MetricRow = {
   merchant: string;
 };
 
-/** Money into these is saving, never spending (ADR-054). */
+/** Money into these is saving, never spending (ADR-055). */
 const SAVING_PRESETS = new Set<PresetKey>(["retirement", "investing"]);
 export const BILL_PRESETS: readonly PresetKey[] = [
   "housing",
@@ -113,7 +113,7 @@ export function measure(
       );
     }
     if (row.presetKey !== null && SAVING_PRESETS.has(row.presetKey)) {
-      // Money out of checking into an IRA or a brokerage (ADR-054).
+      // Money out of checking into an IRA or a brokerage (ADR-055).
       saved = add(saved, negate(row.amount));
       continue;
     }
@@ -205,7 +205,7 @@ export function checkingBalanceAt(
   return total;
 }
 
-// Stored form: one number per measure (ADR-055's `insight_sample` rows).
+// Stored form: one number per measure (ADR-056's `insight_sample` rows).
 
 export type MeasureKey =
   | "covered_days"

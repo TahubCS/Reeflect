@@ -9,9 +9,9 @@ import {
   isRedirect,
 } from "../../../../tests/support/db-fixtures";
 import {
-  commitPdfImportAction,
+  commitImportAction,
   discardImportAction,
-  previewPdfImportAction,
+  previewImportAction,
 } from "./actions";
 import { listPreviews } from "./repository";
 
@@ -35,6 +35,17 @@ const pdf = (file: string) =>
     ],
     file,
     { type: "application/pdf" },
+  );
+
+const csv = (file: string) =>
+  new File(
+    [
+      readFileSync(
+        new URL(`../../../../tests/fixtures/csv/${file}`, import.meta.url),
+      ),
+    ],
+    file,
+    { type: "text/csv" },
   );
 
 function form(entries: Record<string, string | File>): FormData {
@@ -70,7 +81,7 @@ afterAll(async () => {
   await f.cleanUp();
 });
 
-describe("previewPdfImportAction", () => {
+describe("previewImportAction", () => {
   it.each([
     [
       "no account",
@@ -79,22 +90,22 @@ describe("previewPdfImportAction", () => {
     ],
     ["no file", { accountId: "" }, "Choose one of your accounts."],
   ])("asks again with %s", async (_name, entries, problem) => {
-    expect(await previewPdfImportAction(workspace, {}, form(entries))).toEqual({
+    expect(await previewImportAction(workspace, {}, form(entries))).toEqual({
       problem,
     });
   });
 
   it("asks for a file, and refuses one over 10 MB before reading it", async () => {
     expect(
-      await previewPdfImportAction(workspace, {}, form({ accountId })),
+      await previewImportAction(workspace, {}, form({ accountId })),
     ).toEqual({
-      problem: "Choose a PDF statement to upload.",
+      problem: "Choose a statement to upload: a PDF, or a CSV export.",
       accountId,
     });
     const huge = new File([new Uint8Array(10 * 1024 * 1024 + 1)], "big.pdf");
     expect(
       (
-        await previewPdfImportAction(
+        await previewImportAction(
           workspace,
           {},
           form({ accountId, statement: huge }),
@@ -103,8 +114,23 @@ describe("previewPdfImportAction", () => {
     ).toContain("larger than 10 MB");
   });
 
+  it("refuses a CSV over 2 MB before reading it", async () => {
+    const huge = new File([new Uint8Array(2 * 1024 * 1024 + 1)], "big.csv", {
+      type: "text/csv",
+    });
+    expect(
+      (
+        await previewImportAction(
+          workspace,
+          {},
+          form({ accountId, statement: huge }),
+        )
+      ).problem,
+    ).toContain("larger than 2 MB");
+  });
+
   it("returns a blocked statement's checks and saves nothing", async () => {
-    const state = await previewPdfImportAction(
+    const state = await previewImportAction(
       workspace,
       {},
       form({ accountId, statement: pdf("capital-one-off-by-a-cent.pdf") }),
@@ -118,7 +144,7 @@ describe("previewPdfImportAction", () => {
   it("returns a problem in words", async () => {
     expect(
       (
-        await previewPdfImportAction(
+        await previewImportAction(
           workspace,
           {},
           form({ accountId, statement: pdf("other-bank.pdf") }),
@@ -129,7 +155,7 @@ describe("previewPdfImportAction", () => {
 
   it("saves a preview and goes to it", async () => {
     const error = await thrown(
-      previewPdfImportAction(
+      previewImportAction(
         workspace,
         {},
         form({ accountId, statement: pdf("capital-one-normal.pdf") }),
@@ -140,11 +166,11 @@ describe("previewPdfImportAction", () => {
   });
 });
 
-describe("commitPdfImportAction and discardImportAction", () => {
+describe("commitImportAction and discardImportAction", () => {
   it("find nothing for an id that isn't one", async () => {
     expect(
       isNotFound(
-        await thrown(commitPdfImportAction(workspace, "nope", {}, form({}))),
+        await thrown(commitImportAction(workspace, "nope", {}, form({}))),
       ),
     ).toBe(true);
     expect(
@@ -155,12 +181,12 @@ describe("commitPdfImportAction and discardImportAction", () => {
   it("explains what's missing, then imports and goes to the transactions", async () => {
     const [batch] = await listPreviews(workspace);
     expect(
-      await commitPdfImportAction(workspace, batch!.id, {}, form({})),
+      await commitImportAction(workspace, batch!.id, {}, form({})),
     ).toEqual({
       problem: expect.stringContaining("Confirm it is for Capital One ••1234"),
     });
     const error = await thrown(
-      commitPdfImportAction(
+      commitImportAction(
         workspace,
         batch!.id,
         {},
@@ -175,7 +201,7 @@ describe("commitPdfImportAction and discardImportAction", () => {
 
   it("discards a waiting preview", async () => {
     await thrown(
-      previewPdfImportAction(
+      previewImportAction(
         workspace,
         {},
         form({ accountId, statement: pdf("capital-one-unsigned-debits.pdf") }),
@@ -186,5 +212,36 @@ describe("commitPdfImportAction and discardImportAction", () => {
       isRedirect(await thrown(discardImportAction(workspace, batch!.id))),
     ).toBe(true);
     expect(await listPreviews(workspace)).toEqual([]);
+  });
+});
+
+describe("a CSV export", () => {
+  it("is read, checked and saved as a preview, then discarded", async () => {
+    const error = await thrown(
+      previewImportAction(
+        workspace,
+        {},
+        form({ accountId, statement: csv("capital-one-360-normal.csv") }),
+      ),
+    );
+    expect(isRedirect(error)).toBe(true);
+    const [batch] = await listPreviews(workspace);
+    expect(batch).toMatchObject({ kind: "csv", rowsParsed: 5 });
+    await thrown(discardImportAction(workspace, batch!.id));
+    expect(await listPreviews(workspace)).toEqual([]);
+  });
+
+  it("returns another bank's export as a problem in words", async () => {
+    expect(
+      (
+        await previewImportAction(
+          workspace,
+          {},
+          form({ accountId, statement: csv("other-bank.csv") }),
+        )
+      ).problem,
+    ).toBe(
+      "Only Capital One CSV exports can be read for now: 360 checking and savings, and credit cards.",
+    );
   });
 });

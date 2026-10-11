@@ -67,7 +67,7 @@ export const syntheticWorkspace = pgTable(
 );
 
 /**
- * Each sample person's figures for the insights comparison (ADR-055): one
+ * Each sample person's figures for the insights comparison (ADR-056): one
  * row per person, period and measure, computed by code at batch load or by
  * `pnpm batch rollup`. Money measures are cents per month; counts are plain
  * numbers (see `src/features/insights/domain/metrics.ts`). Deleted with the

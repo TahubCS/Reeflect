@@ -7,7 +7,7 @@ import {
 } from "@/features/accounts/server/repository";
 import { listTransactions } from "@/features/transactions/server/repository";
 import { db } from "@/lib/db/client";
-import { transaction } from "@/lib/db/schema";
+import { importBatch, transaction } from "@/lib/db/schema";
 import { cents } from "@/lib/money";
 import { accountPrefix } from "@/lib/storage/keys";
 import { fixtures } from "../../../../tests/support/db-fixtures";
@@ -39,7 +39,7 @@ const pdf = (file: string) =>
 async function newAccount(
   overrides: {
     maskLast4?: string | null;
-    type?: "checking" | "savings";
+    type?: "checking" | "savings" | "credit_card";
     institutionName?: string;
   } = {},
   now = new Date("2026-09-15T12:00:00Z"),
@@ -66,6 +66,31 @@ const preview = (accountId: string, file: string) =>
     bytes: pdf(file),
     store,
   });
+
+const csvFile = (file: string) =>
+  new Uint8Array(
+    readFileSync(
+      new URL(`../../../../tests/fixtures/csv/${file}`, import.meta.url),
+    ),
+  );
+
+const previewCsv = (accountId: string, file: string) =>
+  previewStatement({
+    workspaceId: workspace,
+    accountId,
+    userId,
+    bytes: csvFile(file),
+    fileName: file,
+    contentType: "text/csv",
+    store,
+  });
+
+async function savedCsv(accountId: string, file: string): Promise<string> {
+  const outcome = await previewCsv(accountId, file);
+  if (outcome.kind !== "saved")
+    throw new Error(`expected a saved preview, got ${outcome.kind}`);
+  return outcome.batchId;
+}
 
 const commit = (batchId: string, confirmIdentity = true) =>
   commitStatement({ workspaceId: workspace, batchId, confirmIdentity, store });
@@ -355,5 +380,184 @@ describe("discardPreview", () => {
     expect(await getBatch(workspace, batchId)).toBeNull();
     expect(await storedKeys(accountId)).toEqual([]);
     expect(await discardPreview(workspace, batchId, store)).toBe(false);
+  });
+});
+
+describe("CSV exports", () => {
+  it("previews a 360 export, stores its canonical CSV and imports it", async () => {
+    const accountId = await newAccount();
+    const batchId = await savedCsv(accountId, "capital-one-360-normal.csv");
+
+    const batch = (await getBatch(workspace, batchId))!;
+    expect(batch).toMatchObject({
+      kind: "csv",
+      statementInstitution: "Capital One",
+      statementLast4: "1234",
+      periodStart: "2026-09-02",
+      periodEnd: "2026-09-30",
+      openingBalanceCents: 100000,
+      closingBalanceCents: 173410,
+      rowsParsed: 5,
+    });
+    const view = (await loadPreview(workspace, batchId, store))!;
+    expect(view.rows.ok).toBe(true);
+    if (view.rows.ok) {
+      expect(await store.get(batch.csvObjectKey)).toBe(toCsv(view.rows.rows));
+      expect(view.rows.rows[0]!.description).toBe("PAYROLL ACME CO");
+    }
+
+    expect(await commit(batchId)).toEqual({
+      kind: "committed",
+      accountId,
+      imported: 5,
+      skipped: 0,
+    });
+    const rows = await listTransactions(workspace, { accountId });
+    expect(rows.every((row) => row.source === "csv")).toBe(true);
+    expect(await getAccount(workspace, accountId)).toMatchObject({
+      balanceCents: 173410,
+      balanceAsOf: "2026-09-30",
+    });
+  });
+
+  it("imports a card export without balances and leaves the balance alone", async () => {
+    const accountId = await newAccount({
+      type: "credit_card",
+      maskLast4: "5678",
+    });
+    const batchId = await savedCsv(accountId, "capital-one-card.csv");
+    const [stored] = await db
+      .select({ reconciliation: importBatch.reconciliation })
+      .from(importBatch)
+      .where(eq(importBatch.id, batchId));
+    expect(stored!.reconciliation).toBe("not_applicable");
+    const view = (await loadPreview(workspace, batchId, store))!;
+    expect(view.summary).toMatchObject({
+      openingBalanceCents: null,
+      closingBalanceCents: null,
+      moneyInCents: 25000,
+      moneyOutCents: 6274,
+    });
+    expect(view.batch.checks.map((check) => check.id)).not.toContain(
+      "reconciliation",
+    );
+
+    expect(await commit(batchId)).toMatchObject({ imported: 3 });
+    expect(await getAccount(workspace, accountId)).toMatchObject({
+      balanceCents: 100,
+      balanceAsOf: "2026-09-15",
+    });
+  });
+
+  it("refuses a card export's stored CSV that changed since the preview", async () => {
+    const accountId = await newAccount({
+      type: "credit_card",
+      maskLast4: "5678",
+    });
+    const batchId = await savedCsv(accountId, "capital-one-card.csv");
+    const { csvObjectKey } = (await getBatch(workspace, batchId))!;
+    const original = (await store.get(csvObjectKey))!;
+    await store.put(
+      csvObjectKey,
+      original.replace("-43.99", "-4.39"),
+      "text/csv",
+    );
+    expect(await commit(batchId)).toMatchObject({
+      kind: "problem",
+      message: expect.stringContaining("has changed"),
+    });
+  });
+
+  it("blocks the same export twice and skips rows another export already added", async () => {
+    const accountId = await newAccount();
+    await commit(await savedCsv(accountId, "capital-one-360-normal.csv"));
+
+    const again = await previewCsv(accountId, "capital-one-360-normal.csv");
+    expect(
+      again.kind === "blocked" &&
+        again.checks.find((check) => check.id === "duplicate-file")!.outcome,
+    ).toBe("block");
+
+    const overlap = await savedCsv(accountId, "capital-one-360-lf.csv");
+    expect(await commit(overlap, false)).toEqual({
+      kind: "committed",
+      accountId,
+      imported: 0,
+      skipped: 5,
+    });
+  });
+
+  it("stores nothing when a row's balance doesn't follow", async () => {
+    const accountId = await newAccount();
+    const outcome = await previewCsv(
+      accountId,
+      "capital-one-360-off-by-a-cent.csv",
+    );
+    expect(
+      outcome.kind === "blocked" &&
+        outcome.checks.find((check) => check.id === "running-balance")!.outcome,
+    ).toBe("block");
+    expect(await storedKeys(accountId)).toEqual([]);
+  });
+
+  it("blocks a 360 export for a credit card account", async () => {
+    const outcome = await previewCsv(
+      await newAccount({ type: "credit_card" }),
+      "capital-one-360-normal.csv",
+    );
+    expect(
+      outcome.kind === "blocked" &&
+        outcome.checks.find((check) => check.id === "account-type")!.outcome,
+    ).toBe("block");
+  });
+
+  it("reads only the chosen account from an export of two", async () => {
+    const accountId = await newAccount();
+    const batchId = await savedCsv(
+      accountId,
+      "capital-one-360-two-accounts.csv",
+    );
+    expect((await getBatch(workspace, batchId))!.rowsParsed).toBe(5);
+  });
+
+  it.each([
+    [
+      "capital-one-360-two-accounts.csv",
+      "This CSV covers ••1234 and ••9876, but the chosen account ends in 9999.",
+    ],
+    [
+      "other-bank.csv",
+      "Only Capital One CSV exports can be read for now: 360 checking and savings, and credit cards.",
+    ],
+    [
+      "empty.csv",
+      "The CSV has no transactions. If this is a Capital One CSV export",
+    ],
+  ])("explains why %s can't be read", async (file, message) => {
+    const outcome = await previewCsv(
+      await newAccount({ maskLast4: "9999" }),
+      file,
+    );
+    expect(outcome).toEqual({
+      kind: "problem",
+      message: expect.stringContaining(message),
+    });
+  });
+
+  it("refuses a file that is neither a PDF nor a CSV", async () => {
+    expect(
+      await previewStatement({
+        workspaceId: workspace,
+        accountId: await newAccount(),
+        userId,
+        bytes: csvFile("capital-one-360-normal.csv"),
+        fileName: "notes.txt",
+        contentType: "text/plain",
+        store,
+      }),
+    ).toEqual({
+      kind: "problem",
+      message: expect.stringContaining("isn't a PDF or a CSV file"),
+    });
   });
 });

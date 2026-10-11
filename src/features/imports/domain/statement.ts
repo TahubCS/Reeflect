@@ -1,8 +1,9 @@
 import type { Cents } from "@/lib/money";
 
-// What a statement template reads out of a PDF (ADR-044) and what every
-// import emits (ADR-009): rows plus the statement's own facts, all read by
-// code. Amounts are signed from the account holder's point of view (ADR-008).
+// What a statement template reads out of a PDF or a CSV export (ADR-044)
+// and what every import emits (ADR-009): rows plus the statement's own
+// facts, all read by code. Amounts are signed from the account holder's
+// point of view (ADR-008).
 
 export type StatementAccountType =
   "checking" | "savings" | "credit_card" | "loan";
@@ -20,13 +21,15 @@ export type ParsedStatement = {
   institution: string;
   /** The product as printed, e.g. "360 Savings". */
   productName: string;
-  accountType: StatementAccountType | null;
+  /** The account types the statement can belong to; empty when unknown. */
+  accountTypes: readonly StatementAccountType[];
   accountLast4: string;
   currency: "USD";
   periodStart: string;
   periodEnd: string;
-  openingBalanceCents: Cents;
-  closingBalanceCents: Cents;
+  /** Null only when the file has no balances, like a card's CSV export. */
+  openingBalanceCents: Cents | null;
+  closingBalanceCents: Cents | null;
   /** Money in and out as the statement totals them, when it prints totals. */
   statedTotals: { creditsCents: Cents; debitsCents: Cents } | null;
   rows: StatementRow[];

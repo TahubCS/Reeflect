@@ -47,6 +47,8 @@ export function PreviewPanel({
 }: Props) {
   const [state, formAction, pending] = useActionState(commit, {});
   const confirmId = useId();
+  const hasBalances =
+    rows.ok && rows.rows.some((row) => row.runningBalanceCents !== null);
   const commitLabel =
     newRows === 0
       ? "Mark as imported"
@@ -75,9 +77,11 @@ export function PreviewPanel({
                   <th scope="col" className={styles.number}>
                     Amount
                   </th>
-                  <th scope="col" className={styles.number}>
-                    Balance
-                  </th>
+                  {hasBalances && (
+                    <th scope="col" className={styles.number}>
+                      Balance
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -88,11 +92,13 @@ export function PreviewPanel({
                     <td className={styles.number}>
                       {formatSigned(row.amountCents)}
                     </td>
-                    <td className={styles.number}>
-                      {row.runningBalanceCents === null
-                        ? ""
-                        : formatCents(row.runningBalanceCents)}
-                    </td>
+                    {hasBalances && (
+                      <td className={styles.number}>
+                        {row.runningBalanceCents === null
+                          ? ""
+                          : formatCents(row.runningBalanceCents)}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

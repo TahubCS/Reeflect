@@ -85,11 +85,11 @@ Priorities follow ADR-043. Lanes: A = Data, B = Web, C = Agent.
 | F-02 | Workspaces | P0 (personal), Later (household) | B | Every user gets a Personal workspace. Household workspaces with invite links and owner / editor / viewer roles come later. | ADR-007 |
 | F-03 | Financial accounts | P0 | A | Checking, savings, credit-card and loan accounts: institution, type, nickname, last 4 digits. | ADR-009 |
 | F-04 | Manual transactions | P0 | A | Add, edit and delete a transaction on an account. | ADR-008 |
-| F-05 | CSV import | P0 | A | Upload a CSV to a chosen account, map columns once per institution, preview, pass guardrails, commit. | ADR-009, ADR-010 |
+| F-05 | CSV import | P0 | A | Upload a CSV to a chosen account, preview, pass guardrails, commit. Capital One's 360 and credit-card exports are read with built-in formats; mapping columns once per institution comes later. | ADR-009, ADR-010, ADR-054 |
 | F-06 | PDF statement import | P0 | A | Text-based PDF statements parsed by code with a per-institution template (Capital One first), with identity check and reconciliation. No AI in parsing. | ADR-010, ADR-044 |
 | F-07 | Bank linking (Plaid) | Later | A | Link accounts through Plaid Link (Sandbox) and sync transactions. | ADR-012 |
 | F-08 | Categorization | P0 | A | Keyword rules on the normalized merchant name, with a manual override that can be saved as a rule. | ADR-013 |
-| F-09 | Monthly budgets | P1 | A | One budget per category per calendar month; preset categories (eighteen since ADR-056), renameable. Own page, not the home screen. | ADR-015, ADR-056 |
+| F-09 | Monthly budgets | P1 | A | One budget per category per calendar month; preset categories (eighteen since ADR-057), renameable. Own page, not the home screen. | ADR-015, ADR-057 |
 | F-10 | Subscriptions | P0 (detection), P1 (keep / cancel marks) | A | Detect recurring charges; show monthly and yearly cost; the user marks keep or planning to cancel. The app never cancels anything. | ADR-014, ADR-030 |
 | F-11 | Savings goal | Later | B | One active goal with target amount and date, shown as a progress line on the home screen. | ADR-042 |
 | F-12 | Calendar home screen | P0 | B | The per-day headline with its sum, the month calendar, the balance line and the selected-day panel, plus an "Upcoming bills" list once F-22 exists. | ADR-042 |
@@ -115,8 +115,8 @@ Priorities follow ADR-043. Lanes: A = Data, B = Web, C = Agent.
 | F-32 | Agent worker | P0 | C | Long-running Spectrum process on Render that relays messages between iMessage and the Next.js brain. | ADR-032 |
 | F-33 | Quiet hours settings | P0 | B + C | Users set quiet hours on the website (Settings → Notifications) or by texting "Reeflect, register new quiet hours 11PM to 7 AM". Default 9 PM–9 AM. | ADR-038 |
 | F-34 | Judge demo ("Try it") | P0 | C | Demo mode only: a judge scans a QR code, texts TRY, and is linked for 2 hours to a sandbox judge workspace. | ADR-034 |
-| F-35 | Compare with people like you | Later | A + B | On Insights: your spending by category and where you stand, next to sample people with similar take-home pay or everyone, for the last 30 days, 3 months or year. Labelled "Sample". Built (HO-041). | ADR-049, ADR-055 |
-| F-36 | Retirement question | Later | B | An action-required item: is money going into a retirement plan through your employer, your own account, or not right now. Retirement and investing count as saving. | ADR-054 |
+| F-35 | Compare with people like you | Later | A + B | On Insights: your spending by category and where you stand, next to sample people with similar take-home pay or everyone, for the last 30 days, 3 months or year. Labelled "Sample". Built (HO-043). | ADR-049, ADR-056 |
+| F-36 | Retirement question | Later | B | An action-required item: is money going into a retirement plan through your employer, your own account, or not right now. Retirement and investing count as saving. | ADR-055 |
 
 ## 6. The calendar (summary; full spec in ADR-042)
 

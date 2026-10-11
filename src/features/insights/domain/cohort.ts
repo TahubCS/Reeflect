@@ -1,4 +1,4 @@
-// Who you are compared with, and where you fall (ADR-055). Pure: works on
+// Who you are compared with, and where you fall (ADR-056). Pure: works on
 // stored sample figures, never on anyone's transactions.
 import { PRESET_CATEGORIES } from "@/features/categorization/client";
 import { type Cents, cents, fiveNumbers, ratio } from "@/lib/money";
@@ -18,7 +18,7 @@ export type SamplePerson = {
 export const COMPARE_WITH = ["like_you", "everyone"] as const;
 export type CompareWith = (typeof COMPARE_WITH)[number];
 
-/** People just below and just above you by take-home (ADR-055). */
+/** People just below and just above you by take-home (ADR-056). */
 export const NEIGHBOURS_EACH_SIDE = 10;
 
 const takeHomeOf = (p: SamplePerson) => p.measures.take_home ?? 0;

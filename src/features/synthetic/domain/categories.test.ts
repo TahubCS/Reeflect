@@ -37,7 +37,7 @@ describe("PRESET_FOR", () => {
     }
   });
 
-  it("keeps transfers out, and retirement and investing as saving (ADR-020, ADR-054)", () => {
+  it("keeps transfers out, and retirement and investing as saving (ADR-020, ADR-055)", () => {
     expect(PRESET_FOR.Transfers).toBeNull();
     expect(PRESET_FOR.Retirement).toBe("retirement");
     expect(PRESET_FOR.Investing).toBe("investing");

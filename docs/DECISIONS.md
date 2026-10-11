@@ -79,9 +79,10 @@ Rules:
 | ADR-051 | Phone linking: six digits, approved on the website (refines ADR-034) | Proposed |
 | ADR-052 | Email through Resend; verified email required | Proposed |
 | ADR-053 | Statement CSVs in Neon object storage (refines ADR-025) | Proposed |
-| ADR-054 | Retirement and investing count as saving, not spending (refines ADR-020) | Proposed |
-| ADR-055 | Insights: compare with sample people (refines ADR-049) | Proposed |
-| ADR-056 | More preset categories; sample people arrive categorized (refines ADR-015) | Proposed |
+| ADR-054 | CSV import: Capital One exports in built-in formats (refines ADR-044) | Proposed |
+| ADR-055 | Retirement and investing count as saving, not spending (refines ADR-020) | Proposed |
+| ADR-056 | Insights: compare with sample people (refines ADR-049) | Proposed |
+| ADR-057 | More preset categories; sample people arrive categorized (refines ADR-015) | Proposed |
 
 ---
 
@@ -507,7 +508,7 @@ Rules:
 
 ### ADR-044: Statement parsing: CSV and PDF, by code only
 
-- **Status:** Accepted (2026-10-10), decided by Muhammad. Supersedes ADR-011.
+- **Status:** Accepted (2026-10-10), decided by Muhammad. Supersedes ADR-011. Its CSV pipeline is refined by ADR-054
 - **Context:** ADR-011 left PDF import as a preview and planned an AI
   fallback for unknown layouts. Statement parsing is now one of the four main
   features (ADR-043), and the team wants every number to be read by code.
@@ -958,7 +959,56 @@ Rules:
   below ADR-044's 10 MB, so larger PDFs fail there until uploads go another
   way. A failed storage delete leaves an orphaned file, logged by id.
 
-### ADR-054: Retirement and investing count as saving, not spending (refines ADR-020)
+### ADR-054: CSV import: Capital One exports in built-in formats (refines ADR-044)
+
+- **Status:** Proposed (2026-10-10), from Simon. **The team should confirm it.**
+- **Context:** ADR-044 has the user map a CSV's columns once per
+  institution (`csv_mapping`, ARCH-03). For HackNC only Capital One is
+  supported, as for PDFs, so a mapping screen would have one bank to map.
+  Capital One offers two exports: 360 checking and savings, with a balance
+  after every row, and credit card, with no balances.
+- **Decision:**
+  - **Built-in formats, no mapping screen yet.** The two Capital One
+    exports are recognized by their header names, in any column order
+    (`domain/templates/capital-one-csv.ts`). Any other CSV fails with
+    "Only Capital One CSV exports can be read for now". The mapping screen
+    and the `csv_mapping` table are deferred, not dropped.
+  - **One upload field for PDF and CSV.** A file starting with `%PDF-` is
+    read as a PDF; a `.csv` name or `text/csv` type is read as a CSV.
+    A CSV is at most 2 MB (under Vercel's 4.5 MB request cap) and 10,000
+    rows, UTF-8, with or without a byte order mark, with LF or CRLF line ends.
+  - **360 export:** the sign comes from Transaction Type (Debit is money
+    out). The row order is the one in which every balance equals the one
+    before it plus the row: the file's order or its reverse, since the
+    export lists newest first. If neither works, rows go by date and the
+    running-balance check blocks. Opening balance = first row's balance
+    minus its amount; closing balance = last row's balance. Reconciliation
+    then runs as for a PDF.
+  - **Card export:** Debit is negative and Credit positive (ADR-008); the
+    Posted Date is the date. The file has no balances, so `import_batch`'s
+    opening and closing balances are null (migration 0007),
+    `reconciliation` is `not_applicable` (ADR-010: "if running balance
+    column exists"), the balance checks are skipped, and committing never
+    changes the account's balance.
+  - **Identity:** the last 4 digits come from the Account Number or Card
+    No. column; the rest of the number is dropped, never stored or logged.
+    As with a PDF that covers several accounts, only the chosen account's
+    rows are read.
+  - Everything after parsing is the PDF pipeline: canonical CSV in the
+    `statements` bucket (ADR-053), the ADR-010 checks, preview, commit.
+    Transactions get `source = 'csv'`; `import_batch.kind` is `csv`.
+- **Alternatives considered:** the mapping screen now (works for every
+  bank, but more to build and test for one bank this weekend); refusing
+  card exports (no migration, but the most common Capital One download
+  would fail).
+- **Consequences:** Supporting another bank's CSV means writing another
+  format, or building the mapping screen. The column names come from
+  Capital One's documented exports, not from a real file in the repo:
+  check them against a real export (kept in a gitignored `private/`
+  folder). A PDF and a CSV of the same period only dedupe where their
+  descriptions match.
+
+### ADR-055: Retirement and investing count as saving, not spending (refines ADR-020)
 
 - **Status:** Proposed (2026-10-10), agreed by the team in conversation,
   written by Jacob.
@@ -1010,10 +1060,10 @@ Rules:
   - Batches made by generator v1 replay only from a v1 checkout. A v1 spec
     reloaded with v2 gives the same rows.
 
-### ADR-055: Insights: compare with sample people (refines ADR-049)
+### ADR-056: Insights: compare with sample people (refines ADR-049)
 
 - **Status:** Proposed (2026-10-10), by Jacob; updated 2026-10-11 with the
-  details settled while building it (HO-041). Not in ADR-043's P0 or P1:
+  details settled while building it (HO-043). Not in ADR-043's P0 or P1:
   built as Later unless the team moves it up.
 - **Context:** ADR-049 asks for this record before a cross-workspace page is
   built. Users want to see how their money compares with people like them.
@@ -1047,9 +1097,9 @@ Rules:
       to small groups.
   - **Measures:** spending per category (in dollars and as a share of
     take-home), kept after spending, moved to savings, retirement and
-    investing (ADR-054), bills as a share of take-home, subscription count
+    investing (ADR-055), bills as a share of take-home, subscription count
     and cost, lowest balance before payday, no-spend days.
-    - Categories are compared by **preset key** (ADR-056), so a renamed
+    - Categories are compared by **preset key** (ADR-057), so a renamed
       category still matches, plus an Uncategorized bucket. A row's
       category is its effective one (manual choice, else rule), worked out
       by F-08's own `classifyStored`.
@@ -1076,7 +1126,7 @@ Rules:
   (cash flow is what is being compared, so the groups look alike by
   construction).
 - **Consequences:**
-  - A migration adds `insight_sample` (ARCH-03): migration 0007.
+  - A migration adds `insight_sample` (ARCH-03): migration 0008.
   - `pnpm batch load` and `promote` write the figures in the same database
     transaction, from the rows just written; `pnpm batch rollup` recomputes
     them from the database (the backfill).
@@ -1088,7 +1138,7 @@ Rules:
     that workspace drift from its recipe: its stored figures go stale until
     a backfill, and `promote` replays the recipe without the edits.
 
-### ADR-056: More preset categories; sample people arrive categorized (refines ADR-015)
+### ADR-057: More preset categories; sample people arrive categorized (refines ADR-015)
 
 - **Status:** Proposed (2026-10-10), by Jacob. The first eight presets were
   a starting set.
@@ -1097,8 +1147,8 @@ Rules:
     built eight: groceries, dining, transport, housing, utilities,
     shopping, entertainment, income.
   - Common spending had nowhere to go (health, insurance, travel), and
-    ADR-054 needs "Retirement" and "Investing".
-  - Insights (ADR-055) compares people by category, so sample people need
+    ADR-055 needs "Retirement" and "Investing".
+  - Insights (ADR-056) compares people by category, so sample people need
     the same categories as everyone else.
 - **Decision:**
   - **Eighteen presets.** The first eight stay as they are, in the same
@@ -1106,7 +1156,7 @@ Rules:
     subscriptions, personal care, kids & childcare, gifts, travel,
     retirement, investing. All can be renamed. Existing workspaces gain the
     new ones on the next editor visit, through the same idempotent seed.
-  - **Retirement and investing are saving**, never spending (ADR-054).
+  - **Retirement and investing are saving**, never spending (ADR-055).
   - **Sample people are categorized at batch load** like a real user would
     be:
     - Each person gets the presets.

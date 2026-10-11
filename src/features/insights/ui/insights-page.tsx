@@ -1,4 +1,4 @@
-// The Insights page (F-35, ADR-055). Server components only: the controls
+// The Insights page (F-35, ADR-056). Server components only: the controls
 // are links, so the page works without JavaScript and every state is in the
 // URL. Every group figure is labelled "Sample" (ADR-024); the words say
 // where you stand, and the tints only echo them (ADR-042).

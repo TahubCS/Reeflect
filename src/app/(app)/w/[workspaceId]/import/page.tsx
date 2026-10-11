@@ -9,11 +9,11 @@ import {
   PreviewPanel,
   UploadForm,
   WaitingList,
-  commitPdfImportAction,
+  commitImportAction,
   discardImportAction,
   listPreviews,
   loadPreview,
-  previewPdfImportAction,
+  previewImportAction,
 } from "@/features/imports";
 import { requireWorkspaceAccess } from "@/lib/auth/authz";
 import { roleAtLeast } from "@/lib/auth/roles";
@@ -73,7 +73,7 @@ async function Import({ params, searchParams }: Props) {
             newRows={view.batch.rowsParsed - view.batch.rowsSkippedDuplicate}
             needsIdentityConfirmation={view.needsIdentityConfirmation}
             canEdit={canEdit}
-            commit={commitPdfImportAction.bind(
+            commit={commitImportAction.bind(
               null,
               access.workspaceId,
               view.batch.id,
@@ -113,7 +113,7 @@ async function Import({ params, searchParams }: Props) {
         </p>
       ) : (
         <UploadForm
-          action={previewPdfImportAction.bind(null, access.workspaceId)}
+          action={previewImportAction.bind(null, access.workspaceId)}
           accounts={accounts.map((account) => ({
             id: account.id,
             label: label(account.id),
@@ -124,7 +124,7 @@ async function Import({ params, searchParams }: Props) {
         workspaceId={access.workspaceId}
         previews={previews.map((preview) => ({
           id: preview.id,
-          label: `${label(preview.accountId)} (${preview.productName})`,
+          label: `${label(preview.accountId)} (${preview.productName}, ${preview.kind.toUpperCase()})`,
           periodStart: preview.periodStart,
           periodEnd: preview.periodEnd,
         }))}

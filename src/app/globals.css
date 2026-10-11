@@ -20,7 +20,7 @@
   --sub: #4a56b0;
 
   /* "Sample" label (ADR-024) and Insights' slight comparison tints
-     (ADR-055). Tints sit behind ink text: the words carry the meaning. */
+     (ADR-056). Tints sit behind ink text: the words carry the meaning. */
   --sample-bg: #fbefd9;
   --sample-ink: #6e4506;
   --tone-good: #dcefe4;
