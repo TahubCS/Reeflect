@@ -6,7 +6,7 @@ import {
   UNKNOWN_MODEL_COOL_OFF_MS,
   createChain,
 } from "./chain";
-import { DEFAULT_MODELS, MAX_MODELS, parseModels } from "./models";
+import { MAX_MODELS, TEST_MODELS, USER_MODELS, parseModels } from "./models";
 
 const request = { system: "be brief", user: "hello" };
 
@@ -201,18 +201,28 @@ describe("createChain", () => {
 });
 
 describe("parseModels", () => {
-  it("uses the default chain when unset or empty", () => {
-    expect(parseModels(undefined)).toEqual([...DEFAULT_MODELS]);
-    expect(parseModels(" , ")).toEqual([...DEFAULT_MODELS]);
-    expect(DEFAULT_MODELS).toHaveLength(MAX_MODELS);
+  it("gives the deployed app the users' models and everything else the test model", () => {
+    for (const unset of [undefined, "", " , "]) {
+      expect(parseModels(unset, true)).toEqual([...USER_MODELS]);
+      expect(parseModels(unset, false)).toEqual([...TEST_MODELS]);
+    }
   });
 
-  it("reads a comma-separated list, trimming and dropping repeats", () => {
-    expect(parseModels(" a , b,a ,, c ")).toEqual(["a", "b", "c"]);
+  it("keeps testing off every model that answers users", () => {
+    expect(TEST_MODELS.length).toBeGreaterThan(0);
+    expect(TEST_MODELS.filter((model) => USER_MODELS.includes(model))).toEqual(
+      [],
+    );
+    expect(USER_MODELS.length).toBeLessThanOrEqual(MAX_MODELS);
+  });
+
+  it("lets GEMINI_MODELS replace either chain, trimming and dropping repeats", () => {
+    expect(parseModels(" a , b,a ,, c ", true)).toEqual(["a", "b", "c"]);
+    expect(parseModels(" a , b,a ,, c ", false)).toEqual(["a", "b", "c"]);
   });
 
   it("never returns more than six models", () => {
-    expect(parseModels("a,b,c,d,e,f,g,h")).toEqual([
+    expect(parseModels("a,b,c,d,e,f,g,h", true)).toEqual([
       "a",
       "b",
       "c",

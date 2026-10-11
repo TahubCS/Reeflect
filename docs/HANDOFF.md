@@ -2720,6 +2720,66 @@ recommendation, not a decision.
 - Someone paid by the same payee into two accounts gets two paydays; both
   count.
 
+---
+
+---
+
+---
+
+## HO-055: Separate Gemini models for users and for testing
+
+- **Date:** 2026-10-11 02:30 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `chore/agent-dev-models` (uncommitted) / not opened
+
+### What changed
+- **Why:** each Gemini model has its own daily allowance on our key, and the
+  four strongest allow only 20 requests a day each. Checking the chain and
+  the prompt by hand during F-25 used about nine of those on
+  `gemini-3.8-flash` and `gemini-3.7-flash` and more on `gemini-3.6-flash`.
+  The automated tests were not the cause: Vitest and Playwright set the key
+  to empty and never call Google.
+- **Two chains in `src/lib/ai/models.ts`** (ADR-059 updated):
+  - `USER_MODELS`, for the deployed app: `gemini-3.8-flash`,
+    `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-3.5-flash`,
+    `gemini-3.5-flash-lite`.
+  - `TEST_MODELS`, for everything else: `gemini-3.1-flash-lite` (500
+    requests a day). It shares no model with the users' chain, and a test
+    keeps it that way.
+- The app picks by whether it is deployed (`VERCEL` is set).
+  `GEMINI_MODELS` still overrides either chain.
+- **`pnpm ai:check`** now checks the test chain. `pnpm ai:check users`
+  checks the users' chain and says that it spends their allowance.
+- Tried: the Gemma models (14,400 requests a day) refuse the agent's request
+  with a 400, so they are not used.
+- **Replies now say "about … a month".** A live reply read "Over the last
+  30 days, you brought in $1,481.41 and spent $119.72", but those figures
+  are monthly averages (the last 30 days scaled to an average month, as on
+  the Insights page), about 1.5% above the exact 30-day totals. The prompt
+  and the label descriptions now call them monthly averages, and
+  `completeDraft` drops a draft that uses one without the word "month".
+- The subscription count is filled in with its noun ("1 subscription"), so
+  a reply cannot say "1 subscriptions".
+
+### What's next
+- With `pnpm dev` and the real key, local answers now come from
+  `gemini-3.1-flash-lite`; to try a users' model locally, set
+  `GEMINI_MODELS` in `.env.local` for that session.
+
+### Open problems
+- **Unexplained:** at about 02:10 EDT on 2026-10-11 a phone linked to one
+  of Simon's accounts got a reply with a balance of $1,169.65, but that
+  account's workspace held no accounts in the production database three
+  minutes later, and Simon says he deleted nothing. Three sign-ups have
+  emails like his. To settle it: which account is he signed in to, and what
+  does its Accounts page show?
+- The users' chain lost its sixth model, so its daily capacity is 80
+  requests on the four strong models plus 500 on `gemini-3.5-flash-lite`.
+- Allowances are per key, so a teammate using the same key for local work
+  shares the test model's 500 a day.
+
+---
+
 ## HO-075: A sample year in the developers' own accounts (ADR-082)
 
 - **Date:** 2026-10-11 (EDT)

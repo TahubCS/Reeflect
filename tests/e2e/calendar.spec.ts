@@ -208,12 +208,6 @@ test("a card purchase shows as spending on card without moving the balance", asy
 // F-10 with ADR-061: paydays and subscriptions confirmed on Recurring payments
 // show on the calendar. History goes straight into the test database, as in
 // recurring.spec.ts, so the patterns are there without typing every row.
-const pool = new Pool({
-  connectionString:
-    process.env.DATABASE_URL ?? "postgres://test:test@localhost:5433/app_test",
-  max: 2,
-});
-test.afterAll(() => pool.end());
 
 const shiftDays = (iso: string, days: number) =>
   new Date(Date.parse(`${iso}T00:00:00Z`) + days * 86_400_000)
@@ -225,6 +219,23 @@ const monthStart = (offset: number) => {
 };
 
 async function seedHistory(workspaceId: string) {
+  // Its own pool, closed when the rows are in. A pool shared by the file and
+  // closed in afterAll breaks under fullyParallel: a worker that has run
+  // some of this file's tests and closed it can be handed this one later.
+  const pool = new Pool({
+    connectionString:
+      process.env.DATABASE_URL ??
+      "postgres://test:test@localhost:5433/app_test",
+    max: 2,
+  });
+  try {
+    await seedRows(pool, workspaceId);
+  } finally {
+    await pool.end();
+  }
+}
+
+async function seedRows(pool: Pool, workspaceId: string) {
   const accountId = crypto.randomUUID();
   await pool.query(
     `INSERT INTO financial_account (id, workspace_id, institution_name, type, nickname, source, current_balance_cents) VALUES ($1,$2,'Synthetic bank','checking','Everyday','synthetic',200000)`,

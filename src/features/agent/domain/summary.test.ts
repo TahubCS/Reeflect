@@ -97,7 +97,7 @@ describe("buildFacts", () => {
       saved: "$200.00",
       bills: "$1,200.00",
       subscription_cost: "$25.98",
-      subscription_count: "2",
+      subscription_count: "2 subscriptions",
       top_category_1_name: "Housing",
       top_category_1_amount: "$1,100.00",
       top_category_2_name: "Groceries",
@@ -116,6 +116,15 @@ describe("buildFacts", () => {
     const even = ready({ kept: cents(0) });
     expect(even.gap).toBe("even");
     expect(even.values.kept).toBeUndefined();
+  });
+
+  it("gives the subscription count with its noun, singular or plural", () => {
+    expect(ready({ subscriptionCount: 1 }).values.subscription_count).toBe(
+      "1 subscription",
+    );
+    expect(ready({ subscriptionCount: 4 }).values.subscription_count).toBe(
+      "4 subscriptions",
+    );
   });
 
   it("leaves out what does not apply", () => {
@@ -220,6 +229,30 @@ describe("completeDraft", () => {
       ok: false,
       reason: "stray_brace",
     });
+  });
+
+  it("rejects a monthly average presented without saying it is a month", () => {
+    for (const draft of [
+      "Over the last {days_covered} days you brought in {take_home} and spent {spending}.",
+      "You spent {top_category_1_amount} on {top_category_1_name}.",
+      "You kept {kept}.",
+    ]) {
+      expect(completeDraft(draft, facts)).toEqual({
+        ok: false,
+        reason: "average_not_called_monthly",
+      });
+    }
+  });
+
+  it("accepts a monthly average that is called one, and totals that are not averages", () => {
+    for (const draft of [
+      "About {take_home} comes in a month and {spending} goes out.",
+      "Your monthly spending is about {spending}.",
+      "You have {cash_total} and owe {owed_total}.",
+      "Your biggest category is {top_category_1_name}.",
+    ]) {
+      expect(completeDraft(draft, facts).ok).toBe(true);
+    }
   });
 
   it("rejects a reply too long for a text message", () => {

@@ -1,11 +1,13 @@
-// `pnpm ai:check`: asks every model in the agent's chain one small question
-// with the real key from .env.local, and says which ones answer (ADR-059).
+// `pnpm ai:check`: asks each test model one small question with the real key
+// from .env.local, and says which ones answer (ADR-059). `pnpm ai:check users`
+// asks the models that answer real users instead: that spends their small
+// daily allowance, so run it only when the chain itself is in doubt.
 // It prints model names and outcomes only: never the key, never a reply's
 // figures (there are none: the question uses a label, like the agent does).
 import { hasOwnDigits } from "@/lib/ai/digitScan";
 import { fill } from "@/lib/ai/fill";
 import { googleTransport } from "@/lib/ai/google";
-import { parseModels } from "@/lib/ai/models";
+import { USER_MODELS, parseModels } from "@/lib/ai/models";
 import type { Transport } from "@/lib/ai/chain";
 
 const SYSTEM =
@@ -74,10 +76,19 @@ async function main(): Promise<void> {
     process.exitCode = 1;
     return;
   }
+  const forUsers = process.argv[2] === "users";
+  const models = forUsers
+    ? [...USER_MODELS]
+    : parseModels(process.env.GEMINI_MODELS, false);
+  console.log(
+    forUsers
+      ? "Checking the models that answer users (this uses their daily allowance):"
+      : "Checking the test models (`pnpm ai:check users` checks the users' models):",
+  );
   const transport = googleTransport(key);
   const checks: ModelCheck[] = [];
   // One at a time, so a per-minute limit on the key is not what fails them.
-  for (const model of parseModels(process.env.GEMINI_MODELS)) {
+  for (const model of models) {
     checks.push(await checkModel(transport, model));
   }
   for (const line of formatChecks(checks)) console.log(line);
