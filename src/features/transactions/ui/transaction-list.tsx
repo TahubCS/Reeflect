@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { formatSigned } from "@/lib/money";
 import {
   type AccountChoice,
@@ -18,6 +19,10 @@ type Props = {
   truncated: boolean;
   /** Editors and owners see add and edit links; viewers only read. */
   canEdit: boolean;
+  /** F-08 contributes category labels and correction forms through composition. */
+  categoryControls?: Record<string, ReactNode>;
+  pagination?: ReactNode;
+  children?: ReactNode;
 };
 
 function Labels({ transaction }: { transaction: TransactionSummary }) {
@@ -45,6 +50,9 @@ export function TransactionList({
   accountId,
   truncated,
   canEdit,
+  categoryControls,
+  pagination,
+  children,
 }: Props) {
   const base = `/w/${workspaceId}/transactions`;
   const addHref = accountId
@@ -92,57 +100,66 @@ export function TransactionList({
           {transactions.length === 0 ? (
             <p className={styles.empty}>No transactions yet.</p>
           ) : (
-            groupByDay(transactions).map((group) => (
-              <section key={group.day} className={styles.group}>
-                <h2>{formatDay(group.day)}</h2>
-                <ul className={styles.list}>
-                  {group.transactions.map((transaction) => (
-                    <li key={transaction.id} className={styles.row}>
-                      <div className={styles.name}>
-                        <span className={styles.description}>
-                          {transaction.description}
-                        </span>
-                        <span className={styles.meta}>
-                          {transaction.accountNickname}
-                          <Labels transaction={transaction} />
-                        </span>
-                      </div>
-                      <p
-                        className={styles.amount}
-                        data-direction={
-                          transaction.amountCents < 0 ? "out" : "in"
-                        }
-                      >
-                        {/* The sign is text, so colour is never the only signal. */}
-                        <span className="sr-only">
-                          {transaction.amountCents < 0
-                            ? "Money out, "
-                            : "Money in, "}
-                        </span>
-                        {formatSigned(transaction.amountCents)}
-                      </p>
-                      {canEdit && (
-                        <Link
-                          href={`${base}/${transaction.id}`}
-                          className={styles.edit}
-                          aria-label={`Edit ${transaction.description}`}
+            <section aria-label="Your transactions">
+              {groupByDay(transactions).map((group) => (
+                <section key={group.day} className={styles.group}>
+                  <h2>{formatDay(group.day)}</h2>
+                  <ul className={styles.list}>
+                    {group.transactions.map((transaction) => (
+                      <li key={transaction.id} className={styles.row}>
+                        <div className={styles.name}>
+                          <span className={styles.description}>
+                            {transaction.description}
+                          </span>
+                          <span className={styles.meta}>
+                            {transaction.accountNickname}
+                            <Labels transaction={transaction} />
+                          </span>
+                        </div>
+                        <p
+                          className={styles.amount}
+                          data-direction={
+                            transaction.amountCents < 0 ? "out" : "in"
+                          }
                         >
-                          Edit
-                        </Link>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))
+                          {/* The sign is text, so colour is never the only signal. */}
+                          <span className="sr-only">
+                            {transaction.amountCents < 0
+                              ? "Money out, "
+                              : "Money in, "}
+                          </span>
+                          {formatSigned(transaction.amountCents)}
+                        </p>
+                        {canEdit && (
+                          <Link
+                            href={`${base}/${transaction.id}`}
+                            className={styles.edit}
+                            aria-label={`Edit ${transaction.description}`}
+                          >
+                            Edit
+                          </Link>
+                        )}
+                        {categoryControls?.[transaction.id] && (
+                          <div className={styles.categoryControls}>
+                            {categoryControls[transaction.id]}
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </section>
           )}
           {truncated && (
             <p className={styles.hint}>
               Showing the {transactions.length} most recent.
             </p>
           )}
+          {pagination}
         </>
       )}
+      {children}
     </main>
   );
 }

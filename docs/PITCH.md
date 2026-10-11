@@ -75,6 +75,12 @@ screen. Fill in the bracketed values from the seed before rehearsing.
 Steps that depend on P1 features (the keep / cancel reply at 1:45, bill
 reminders at 2:05) are cut if unfinished (ADR-043).
 
+Optional F-08 demo after the categorization PR and migration are merged:
+open Transactions in a seeded workspace, change a merchant to Groceries and
+select “Also save a rule”. Show another matching transaction becoming Groceries
+automatically. Say: “Correct it once and remember the merchant next time.”
+This does not depend on an AI call or change transaction amounts.
+
 ## 6. Judge questions to prepare for
 
 | Likely question | Answer |

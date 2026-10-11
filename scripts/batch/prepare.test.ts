@@ -141,7 +141,7 @@ describe("buildRows", () => {
 });
 
 describe("buildRows with investing", () => {
-  it("marks money into an IRA or brokerage as not spending, with no pair (ADR-052)", () => {
+  it("marks money into an IRA or brokerage as not spending, with no pair (ADR-053)", () => {
     const input = structuredClone(example);
     (input.people[1] as Record<string, unknown>).investing = [
       { name: "SCHWAB BROKERAGE TRANSFER", amountCents: 150_000, day: 20 },

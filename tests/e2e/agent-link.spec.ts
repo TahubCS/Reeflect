@@ -5,7 +5,7 @@ import {
   expect,
   test,
 } from "@playwright/test";
-import { hydrated, ownClientAddress } from "./support";
+import { hydrated, signUpVerified } from "./support";
 
 // F-24 phone linking (ADR-034, ADR-051). There is no worker in these tests:
 // the phone's texts are posted to /api/agent/turn as the worker would send
@@ -13,21 +13,16 @@ import { hydrated, ownClientAddress } from "./support";
 
 const SERVICE_TOKEN = "e2e-only-agent-service-token-0123456789";
 
-/** Signs a new user up through the API and opens their Settings page. */
+/** Signs a new user up and verifies them, then opens their Settings page. */
 async function openSettings(
   browser: Browser,
   baseURL: string | undefined,
 ): Promise<Page> {
   const context = await browser.newContext();
-  const response = await context.request.post("/api/auth/sign-up/email", {
-    headers: { origin: baseURL ?? "", ...ownClientAddress() },
-    data: {
-      name: "Link Tester",
-      email: `e2e-link-${crypto.randomUUID()}@example.test`,
-      password: "correct-horse-battery-staple",
-    },
+  await signUpVerified(context.request, baseURL, {
+    name: "Link Tester",
+    email: `e2e-link-${crypto.randomUUID()}@example.test`,
   });
-  expect(response.status()).toBe(200);
 
   const page = await context.newPage();
   await page.goto("/settings");

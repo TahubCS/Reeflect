@@ -81,7 +81,7 @@ export function buildRows(
         descriptionRaw: t.description,
         status: "posted",
         // Money into an IRA or brokerage leaves the workspace unpaired, but
-        // is marked so it never counts as spending (ADR-020, ADR-052).
+        // is marked so it never counts as spending (ADR-020, ADR-053).
         isTransfer: t.transferPair !== null || t.kind === "investment",
         transferPairId,
         source: "synthetic",

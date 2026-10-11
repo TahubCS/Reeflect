@@ -1,0 +1,168 @@
+.page {
+  max-width: 72rem;
+  padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1rem, 3vw, 3.5rem) 3rem;
+}
+
+.lede {
+  margin-top: 0.75rem;
+  max-width: 65ch;
+  color: var(--ink-soft);
+}
+.section {
+  margin-top: 2rem;
+}
+.note {
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+.empty {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--ink-soft);
+}
+.list {
+  padding: 0;
+  margin-top: 0.75rem;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.transaction,
+.rule {
+  padding: 1rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.transaction + .transaction,
+.rule + .rule {
+  border-top: 1px solid var(--line);
+}
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(9rem, 12rem);
+  gap: 1rem;
+  align-items: start;
+}
+.description {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.amount {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.category {
+  font-weight: 600;
+}
+.details {
+  margin-top: 0.75rem;
+}
+.details summary,
+.rule summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.form {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 30rem;
+  margin-top: 1rem;
+}
+.field label {
+  display: block;
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+}
+.field input,
+.field select {
+  width: 100%;
+  min-width: 0;
+  padding: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.field input[aria-invalid="true"],
+.field select[aria-invalid="true"] {
+  outline: 2px solid var(--ink);
+}
+.error {
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+.check {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.ruleFields {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-width: 0;
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.75rem;
+}
+.ruleFields legend {
+  padding: 0 0.25rem;
+  font-weight: 600;
+}
+.button,
+.secondary {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  width: fit-content;
+}
+.button {
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--bg);
+}
+.secondary {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+.button:disabled,
+.secondary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  margin-top: 1rem;
+}
+.actions a {
+  color: var(--ink);
+}
+.delete {
+  margin-top: 1rem;
+  max-width: 50ch;
+}
+.rename {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  max-width: 30rem;
+}
+
+@media (max-width: 40rem) {
+  .row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .row > :last-child {
+    grid-column: 1 / -1;
+  }
+}

@@ -47,7 +47,7 @@ Best Use of Nessie, MLH Best Use of Gemini API (ADR-036).
 Do not build, suggest, or scaffold any of the following:
 
 - Investing, trading, brokerage, crypto, or stock features. Showing how much
-  money went into retirement or investing, as saving, is allowed (ADR-052);
+  money went into retirement or investing, as saving, is allowed (ADR-053);
   holdings, prices, returns and trades are not.
 - Financial product recommendations or investing advice ("you should
   buy/switch to…"). Gemini may suggest what the user could do with their own
@@ -252,6 +252,8 @@ src/
     db/                     Drizzle schema, client, migrations, uuidv7 ids
     auth/                   Better Auth config, roles, session, authz.ts,
                             Personal workspace on sign-up
+    email/                  Resend sender and email templates; local outbox
+                            without a key (ADR-052)
     env.ts                  zod validation of the app's environment variables
     security/               encryption, rate limiting, redaction (planned)
     ai/                     model client, placeholder filling, digit scan (planned)

@@ -40,13 +40,13 @@ Update this table when work is assigned or finished. Features are listed in
 | Feature / bug | Lane | Assigned to | Branch | Status |
 |---|---|---|---|---|
 | Scaffold (Next.js, pnpm workspace, Drizzle, Better Auth, CI, lefthook) | All | Unassigned | — | Next.js, CI, Drizzle and Better Auth done (HO-017, HO-018). Not done: lefthook, the `agent-worker/` and `packages/` workspace packages |
-| F-01 Sign up / sign in | B | Unassigned | — | Done (HO-018, HO-020, HO-021, HO-027) |
+| F-01 Sign up / sign in | B | Simon Ormond | `feat/email-verification-resend` | Done (HO-018, HO-020, HO-021, HO-027); email verification and password reset through Resend (HO-034, ADR-052 Proposed) |
 | F-02 Personal workspace | B | Simon Ormond | `feat/personal-workspace` | Personal workspace and `/w/[workspaceId]` done (HO-027); household later |
 | F-03 Financial accounts | A | Simon Ormond | `feat/financial-accounts` | Done: manual accounts, list, edit, delete (HO-030) |
 | F-04 Manual transactions | A | Simon Ormond | `feat/manual-transactions` | Built: add, edit, delete, list by day, account filter (HO-031); ADR-050 Proposed |
 | F-05 CSV import | A | Unassigned | — | Not started |
 | F-06 PDF statement import (P0, ADR-044) | A | Unassigned | — | Not started |
-| F-08 Categorization | A | Unassigned | — | Not started |
+| F-08 Categorization | A | Codex | `feat/transaction-categorization` | Full feature implemented and verified (HO-037); PR #12 awaits merge |
 | F-09 Monthly budgets (P1) | A | Unassigned | — | Not started |
 | F-10 Subscriptions (detection P0, marks P1) | A | Unassigned | — | Not started |
 | F-12 Calendar home screen | B | Unassigned | — | Scaffolded on sample data (HO-019) |
@@ -63,8 +63,8 @@ Update this table when work is assigned or finished. Features are listed in
 | F-32 Agent worker | C | Unassigned | — | Not started |
 | F-22 Bill reminders (P1) | A + C | Unassigned | — | Not started |
 | F-15 Gemini summary on the website (P1, ADR-045) | C | Unassigned | — | Not started |
-| F-35 Compare with people like you (Later, ADR-053) | A + B | Jacob Heminway | `feat/insights` | Planned; ADR-053 Proposed; 100-person year batch loaded on the batch-testing branch (HO-034) |
-| F-36 Retirement question (Later, ADR-052) | B | Jacob Heminway | `feat/insights` | Planned; generator models the answers (HO-034) |
+| F-35 Compare with people like you (Later, ADR-054) | A + B | Jacob Heminway | `feat/insights` | Planned; ADR-054 Proposed; 100-person year batch loaded on the batch-testing branch (HO-038) |
+| F-36 Retirement question (Later, ADR-053) | B | Jacob Heminway | `feat/insights` | Planned; generator models the answers (HO-038) |
 | Later (ADR-043): Plaid, household, debt tab, savings goal, receipt photos, recaps, forecast, audit log | — | Unassigned | — | Only if time remains |
 
 ---
@@ -1487,19 +1487,197 @@ recommendation, not a decision.
 
 ---
 
-## HO-034: Generator v2 (retirement, investing), ADR-052 and ADR-053, a 100-person year batch
+## HO-034: Email verification and password reset through Resend (ADR-052)
+
+- **Date:** 2026-10-10 20:30 (EDT)
+- **Author:** Simon Ormond with Claude (Claude Code)
+- **Branch / PR:** `feat/email-verification-resend` / not opened
+
+### What changed
+- **ADR-052 (Proposed):** Resend for email; new users must confirm their
+  email before they can sign in. **The team should confirm it.**
+- **Migration `0004_verify_existing_users`** (renumbered from 0003 after
+  merging main, whose `0003_phone_linking` came first) (custom SQL, no schema change)
+  marks every user present when it runs as verified.
+- **`src/lib/email/`:** templates (greeting and link only; names are
+  HTML-escaped), `deliver` (Resend, or `.email-outbox/` JSON files without
+  a key; logs user id and message id only, never throws) and
+  `sendAfterResponse` (Next's `after()`, so response time doesn't reveal
+  whether an address has an account).
+- **Env:** `RESEND_API_KEY`, `EMAIL_FROM`; both required when `VERCEL` is
+  set, optional elsewhere; a key without `EMAIL_FROM` is refused.
+  Playwright sets both empty.
+- **Better Auth:** `requireEmailVerification`, `sendOnSignUp`,
+  `sendOnSignIn`, `autoSignInAfterVerification`, one-hour links,
+  `sendResetPassword`, `revokeSessionsOnPasswordReset`.
+- **UI:** sign-up ends on "Check your inbox" (with "Send the link again");
+  sign-in explains an unverified account and links to "Forgot your
+  password?"; new pages `/forgot-password`, `/reset-password`,
+  `/email-verified` (redirects to the calendar, or explains a bad link).
+  `Field` moved to `src/features/auth/ui/field.tsx`.
+- **Tests:** Vitest for templates, sender, env, auth config, the migration
+  and the new form parsing. E2E: every API sign-up goes through
+  `signUpVerified` in `tests/e2e/support.ts`, which follows the link from
+  the outbox; new specs for unverified sign-in, resend, reset, unknown
+  address and bad links. `pnpm test:unit` (535) and `pnpm test:e2e` (54)
+  pass.
+
+### What's next
+- **Deploy order:** set `RESEND_API_KEY` and `EMAIL_FROM` on Vercel
+  (Production and Preview), merge, run `pnpm db:migrate:to production`,
+  **then** deploy. Deploying first would lock out existing users until the
+  migration runs.
+- Send one real email from a preview deployment to check Resend's DNS and
+  the sender name.
+
+### Open problems
+- ADR-052 is Proposed, not Accepted.
+- `.email-outbox/` is never cleaned up; delete it by hand when it grows.
+- Signing up with an address that already has an account shows "Check your
+  inbox" and sends nothing (Better Auth's enumeration protection). An
+  "already have an account" email would need `onExistingUserSignUp`.
+
+---
+
+## HO-035: Isolated categorization engine (F-08, ADR-013)
+
+- **Date:** 2026-10-10 19:18 (EDT)
+- **Author:** Codex
+- **Branch / PR:** `feat/transaction-categorization` (uncommitted) / not opened
+
+### What changed
+- Fetched main and created `/workspace/Reeflect-categorization` from `02c5154`.
+  A final fetch confirmed that main still matches this base. The original
+  checkout's planning changes were preserved.
+- Added `src/features/categorization/`: pure merchant normalization, literal
+  keyword matching, highest-priority selection with deterministic ties, manual
+  override precedence and Zod validation. Unknown merchants return an
+  uncategorized result; invalid inputs return validation issues. No I/O or
+  transaction mutation. Public exports and integration examples are in the
+  feature's `index.ts` and README.
+- Added [CATEGORIZATION_PLAN.md](CATEGORIZATION_PLAN.md) with the implemented
+  milestone and remaining dependencies. Existing routes, schemas, migrations,
+  auth, calendar logic, dependencies, lockfile and CI are unchanged.
+- Verification on the local test database:
+  - Baseline: 439 unit/integration tests passed before engine changes.
+  - Final: 517 unit/integration tests passed, including 78 engine tests at
+    100% line and branch coverage.
+  - All 42 existing non-external Playwright tests passed against the production
+    build: auth, workspaces, accounts, navigation, calendar, landing and health.
+  - Lint, format check, strict typecheck, production build and bundle scan passed.
+- Test setup: started the repository's PostgreSQL container and installed the
+  Chromium revision required by the locked Playwright package. The initial
+  browser attempt could not launch because that revision was missing; the
+  complete rerun passed after installation.
+
+### What's next
+- Integrate through `@/features/categorization` once category/rule persistence
+  and the manual transaction/import caller are available. Callers authorize the
+  workspace, supply only its rules and validate category ownership before writes.
+- Add Playwright coverage for manual override, saved rule and re-import behavior
+  with that user-facing integration (TEST-02). The engine alone is not full F-08.
+
+### Open problems
+- The current transaction schema has no category column; category/rule tables
+  and the manual transaction UI are still missing on this main revision.
+- Merchant cleanup is conservative; unsupported statement metadata is retained
+  rather than guessed. It does not replace institution-specific import parsing.
+
+---
+
+## HO-036: Categorization engine prepared for commit and PR
+
+- **Date:** 2026-10-10 19:31 (EDT)
+- **Author:** Codex
+- **Branch / PR:** `feat/transaction-categorization` / not opened yet
+
+### What changed
+- The user explicitly requested committing the engine and opening a PR.
+- Re-fetched main: the branch's base still matches `02c5154`; no main updates
+  need merging. Reviewed the feature and documentation scope for the commit.
+- Application code is unchanged since HO-035's successful verification.
+
+### What's next
+- Commit and publish this branch, then open the engine PR into main. The PR
+  description will distinguish engine verification from the future persisted
+  categorization flow. Its link will be attached to this chat.
+- Review the PR and integrate category persistence and a caller in later work.
+
+### Open problems
+- The full F-08 persistence and user-facing integration dependencies in HO-035
+  remain. This PR contains the isolated engine milestone.
+
+---
+
+## HO-037: Complete F-08 categorization and transaction integration
+
+- **Date:** 2026-10-11 00:54 (UTC)
+- **Author:** Codex
+- **Branch / PR:** `feat/transaction-categorization` / [PR #12](https://github.com/TahubCS/Reeflect/pull/12)
+
+### What changed
+- Completed persisted, workspace-scoped categories and rules, manual overrides
+  with optional rule saving, explicit manual Uncategorized, return to automatic,
+  rule creation/editing/deletion and renaming eight presets. Saves and automatic
+  recategorization are atomic; manual choices survive rule and transaction edits.
+- Integrated main through `adc6312`: retained F-04 add/edit/delete, balances,
+  account filtering, grouping by day, instant navigation and verified signup.
+  Creation/editing computes category metadata inside the existing SQL transaction.
+  Transactions now paginate at 50 rows and have a route-local retry boundary.
+  A final fetch confirmed main still matches this integrated revision.
+- Generated additive `0005_categorization`, after phone linking's 0003 and
+  verification's 0004. Composite foreign keys reject foreign-workspace categories;
+  the composite unique index precedes its dependent foreign key in the SQL.
+  Only editors initialize categories; all five actions require editor access
+  before validation/writes and are covered by the shared isolation matrix.
+- Exact merchant matching now handles store numbers followed by US city/state.
+  Public read/write integration APIs and the separate pure client entry point
+  are documented. No categorization vendor, dependency or money-rule changes.
+- Final verification: **825 unit/database tests** and **74 non-external browser
+  tests**, including 12 new categorization flows, passed. Categorization domain
+  and server line coverage is 100%; branch coverage is 98.27% and 97.5% respectively.
+  All six migrations applied to an empty local database. Lint, format check,
+  strict types, docs checks, production build, client-bundle scan and diff checks
+  passed. Browser verification used a fresh production server on port 3101.
+- Browser signup polling now tolerates a partially written local outbox file
+  during parallel tests. Recovery coverage allows only React's expected #419
+  report from the deliberately broken fixture; normal flows allow no page errors.
+- [Desktop light](screenshots/categorization/desktop-light.png),
+  [desktop dark](screenshots/categorization/desktop-dark.png),
+  [phone light](screenshots/categorization/phone-light.png) and
+  [phone dark](screenshots/categorization/phone-dark.png) previews use synthetic
+  data. Verified at 1440px and 360px, including reduced motion and no overflow.
+- Engine handoffs were renumbered HO-035/HO-036 while retaining main's entries.
+  Updated the implementation plan, feature README, architecture, testing and demo.
+
+### What's next
+- Publish the full feature commit to the same PR, then use the required CI and
+  teammate review before merging. The user explicitly requested the entire
+  feature pushed to this PR and authorized follow-up commits.
+- Apply pending migrations, including 0005, before deploying the application.
+  Import/sync callers can use `applyCategoryRules` after committing rows and
+  must preserve manual category metadata on re-imports.
+
+### Open problems
+- No known F-08 regression from final local checks. No production migration
+  or deployment was performed; the existing shared-database migration record
+  concern in HO-026 still needs reconciliation before deployment.
+
+---
+
+## HO-038: Generator v2 (retirement, investing), ADR-053 and ADR-054, a 100-person year batch
 
 - **Date:** 2026-10-10 21:20 (EDT)
 - **Author:** Jacob Heminway with Claude (Claude Code)
 - **Branch / PR:** `feat/insights` (uncommitted) / not opened
 
 ### What changed
-- **ADR-052 (Proposed):** money into retirement (an IRA) or a brokerage
+- **ADR-053 (Proposed):** money into retirement (an IRA) or a brokerage
   counts as saving, not spending (refines ADR-020). A 401(k) is known only
   from the user's answer to an action-required retirement question, shown
   without alarms. AGENTS.md section 2 and SYNTHETIC.md rule 7 now draw the
   line: amounts in are fine; holdings, prices, returns and trades are not.
-- **ADR-053 (Proposed):** the insights comparison that ADR-049 asked for.
+- **ADR-054 (Proposed):** the insights comparison that ADR-049 asked for.
   Each sample person's figures are stored at batch load in an
   `insight_sample` table (not built yet); the page compares you with the
   10 sample people just above and 10 just below you by take-home, or with
@@ -1529,7 +1707,7 @@ recommendation, not a decision.
   `quantile` in `src/lib/money`, then `insights/domain` (periods, metrics,
   cohort), then the `insight_sample` table, the page, `pnpm batch attach`,
   the retirement question, and the production load.
-- The team to confirm ADR-052 and ADR-053.
+- The team to confirm ADR-053 and ADR-054.
 - F-08 (categories) is unassigned; our own accounts need it for spending by
   category on Insights.
 

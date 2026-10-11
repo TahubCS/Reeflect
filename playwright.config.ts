@@ -17,7 +17,8 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   projects: [
-    // Signs up one shared user and saves its session (tests/e2e/support.ts).
+    // Signs up and verifies one shared user and saves its session
+    // (tests/e2e/support.ts).
     { name: "setup", testMatch: /.*.setup.ts/ },
     {
       name: "chromium",
@@ -43,6 +44,10 @@ export default defineConfig({
       AGENT_SERVICE_TOKEN: "e2e-only-agent-service-token-0123456789",
       // The link card must not depend on a number being configured.
       AGENT_PHONE_NUMBER: "",
+      // No Resend key, so emails go to .email-outbox/ and tests follow the
+      // links there (ADR-052). Empty values win over .env.local.
+      RESEND_API_KEY: "",
+      EMAIL_FROM: "",
     },
   },
 });

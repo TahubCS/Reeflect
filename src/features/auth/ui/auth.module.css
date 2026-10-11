@@ -110,3 +110,50 @@
   font-size: 0.875rem;
   cursor: pointer;
 }
+
+/* Email verification and password reset (ADR-052). */
+
+.note {
+  margin-top: 1rem;
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+}
+
+.aside {
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.aside a,
+.failure a {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.secondary {
+  width: 100%;
+  margin-top: 1.25rem;
+  padding: 0.625rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.status {
+  min-height: 1.25rem;
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+}
+
+a.submit {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+}

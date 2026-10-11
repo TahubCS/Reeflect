@@ -30,7 +30,7 @@ import type { Category, PersonSpec, Persona, Schedule, Spec } from "./spec";
 
 /**
  * Bump when a change would make the same spec and seed give different rows.
- * v2: retirement and investing (ADR-052). A v1 checkout would read a spec
+ * v2: retirement and investing (ADR-053). A v1 checkout would read a spec
  * that uses them and silently leave those rows out, so replay needs v2.
  */
 export const GENERATOR_VERSION = 2;
@@ -46,7 +46,7 @@ export type TransactionKind =
   | "transfer"
   | "interest"
   | "event"
-  /** Money into retirement or a brokerage: saving, not spending (ADR-052). */
+  /** Money into retirement or a brokerage: saving, not spending (ADR-053). */
   | "investment";
 
 export type GeneratedTransaction = {
@@ -80,7 +80,7 @@ export type GeneratedPerson = {
   name: string;
   persona: Persona;
   summary: string;
-  /** Their retirement answer; null when not answered (ADR-052). */
+  /** Their retirement answer; null when not answered (ADR-053). */
   retirement: PersonSpec["retirement"] | null;
   accounts: GeneratedAccount[];
   transactions: GeneratedTransaction[];
@@ -299,7 +299,7 @@ export function expandPerson(
     }
 
     // Into an IRA or a brokerage: out of checking, to an account outside the
-    // workspace, counted as saving rather than spending (ADR-052).
+    // workspace, counted as saving rather than spending (ADR-053).
     const investments = person.investing.map((item) => ({
       ...item,
       category: "Investing" as Category,

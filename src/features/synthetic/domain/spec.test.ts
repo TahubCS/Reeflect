@@ -110,7 +110,7 @@ describe("parseSpec", () => {
     expect(problems(spec).length).toBeGreaterThan(0);
   });
 
-  it("accepts each retirement answer and investing, leaving both out by default (ADR-052)", () => {
+  it("accepts each retirement answer and investing, leaving both out by default (ADR-053)", () => {
     const plain = parseSpec(copy());
     expect(plain.ok && plain.spec.people[0]!.retirement).toBeUndefined();
     expect(plain.ok && plain.spec.people[0]!.investing).toEqual([]);

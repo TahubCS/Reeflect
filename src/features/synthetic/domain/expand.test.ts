@@ -221,7 +221,7 @@ describe("expandSpec", () => {
     expect(rowsOf(walter, "savings")).toEqual([]);
   });
 
-  it("pays into an IRA and a brokerage from checking each month, as saving (ADR-052)", () => {
+  it("pays into an IRA and a brokerage from checking each month, as saving (ADR-053)", () => {
     const saver = person(
       expandSpec(
         spec((s) => {

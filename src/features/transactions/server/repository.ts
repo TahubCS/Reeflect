@@ -1,6 +1,7 @@
 import "server-only";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
+import { getCategoryMetadata } from "@/features/categorization";
 import { uuidv7 } from "@/lib/db/id";
 import { financialAccount, transaction } from "@/lib/db/schema";
 import { type Cents, add, cents, negate } from "@/lib/money";
@@ -65,7 +66,7 @@ export const LIST_LIMIT = 200;
  */
 export async function listTransactions(
   workspaceId: string,
-  options: { accountId?: string; limit?: number } = {},
+  options: { accountId?: string; limit?: number; offset?: number } = {},
 ): Promise<TransactionSummary[]> {
   const rows = await db
     .select(columns)
@@ -84,7 +85,8 @@ export async function listTransactions(
       desc(transaction.createdAt),
       desc(transaction.id),
     )
-    .limit(options.limit ?? LIST_LIMIT);
+    .limit(options.limit ?? LIST_LIMIT)
+    .offset(options.offset ?? 0);
   return rows.map(toSummary);
 }
 
@@ -147,6 +149,12 @@ export async function createTransaction(
     if (!account) return null;
 
     const id = uuidv7();
+    const categoryMetadata = await getCategoryMetadata(
+      workspaceId,
+      input.description,
+      undefined,
+      tx,
+    );
     await tx.insert(transaction).values({
       id,
       workspaceId,
@@ -154,6 +162,7 @@ export async function createTransaction(
       postedOn: ledger.postedOn,
       amountCents: ledger.amountCents,
       descriptionRaw: input.description,
+      ...categoryMetadata,
       status: ledger.status,
       isTransfer: input.isTransfer,
       source: "manual",
@@ -190,6 +199,8 @@ export async function updateTransaction(
         postedOn: transaction.postedOn,
         amountCents: transaction.amountCents,
         source: transaction.source,
+        categoryId: transaction.categoryId,
+        categoryIsManual: transaction.categoryIsManual,
       })
       .from(transaction)
       .where(inWorkspace(workspaceId, transactionId))
@@ -236,10 +247,17 @@ export async function updateTransaction(
       }
     }
 
+    const categoryMetadata = await getCategoryMetadata(
+      workspaceId,
+      input.description,
+      existing,
+      tx,
+    );
     await tx
       .update(transaction)
       .set({
         descriptionRaw: input.description,
+        ...categoryMetadata,
         isTransfer: input.isTransfer,
         ...(ledger && {
           financialAccountId: ledger.accountId,
