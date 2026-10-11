@@ -1,6 +1,16 @@
 import { defineConfig, devices } from "@playwright/test";
 import { testStorageEnv } from "./tests/support/storage-env";
 
+// Apply this to the runner too: specs that seed data construct their own
+// pg pools, outside the webServer environment below.
+if (
+  process.env.DATABASE_URL &&
+  new URL(process.env.DATABASE_URL).hostname.endsWith(".neon.tech")
+) {
+  process.env.DATABASE_URL = "postgres://test:test@localhost:5433/app_test";
+  process.env.DATABASE_URL_UNPOOLED = process.env.DATABASE_URL;
+}
+
 const isCi = Boolean(process.env.CI);
 // Set PORT when something else (such as `pnpm dev`) already uses 3000.
 const port = process.env.PORT ?? "3000";
@@ -50,6 +60,7 @@ export default defineConfig({
         DATABASE_URL:
           process.env.DATABASE_URL ??
           "postgres://test:test@localhost:5433/app_test",
+        DATABASE_TRANSPORT: "tcp",
         // The server under test is always on localhost, whatever .env.local says.
         BETTER_AUTH_URL: baseURL,
         // Test sign-ups never reach the Better Auth dashboard (ADR-047). An

@@ -95,7 +95,7 @@ Priorities follow ADR-043. Lanes: A = Data, B = Web, C = Agent.
 | F-12 | Calendar home screen | P0 | B | The per-day headline with its sum, the month calendar, the balance line and the selected-day panel, plus an "Upcoming bills" list once F-22 exists. | ADR-042 |
 | F-13 | Drill-down | P0 | B | Select a day to see its activity, sources and balance; filter by kind; switch between calendar and list. | ADR-042 |
 | F-14 | End-of-month forecast | Later | A | The dotted part of the balance line, from recurring income, bills and spending pace. | ADR-026 |
-| F-15 | Gemini summary on the website | P1 | C | A panel on the dashboard, under the headline. It opens with a summary and suggestions built by code; "Write it with Gemini" has Gemini write them around figures code computed, reusing the agent brain, and the panel says who wrote it. Each person may ask five times a day, and what Gemini wrote stays for the rest of that day, filled with current figures. Built (HO-119, HO-120). Category suggestions and "Ask Reeflect" come later. | ADR-019, ADR-045, ADR-068 |
+| F-15 | Gemini summary on the website | P1 | C | A panel on the dashboard, under the headline. It opens with a summary and suggestions built by code; "Write it with Gemini" has Gemini write them around figures code computed, reusing the agent brain, and the panel says who wrote it. Each person may ask five times a day, and what Gemini wrote stays for the rest of that day, filled with current figures. Built (HO-121, HO-120). Category suggestions and "Ask Reeflect" come later. | ADR-019, ADR-045, ADR-068 |
 | F-16 | Debt and credit tab | Later | B | Cards and loans (Nessie loans or Plaid Liabilities). Any credit score is labelled "Sample". | ADR-024 |
 | F-17 | Monthly recap | Later | B | Animated playback of the month on the calendar. | ADR-042 |
 | F-18 | Themes and accessibility | P0 | B | Light and dark themes, WCAG 2.2 AA, reduced motion, text labels, responsive from 360px. | ADR-018 |
@@ -118,6 +118,11 @@ Priorities follow ADR-043. Lanes: A = Data, B = Web, C = Agent.
 | F-35 | Compare with people like you | Later | A + B | On Insights: your spending by category and where you stand, next to sample people with similar take-home pay or everyone, for the last 30 days, 3 months or year. Labelled "Sample". Built (HO-043). | ADR-049, ADR-056 |
 | F-36 | Retirement question | Later | B | An action-required item: is money going into a retirement plan through your employer, your own account, or not right now. Retirement and investing count as saving. | ADR-055 |
 | F-37 | Planned transactions | P1 | B | On the calendar, plan money out or in on a later day and see the expected balance and what is owed before payday change. When the day comes, confirm "It happened" (it becomes a manual transaction) or remove it. Plans are not transactions. | ADR-102, ADR-042 |
+
+Transactions now includes an explicit transfer review subroute (ADR-066).
+Suggestions require a selected counterpart and confirmation; independent
+labels and pair relationships are reversible metadata, with Bills evidence
+guards and no change to recorded account balances.
 
 ## 6. The calendar (summary; full spec in ADR-042)
 

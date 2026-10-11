@@ -292,3 +292,112 @@ describe("toCashflowData", () => {
     expect(summarize(data, TODAY).balanceToday).toBe(150000);
   });
 });
+
+describe("recorded transfers preserve every balance", () => {
+  it("keeps a card purchase as spending, excludes repayment from totals and preserves daily balances", () => {
+    const accounts = [{ ...CHECKING, balanceCents: cents(50000) }, CARD];
+    const transactions = [
+      row({
+        postedOn: "2026-10-01",
+        accountId: CARD.id,
+        amountCents: cents(-4500),
+      }),
+      row({ postedOn: "2026-10-05", amountCents: cents(-20000) }),
+      row({
+        postedOn: "2026-10-06",
+        accountId: CARD.id,
+        amountCents: cents(20000),
+      }),
+    ];
+    const before = toCashflowData({ accounts, transactions, today: TODAY });
+    const after = toCashflowData({
+      accounts,
+      transactions: transactions.map((r, i) => ({ ...r, isTransfer: i > 0 })),
+      today: TODAY,
+    });
+    expect(after.openingBalance).toBe(70000);
+    expect(
+      buildMonth(after, { year: 2026, month: 10 }, TODAY).days.map(
+        (d) => d.endBalance,
+      ),
+    ).toEqual(
+      buildMonth(before, { year: 2026, month: 10 }, TODAY).days.map(
+        (d) => d.endBalance,
+      ),
+    );
+    expect(summarize(after, TODAY)).toMatchObject({
+      balanceToday: 50000,
+      monthIn: 0,
+      monthOut: 4500,
+      biggestCategory: { total: 4500, count: 1 },
+    });
+  });
+  it.each([
+    ["2026-09-30", "2026-10-02", TODAY],
+    ["2026-12-31", "2027-01-02", "2027-01-05"],
+  ])(
+    "preserves liquid transfer timing across %s to %s",
+    (outOn, inOn, today) => {
+      const transactions = [
+        row({ postedOn: outOn, amountCents: cents(-10001) }),
+        row({
+          postedOn: inOn,
+          accountId: SAVINGS.id,
+          amountCents: cents(10001),
+        }),
+      ];
+      const before = toCashflowData({
+        accounts: [CHECKING, SAVINGS],
+        transactions,
+        today,
+      });
+      const after = toCashflowData({
+        accounts: [CHECKING, SAVINGS],
+        transactions: transactions.map((r) => ({ ...r, isTransfer: true })),
+        today,
+      });
+      expect(after.start).toEqual(before.start);
+      for (const month of [
+        before.start,
+        { year: Number(today.slice(0, 4)), month: Number(today.slice(5, 7)) },
+      ])
+        expect(
+          buildMonth(after, month, today).days.map((d) => d.endBalance),
+        ).toEqual(
+          buildMonth(before, month, today).days.map((d) => d.endBalance),
+        );
+      expect(summarize(after, today)).toMatchObject({
+        balanceToday: 200000,
+        monthIn: 0,
+        monthOut: 0,
+      });
+      expect(after.entries).toEqual([]);
+    },
+  );
+  it("preserves same-day checking to savings and excludes a labelled loan leg", () => {
+    const data = toCashflowData({
+      accounts: [CHECKING, SAVINGS, LOAN],
+      transactions: [
+        row({ postedOn: TODAY, amountCents: cents(-10000), isTransfer: true }),
+        row({
+          postedOn: TODAY,
+          accountId: SAVINGS.id,
+          amountCents: cents(10000),
+          isTransfer: true,
+        }),
+        row({
+          postedOn: TODAY,
+          accountId: LOAN.id,
+          amountCents: cents(10000),
+          isTransfer: true,
+        }),
+      ],
+      today: TODAY,
+    });
+    expect(summarize(data, TODAY)).toMatchObject({
+      balanceToday: 200000,
+      monthIn: 0,
+      monthOut: 0,
+    });
+  });
+});

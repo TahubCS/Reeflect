@@ -89,6 +89,8 @@ export type CashflowData = {
   openingBalance: Cents;
   entries: Entry[];
   recurring: Recurring[];
+  /** Recorded liquid-account transfers affect balances, but never activity totals. */
+  balanceOnly?: { date: IsoDate; amount: Cents }[];
 };
 
 export type Item = Omit<Entry, "source"> & {
@@ -205,9 +207,17 @@ function balanceBefore(
 ): Cents {
   let balance = data.openingBalance;
   for (let i = 0; i < monthsApart(data.start, month); i += 1) {
+    const previous = addMonths(data.start, i);
     balance = add(
       balance,
-      balanceChange(monthItems(data, addMonths(data.start, i), today)),
+      add(
+        balanceChange(monthItems(data, previous, today)),
+        sum(
+          (data.balanceOnly ?? [])
+            .filter((row) => row.date.startsWith(monthPrefix(previous)))
+            .map((row) => row.amount),
+        ),
+      ),
     );
   }
   return balance;
@@ -238,7 +248,17 @@ export function buildMonth(
       );
       if (everydaySpent > largestEverydaySpend)
         largestEverydaySpend = everydaySpent;
-      balance = add(balance, balanceChange(dayItems));
+      balance = add(
+        balance,
+        add(
+          balanceChange(dayItems),
+          sum(
+            (data.balanceOnly ?? [])
+              .filter((row) => row.date === date)
+              .map((row) => row.amount),
+          ),
+        ),
+      );
       return {
         date,
         day: index + 1,

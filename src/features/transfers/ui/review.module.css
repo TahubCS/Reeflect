@@ -1,0 +1,154 @@
+.page {
+  max-width: 70rem;
+  padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1rem, 3vw, 3rem) 3rem;
+}
+.heading,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+.heading {
+  justify-content: space-between;
+}
+.page h1 {
+  font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
+  line-height: 1.15;
+}
+.page h2 {
+  font-size: 1.15rem;
+}
+.lead {
+  max-width: 70ch;
+  margin: 1rem 0;
+}
+.hint {
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+.filters label {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+  max-width: 100%;
+}
+.page input,
+.page select,
+.page button {
+  font: inherit;
+}
+.page input[type="date"],
+.page select {
+  padding: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  min-width: 0;
+  max-width: 100%;
+}
+.page button {
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--ink);
+  border-radius: 8px;
+  color: var(--surface);
+  background: var(--ink);
+  cursor: pointer;
+  min-height: 44px;
+}
+.page button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+.page a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.page :focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+.cards {
+  display: grid;
+  gap: 1.25rem;
+  margin: 1.5rem 0;
+}
+.card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 1rem;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.card h2 {
+  margin-bottom: 0.75rem;
+}
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.fact {
+  display: grid;
+  gap: 0.2rem;
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+.controls {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--line);
+  margin-top: 1rem;
+}
+.controls button {
+  justify-self: start;
+}
+.choices {
+  display: grid;
+  gap: 0.5rem;
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.choices legend {
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+.choice {
+  display: flex;
+  align-items: start;
+  gap: 0.6rem;
+  padding: 0.4rem 0;
+}
+.choice input {
+  flex: 0 0 auto;
+  margin-top: 0.25rem;
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.status {
+  margin: 1rem 0;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+@media (max-width: 480px) {
+  .filters {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .card {
+    padding: 0.85rem;
+  }
+}
