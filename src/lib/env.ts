@@ -72,6 +72,16 @@ const envSchema = z
     AWS_ENDPOINT_URL_S3: optionalText.pipe(z.url().optional()),
     AWS_REGION: optionalText,
     STATEMENTS_BUCKET: optionalText,
+    /**
+     * Gemini key for the agent's replies (ADR-019, ADR-059). Without it the
+     * agent answers with replies built by code, so tests never call Google.
+     */
+    GEMINI_API_KEY: optionalText,
+    /**
+     * Models to try, in order, comma-separated (ADR-059). Unset means the
+     * default chain in `src/lib/ai/models.ts`.
+     */
+    GEMINI_MODELS: optionalText,
     /** Set by Vercel on every deployment ("1"). */
     VERCEL: optionalText,
   })

@@ -84,6 +84,7 @@ Rules:
 | ADR-056 | Insights: compare with sample people (refines ADR-049) | Proposed |
 | ADR-057 | More preset categories; sample people arrive categorized (refines ADR-015) | Proposed |
 | ADR-058 | Recurring payment patterns, confirmation and variable bills | Accepted |
+| ADR-059 | Agent replies: one request with labels, and a chain of models (refines ADR-019, ADR-040) | Proposed |
 
 ---
 
@@ -1349,6 +1350,51 @@ Rules:
   digit scan (ARCH-07) runs on every reply.
 - **Consequences:** `logSpending` rejects any amount that does not appear in
   the user's message text.
+
+### ADR-059: Agent replies: one request with labels, and a chain of models (refines ADR-019, ADR-040)
+
+- **Status:** Proposed (2026-10-11), by Muhammad
+- **Context:** F-25 makes the agent answer "how am I doing?". ADR-019 says a
+  model may never produce a number, and ADR-040 says every model call needs
+  a fallback. The key's daily allowance is small for the strongest models
+  (20 requests a day each) and large for the lite ones (500).
+- **Decision:**
+  - **One request per text, with labels.** Code works out the figures first
+    (the Insights measures for the last 30 days, ADR-056, and the account
+    balances). The model is given only label names such as `{cash_total}`
+    and plain-word notes, never an amount, count, date or account name. It
+    writes the sentences; code fills the labels in.
+  - **Two checks on every draft, the same for every model:** no digit
+    outside a label, and only labels that have a value. A draft that fails,
+    or is too long for a text, is dropped and the reply is built by code
+    from the same figures.
+  - **A chain of at most six models,** tried in order: `gemini-3.8-flash`,
+    `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-3.5-flash`,
+    `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`. `GEMINI_MODELS`
+    overrides the list. A model that fails is skipped and left alone for
+    five minutes (an hour for a name the API does not know). About 4
+    seconds per attempt and 14 in total; after that the code-built reply is
+    sent. A reply the model did not finish counts as a failure.
+  - **Nothing is kept at Google** (`store: false`) and the agent has no
+    conversation memory: each text is answered on its own.
+  - **Tool calling is not used yet.** With one thing to look up, code does
+    it up front, which halves the requests per text. It arrives with the
+    first feature that has a choice of lookups (F-28).
+  - **The current key is used for real users' texts for now.** ADR-019's
+    rule that only a billing-enabled key may see real users' data is set
+    aside until billing is sorted out. What reaches the model is the
+    person's own message and label names.
+  - `pnpm ai:check` asks each model in the chain one test question with the
+    real key and reports which answer.
+- **Alternatives considered:** Gemini's tool-calling loop (two requests per
+  text for one lookup); one model with no chain (20 answers a day); giving
+  the model the figures (breaks ADR-019).
+- **Consequences:**
+  - The agent's figures match the Insights page, since both use
+    `workspaceMeasures`.
+  - Follow-up questions ("and last month?") do not work yet.
+  - Once the stronger models' daily allowance is spent, replies come from
+    the lite models; the same checks apply.
 
 ### ADR-038: Proactive messages
 

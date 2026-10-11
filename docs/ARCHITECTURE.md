@@ -242,13 +242,20 @@ Governed by: ADR-014, ADR-018, ADR-026, ADR-042
 
 ## ARCH-07: AI layer
 
-Governed by: ADR-019, ADR-045
+Governed by: ADR-019, ADR-045, ADR-059
 
-- `src/lib/ai/client.ts`: Google Gemini API wrapper using the `@google/genai`
-  SDK (server-only). Nothing outside `lib/ai` imports the SDK directly.
-- `src/lib/ai/fill.ts`: replaces placeholders with formatted values from code.
-- `src/lib/ai/digitScan.ts`: rejects outputs containing digits not inserted by
-  `fill.ts`; on rejection, fall back to a fixed template.
+- `src/lib/ai/google.ts`: the only file that imports the `@google/genai`
+  SDK. One stateless request (`store: false`) to Gemini's Interactions API.
+- `src/lib/ai/chain.ts` and `models.ts`: try up to six models in order,
+  skipping one that fails and leaving it alone while it cools off (ADR-059).
+- `src/lib/ai/client.ts` (server-only): `generateText`, the chain bound to
+  `GEMINI_API_KEY` and `GEMINI_MODELS`. Without a key it reports
+  "unavailable" and callers use their code-built reply.
+- `src/lib/ai/fill.ts`: replaces `{labels}` with formatted values from code;
+  refuses an unknown label or a stray brace.
+- `src/lib/ai/digitScan.ts`: finds a digit the model wrote itself (digits
+  inside label names do not count); on a hit, fall back to the code-built
+  reply.
 - "Ask Reeflect" exposes read-only tools (for example
   `getCategorySpend(workspaceId, month, categoryId)`) that call the same
   repository functions as the UI, with the same authorization.
@@ -292,8 +299,8 @@ Governed by: ADR-006, ADR-007, ADR-010, ADR-012, ADR-019, ADR-025
 | `STATEMENTS_BUCKET` | `lib/storage`: the bucket name, `statements` (ADR-053) | No |
 | `ENCRYPTION_KEY` | `lib/security/crypto.ts` (32 bytes, base64) | Yes |
 | `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_ENV` | Plaid client | Yes (secret) |
-| `GEMINI_API_KEY` | `lib/ai` (Google Gemini API) | Yes |
-| `GEMINI_MODEL` | `lib/ai` (model name, set at kickoff) | No |
+| `GEMINI_API_KEY` | `lib/ai` (Google Gemini API); optional, the agent answers with code-built replies without it | Yes |
+| `GEMINI_MODELS` | `lib/ai`: models to try in order, comma-separated, six at most; optional, defaults to the chain in `src/lib/ai/models.ts` (ADR-059) | No |
 | `NESSIE_API_KEY` | `features/nessie` (sent as a query parameter; logs must redact it) | Yes |
 | `NESSIE_BASE_URL` | `features/nessie`: `https://api.nessieisreal.com` (ADR-048) | No |
 | `AGENT_SERVICE_TOKEN` | Next.js and worker (shared secret, 32+ characters). Optional in Next.js: without it `/api/agent/turn` answers 404 to everyone | Yes |
@@ -483,8 +490,8 @@ sequenceDiagram
 | Protocol types | `packages/agent-protocol/` | Zod schemas shared by worker and brain, and the list of platforms. `terminal` is refused by a deployed app (`src/features/agent/server/platform.ts`) |
 | Turn endpoint | `src/app/api/agent/turn/route.ts` | Token check (`src/features/agent/server/service-token.ts`, 404 without it), zod parse, call `runAgentTurn` |
 | Identity | `src/features/messaging/server/link.ts`, `actions.ts` | Link codes, the request a user approves, `messaging_identity`, STOP and Disconnect (ADR-051). The Settings card is `src/features/messaging/ui/` |
-| Brain | `src/features/agent/server/runAgentTurn.ts` | Gemini loop with tools, reply composition. Today: LINK, STOP and fixed replies only (F-24); Gemini arrives with F-25 |
-| Tools | `src/features/agent/server/tools/` | `getSummary`, `getCategory`, `listSubscriptions`, `listUpcomingBills`, `logSpending`, `setSubscriptionIntent` |
+| Brain | `src/features/agent/server/runAgentTurn.ts`, `answer.ts` | LINK and STOP in code; any other text from a linked phone goes to `answer`: figures from code, one model request with labels, the draft checked and filled, the code-built reply on any failure (F-25, ADR-059). `domain/summary.ts`, `prompt.ts`, `draft.ts` and `fallback.ts` hold the pure parts |
+| Tools | `src/features/agent/server/tools/` | Built: `getSummary` (balances, and the last 30 days from the Insights measures). Planned: `getCategory`, `listSubscriptions`, `listUpcomingBills`, `logSpending`, `setSubscriptionIntent` |
 | Intent parsing | `src/features/agent/domain/parse.ts` | Code-only commands (ADR-040): LINK, TRY, STOP, keep / cancel / yes / UNDO / DETAILS, quiet hours, amounts from user text (ADR-035) |
 | Quiet hours | `src/features/messaging/domain/quietHours.ts` | Parse times, handle ranges across midnight, decide whether a message may be sent now |
 | Demo mode | `src/features/messaging/server/demo.ts`, `scripts/demo-judges.ts`, `scripts/demo-reset.ts` | Judge workspaces, TRY linking, expiry, reset (ADR-034) |

@@ -104,7 +104,7 @@ test("a phone links only after the website approves it", async ({
     page.getByText(`Connected: phone ending ${handle.slice(-4)}`),
   ).toBeVisible();
   expect(await text(request, handle, "how am I doing?")).toContain(
-    "You're linked",
+    "no accounts for you yet",
   );
 });
 
