@@ -10,6 +10,8 @@ export type EntryPointTarget = {
   importBatchId: string;
   categoryId: string;
   ruleId: string;
+  /** A plan on `accountId` whose day has come (F-37). */
+  planId: string;
 };
 
 /**
