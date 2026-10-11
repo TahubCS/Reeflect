@@ -60,7 +60,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-26 Subscription alerts | C | Unassigned | — | Not started |
 | F-27 Log spending by text | C | Unassigned | — | Not started |
 | F-28 Category and balance questions | C | Unassigned | — | Not started |
-| F-32 Agent worker | C | Unassigned | — | Not started |
+| F-32 Agent worker | C | Muhammad Tahub Khatri | `feat/agent-worker` | Built, replies only (HO-035); not yet deployed to Render |
 | F-22 Bill reminders (P1) | A + C | Unassigned | — | Not started |
 | F-15 Gemini summary on the website (P1, ADR-045) | C | Unassigned | — | Not started |
 | Later (ADR-043): Plaid, household, debt tab, savings goal, receipt photos, recaps, forecast, audit log | — | Unassigned | — | Only if time remains |
@@ -1532,3 +1532,69 @@ recommendation, not a decision.
 - Signing up with an address that already has an account shows "Check your
   inbox" and sends nothing (Better Auth's enumeration protection). An
   "already have an account" email would need `onExistingUserSignUp`.
+
+---
+
+## HO-035: F-32 agent worker: relays texts between Photon and the app
+
+- **Date:** 2026-10-10 22:30 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `feat/agent-worker` (uncommitted) / not opened
+
+### What changed
+- **The repo is a pnpm workspace** (ADR-032): the app at the root,
+  `agent-worker/` and `packages/agent-protocol/`. Root `pnpm lint`,
+  `pnpm typecheck` and `pnpm test:unit` cover all three.
+- **`agent-worker/`**, written by hand (Photon's scaffold command was not
+  run). For each inbound text in a direct chat it shows the typing
+  indicator, posts the text to `/api/agent/turn` with the service token, and
+  sends the reply. On any failure it sends a fixed "try again" reply.
+  - It has no business logic and reaches nothing but Photon and the app.
+  - Own messages, group chats and anything that is not text are ignored.
+  - One conversation is answered in order; others do not wait.
+  - `GET`/`HEAD /health`, and a self-ping every 10 minutes when
+    `RENDER_EXTERNAL_URL` is set (ADR-041).
+  - It runs on Node 24 directly from TypeScript; its only new dependency is
+    `spectrum-ts` 12.10.1.
+- **`packages/agent-protocol/`** holds the turn schemas, moved from
+  `src/features/agent/domain/protocol.ts`, and the platform list.
+- **`terminal` platform** for development: Spectrum's terminal chat. A
+  deployed app (on Vercel) answers 400 to it, because its handles are not
+  phone numbers anyone has proven they own.
+- **Email outbox writes are atomic** (`src/lib/email/send.ts`): the file
+  is written under a temporary name and renamed. Playwright specs were
+  failing now and then with "Unexpected end of JSON input" because they
+  read the outbox while the server was still writing to it.
+- `.gitignore` ignores `node_modules/` in workspace packages too.
+- **Tests:** Vitest for the worker's settings, message mapping, relay,
+  queue, health server and loop. Run by hand with the terminal provider
+  against a local production build: three texts answered in order.
+
+### What's next
+- **Try it locally:** copy `agent-worker/.env.example` to
+  `agent-worker/.env`, set `AGENT_SERVICE_TOKEN` to the same value as in
+  `.env.local`, run `pnpm dev`, then `pnpm --filter agent-worker dev` in a
+  second terminal and type in the chat.
+- **Real texts:** in `agent-worker/.env` set `AGENT_PROVIDER=imessage`,
+  `PHOTON_PROJECT_ID` and `PHOTON_PROJECT_SECRET`. On Photon's free plan the
+  phone must be registered as a project user in the Photon dashboard.
+- **Deploy to Render** as a web service from this repository:
+  - Build command: `pnpm install --frozen-lockfile`
+  - Start command: `pnpm --filter agent-worker start`
+  - Health check path: `/health`
+  - Environment: `NODE_VERSION=24`, `AGENT_PROVIDER=imessage`,
+    `PHOTON_PROJECT_ID`, `PHOTON_PROJECT_SECRET`,
+    `REEFLECT_URL` (the production origin), `AGENT_SERVICE_TOKEN` (the same
+    value as on Vercel).
+- **`POST /send` and the 5-minute job tick** arrive with F-26, the first
+  feature where the agent texts first.
+- **F-25** makes a linked phone get real answers.
+
+### Open problems
+- **Not yet tried with a real phone.** Open questions for that test: whether
+  the agent can reply to a phone that is not registered in Photon, and which
+  number a phone on the shared pool sees (for `AGENT_PHONE_NUMBER`).
+- A burst of texts gets one reply each. Photon's debounce pipeline is left
+  until Gemini answers (F-25).
+- The worker does not retry a failed send, and the app does not yet ignore
+  a turn it has already seen.
