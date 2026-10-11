@@ -7,7 +7,13 @@ import type { AccountChoice } from "@/features/transactions";
 import { formatCents, formatSigned, parseDollars } from "@/lib/money";
 import type { DayView, Item } from "../domain/cashflow";
 import { formatLong, formatShort } from "../domain/dates";
-import { addDayEntryAction, removeDayEntryAction } from "../server/actions";
+import {
+  addDayEntryAction,
+  addPlanAction,
+  confirmPlanAction,
+  removeDayEntryAction,
+  removePlanAction,
+} from "../server/actions";
 import type { DashboardCategory } from "../server/load";
 import { KIND_LABEL, Mark, SOURCE_LABEL } from "./month-grid";
 
@@ -24,7 +30,12 @@ function itemNote(item: Item, cancelling: boolean) {
         : `Expected ${what.toLowerCase()}`;
     return item.onCard ? `${expected}, on card` : expected;
   }
-  const parts = [`${what}, ${SOURCE_LABEL[item.source]}`];
+  const from = item.unconfirmed
+    ? "planned, not confirmed"
+    : item.isPlan
+      ? "planned by you"
+      : SOURCE_LABEL[item.source];
+  const parts = [`${what}, ${from}`];
   if (item.onCard) parts.push("on card");
   const note = parts.join(", ");
   return item.accountName ? `${note} · ${item.accountName}` : note;
@@ -54,6 +65,7 @@ function AddForm({
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
   const ids = useId();
+  const planning = day.isFuture;
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -64,15 +76,21 @@ function AddForm({
     const chosen = categories.find((c) => c.id === categoryId);
     const description =
       name.trim() || (isIncome ? "Money in" : (chosen?.name ?? "Spending"));
+    const entry = {
+      accountId,
+      direction: isIncome ? "in" : "out",
+      amount: amountText,
+      description,
+      categoryId: isIncome || !chosen ? null : chosen.id,
+    };
     startTransition(async () => {
-      const result = await addDayEntryAction(workspaceId, {
-        accountId,
-        postedOn: day.date,
-        direction: isIncome ? "in" : "out",
-        amount: amountText,
-        description,
-        categoryId: isIncome || !chosen ? null : chosen.id,
-      });
+      // A later day takes a plan (F-37); today and earlier, a transaction.
+      const result = planning
+        ? await addPlanAction(workspaceId, { ...entry, plannedOn: day.date })
+        : await addDayEntryAction(workspaceId, {
+            ...entry,
+            postedOn: day.date,
+          });
       if (!result.ok) {
         setError(result.message);
         return;
@@ -85,7 +103,9 @@ function AddForm({
 
   return (
     <form className="add" onSubmit={submit} noValidate>
-      <h3>Add something to this day</h3>
+      <h3>
+        {planning ? "Plan something for this day" : "Add something to this day"}
+      </h3>
       <div className="switch" role="radiogroup" aria-label="Type">
         <label>
           <input
@@ -94,7 +114,7 @@ function AddForm({
             checked={!isIncome}
             onChange={() => setIsIncome(false)}
           />
-          <span>I spent</span>
+          <span>{planning ? "I'll spend" : "I spent"}</span>
         </label>
         <label>
           <input
@@ -103,7 +123,7 @@ function AddForm({
             checked={isIncome}
             onChange={() => setIsIncome(true)}
           />
-          <span>I got</span>
+          <span>{planning ? "I'll get" : "I got"}</span>
         </label>
       </div>
       <div className="fields">
@@ -122,7 +142,7 @@ function AddForm({
           </span>
         </label>
         <label className="field">
-          <span>What was it for?</span>
+          <span>{planning ? "What is it for?" : "What was it for?"}</span>
           <input
             placeholder={
               isIncome ? "Refund, gift, side job" : "Lunch, bus fare"
@@ -172,7 +192,9 @@ function AddForm({
         </p>
       )}
       <button type="submit" className="primary" disabled={pending}>
-        {pending ? "Adding…" : `Add to ${formatShort(day.date)}`}
+        {pending
+          ? "Adding…"
+          : `${planning ? "Plan for" : "Add to"} ${formatShort(day.date)}`}
       </button>
     </form>
   );
@@ -194,8 +216,18 @@ export function DayPanel({
   cancelPlans: ReadonlySet<string>;
 }) {
   const [removing, startRemoving] = useTransition();
-  const remove = (id: string) =>
-    startRemoving(() => removeDayEntryAction(workspaceId, id));
+  const [confirmError, setConfirmError] = useState("");
+  const remove = (item: Item) =>
+    startRemoving(() =>
+      item.isPlan
+        ? removePlanAction(workspaceId, item.id)
+        : removeDayEntryAction(workspaceId, item.id),
+    );
+  const confirm = (item: Item) =>
+    startRemoving(async () => {
+      const result = await confirmPlanAction(workspaceId, item.id);
+      setConfirmError(result.ok ? "" : result.message);
+    });
 
   return (
     <aside className="panel" aria-label="Selected day" aria-busy={removing}>
@@ -242,7 +274,11 @@ export function DayPanel({
                   <span className="item-text">
                     <span
                       className={
-                        cancelling ? "item-name item-cancelling" : "item-name"
+                        cancelling
+                          ? "item-name item-cancelling"
+                          : item.unconfirmed
+                            ? "item-name item-unconfirmed"
+                            : "item-name"
                       }
                     >
                       {item.name}
@@ -262,16 +298,39 @@ export function DayPanel({
                   </span>
                   {item.recurringId ? (
                     <span className="item-remove" />
+                  ) : canEdit && item.unconfirmed ? (
+                    <span className="item-actions">
+                      <button
+                        type="button"
+                        className="item-confirm"
+                        aria-label={`${item.name} happened`}
+                        disabled={removing}
+                        onClick={() => confirm(item)}
+                      >
+                        It happened
+                      </button>
+                      <button
+                        type="button"
+                        className="item-remove"
+                        aria-label={`Remove ${item.name}`}
+                        disabled={removing}
+                        onClick={() => remove(item)}
+                      >
+                        <span aria-hidden="true">×</span>
+                      </button>
+                    </span>
                   ) : canEdit && item.removable ? (
                     <button
                       type="button"
                       className="item-remove"
                       aria-label={`Remove ${item.name}`}
                       disabled={removing}
-                      onClick={() => remove(item.id)}
+                      onClick={() => remove(item)}
                     >
                       <span aria-hidden="true">×</span>
                     </button>
+                  ) : item.isPlan ? (
+                    <span className="item-remove" />
                   ) : (
                     <Link
                       className="item-remove"
@@ -287,20 +346,20 @@ export function DayPanel({
           </ul>
         )}
 
-        {canEdit &&
-          (day.isFuture ? (
-            <p className="add-note">
-              You can add spending up to today. Paydays and bills still to come
-              will show here once we&rsquo;ve seen them repeat.
-            </p>
-          ) : (
-            <AddForm
-              workspaceId={workspaceId}
-              day={day}
-              accounts={accounts}
-              categories={categories}
-            />
-          ))}
+        {confirmError && (
+          <p className="error" role="alert">
+            {confirmError}
+          </p>
+        )}
+
+        {canEdit && (
+          <AddForm
+            workspaceId={workspaceId}
+            day={day}
+            accounts={accounts}
+            categories={categories}
+          />
+        )}
       </motion.div>
     </aside>
   );

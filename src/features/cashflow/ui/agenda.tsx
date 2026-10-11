@@ -52,13 +52,18 @@ export function Agenda({
                 className={
                   item.recurringId && cancelPlans.has(item.recurringId)
                     ? "cell-line cell-line-cancelling"
-                    : "cell-line"
+                    : item.unconfirmed
+                      ? "cell-line cell-line-unconfirmed"
+                      : "cell-line"
                 }
               >
                 <Mark kind={item.kind} />
                 <span className="cell-name">
                   {item.name}
                   {item.onCard && <span className="cell-card"> · on card</span>}
+                  {item.unconfirmed && (
+                    <span className="cell-card"> · not confirmed</span>
+                  )}
                 </span>
                 <span
                   className={

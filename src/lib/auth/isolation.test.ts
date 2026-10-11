@@ -17,6 +17,7 @@ import {
   categoryRule,
   budget,
   importBatch,
+  plannedTransaction,
   recurringSeries,
   transaction,
 } from "@/lib/db/schema";
@@ -31,6 +32,7 @@ import { MESSAGING_ENTRY_POINTS } from "@/features/messaging/server/entry-points
 import { TRANSACTION_ENTRY_POINTS } from "@/features/transactions/server/entry-points";
 import { RECURRING_ENTRY_POINTS } from "@/features/recurring/server/entry-points";
 import { createTransaction } from "@/features/transactions/server/repository";
+import { createPlan } from "@/features/plans/server/repository";
 import { cents } from "@/lib/money";
 import {
   fixtures,
@@ -108,6 +110,11 @@ async function snapshotB(executor: Pick<typeof db, "select"> = db) {
       .from(transaction)
       .where(eq(transaction.workspaceId, b.workspaceId))
       .orderBy(transaction.id),
+    plans: await executor
+      .select()
+      .from(plannedTransaction)
+      .where(eq(plannedTransaction.workspaceId, b.workspaceId))
+      .orderBy(plannedTransaction.id),
     previews: await listPreviews(b.workspaceId),
   };
 }
@@ -139,6 +146,14 @@ async function newTarget(workspaceId: string): Promise<EntryPointTarget> {
       status: "posted",
     },
   });
+  // Dated in the past, so confirming it would write if it were allowed.
+  const planId = await createPlan(workspaceId, {
+    accountId,
+    plannedOn: "2026-01-12",
+    amountCents: cents(-700),
+    description: "Isolation target",
+    categoryId: null,
+  });
   const importBatchId = uuidv7();
   await db.insert(importBatch).values({
     id: importBatchId,
@@ -167,6 +182,7 @@ async function newTarget(workspaceId: string): Promise<EntryPointTarget> {
     importBatchId,
     categoryId,
     ruleId,
+    planId: planId!,
   };
 }
 
@@ -211,6 +227,7 @@ describe.each(ENTRY_POINTS)("$name", (entry) => {
     });
     await outcome(entry, { ...a, categoryId: b.categoryId });
     await outcome(entry, { ...a, ruleId: b.ruleId });
+    await outcome(entry, { ...a, planId: b.planId });
     await outcome(entry, { ...b, workspaceId: a.workspaceId });
 
     expect(await snapshotB()).toEqual(before);

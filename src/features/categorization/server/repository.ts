@@ -10,6 +10,7 @@ import {
 } from "@/lib/db/schema";
 import { cents } from "@/lib/money";
 import { type CategoryRule, classifyStored } from "../domain/categorize";
+import { withStarterRules } from "../domain/starter-rules";
 import { normalizeMerchant } from "../domain/normalize-merchant";
 import {
   MAX_RULES,
@@ -115,6 +116,23 @@ const engineRules = (rules: RuleSummary[]): CategoryRule[] =>
     priority,
   }));
 
+/**
+ * Every rule that decides an automatic category: the workspace's saved
+ * rules, then the built-in keywords for its preset categories (ADR-103).
+ */
+export async function listActiveRules(
+  workspaceId: string,
+  executor: Executor = db,
+  categories?: readonly CategorySummary[],
+): Promise<CategoryRule[]> {
+  // Sequential: a database transaction has one connection.
+  const rules = await listRules(workspaceId, executor);
+  return withStarterRules(
+    engineRules(rules),
+    categories ?? (await listCategories(workspaceId, executor)),
+  );
+}
+
 export type CategorizationPageData = {
   categories: CategorySummary[];
   rules: RuleSummary[];
@@ -172,13 +190,13 @@ export async function getCategorizationPage(
         .limit(PAGE_SIZE + 1)
         .offset(transactionIds ? 0 : (page - 1) * PAGE_SIZE);
       const names = new Map(categories.map((item) => [item.id, item.name]));
-      const activeRules = engineRules(rules);
+      const active = withStarterRules(engineRules(rules), categories);
       return {
         categories,
         rules,
         hasNextPage: rows.length > PAGE_SIZE,
         transactions: rows.slice(0, PAGE_SIZE).map((row) => {
-          const result = classifyStored(row, activeRules);
+          const result = classifyStored(row, active);
           return {
             id: row.id,
             postedOn: row.postedOn,
@@ -211,7 +229,7 @@ export async function getCategoryMetadata(
 ): Promise<{ categoryId: string | null; merchantNormalized: string }> {
   const result = classifyStored(
     { descriptionRaw, ...override },
-    engineRules(await listRules(workspaceId, executor)),
+    await listActiveRules(workspaceId, executor),
   );
   return {
     categoryId: result.categoryId,
@@ -274,7 +292,7 @@ async function materialize(
   ids?: readonly string[],
 ): Promise<void> {
   if (ids?.length === 0) return;
-  const rules = engineRules(await listRules(workspaceId, executor));
+  const rules = await listActiveRules(workspaceId, executor);
   const rows = await executor
     .select({
       id: transaction.id,

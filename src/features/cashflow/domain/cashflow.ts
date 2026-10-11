@@ -48,6 +48,11 @@ export type Entry = {
   onCard?: boolean;
   /** True for a row typed by hand, which the day panel may remove (ADR-050). */
   removable?: boolean;
+  /**
+   * True for money the person planned for this day (F-37, ADR-102). Until
+   * they confirm it happened, it is expected, never real.
+   */
+  isPlan?: true;
 };
 
 /**
@@ -91,6 +96,11 @@ export type Item = Omit<Entry, "source"> & {
   source?: Source;
   /** True for anything after today: it is expected, not yet real. */
   planned: boolean;
+  /**
+   * A plan whose day has come and that the person has not confirmed yet. It
+   * shows on its day but moves no balance and no day total (ADR-102).
+   */
+  unconfirmed?: boolean;
   recurringId?: string;
 };
 
@@ -120,9 +130,13 @@ export type MonthView = {
 const amounts = (items: readonly { amount: Cents }[]) =>
   sum(items.map((item) => item.amount));
 
-/** What moves the balance line: everything except card rows. */
+/** What counts in totals: everything but plans still waiting to be confirmed. */
+const counted = (items: readonly Item[]) =>
+  items.filter((item) => !item.unconfirmed);
+
+/** What moves the balance line: everything counted except card rows. */
 const balanceChange = (items: readonly Item[]) =>
-  amounts(items.filter((item) => !item.onCard));
+  amounts(counted(items).filter((item) => !item.onCard));
 
 /** Most dates one repeating item can have in a month: one a day. */
 const MAX_PER_MONTH = 31;
@@ -161,7 +175,11 @@ function monthItems(
   const prefix = monthPrefix(month);
   const real = data.entries
     .filter((entry) => entry.date.startsWith(prefix))
-    .map((entry): Item => ({ ...entry, planned: entry.date > today }));
+    .map((entry): Item =>
+      entry.isPlan && entry.date <= today
+        ? { ...entry, planned: true, unconfirmed: true }
+        : { ...entry, planned: entry.date > today },
+    );
   const expected = data.recurring.flatMap((rule) =>
     occurrences(rule, month)
       .filter((date) => date > today)
@@ -209,15 +227,14 @@ export function buildMonth(
     (_, index): DayView => {
       const date = toIso(month.year, month.month, index + 1);
       const dayItems = items.filter((item) => item.date === date);
+      const real = counted(dayItems);
       const everydaySpent = absolute(
         amounts(
-          dayItems.filter(
-            (item) => item.kind === "everyday" && item.amount < 0,
-          ),
+          real.filter((item) => item.kind === "everyday" && item.amount < 0),
         ),
       );
       const moneyOut = absolute(
-        amounts(dayItems.filter((item) => item.amount < 0)),
+        amounts(real.filter((item) => item.amount < 0)),
       );
       if (everydaySpent > largestEverydaySpend)
         largestEverydaySpend = everydaySpent;
@@ -228,7 +245,7 @@ export function buildMonth(
         isToday: date === today,
         isFuture: date > today,
         items: dayItems,
-        moneyIn: amounts(dayItems.filter((item) => item.amount > 0)),
+        moneyIn: amounts(real.filter((item) => item.amount > 0)),
         moneyOut,
         everydaySpent,
         endBalance: balance,
@@ -274,7 +291,11 @@ export function summarize(data: CashflowData, today: IsoDate): Summary {
     // A card row is neither a payday nor paid out of today's balance.
     .filter((item) => item.date > today && !item.onCard)
     .sort((a, b) => a.date.localeCompare(b.date));
-  const nextIncome = upcoming.find((item) => item.amount > 0);
+  // Payday is expected recurring income (ADR-042), never money the person
+  // only planned (ADR-102).
+  const nextIncome = upcoming.find(
+    (item) => item.amount > 0 && item.recurringId !== undefined,
+  );
   const dueBeforePayday = upcoming.filter(
     (item) => item.amount < 0 && (!nextIncome || item.date < nextIncome.date),
   );
@@ -286,7 +307,7 @@ export function summarize(data: CashflowData, today: IsoDate): Summary {
 
   const soFar = current.days.filter((day) => !day.isFuture);
   const byCategory = new Map<string, { total: Cents; count: number }>();
-  for (const item of soFar.flatMap((day) => day.items)) {
+  for (const item of counted(soFar.flatMap((day) => day.items))) {
     if (item.kind !== "everyday" || item.amount >= 0) continue;
     const seen = byCategory.get(item.category) ?? { total: ZERO, count: 0 };
     byCategory.set(item.category, {
@@ -320,7 +341,8 @@ export function sourceCounts(
   const prefix = monthPrefix(monthOf(today));
   const counts: Record<Source, number> = { bank: 0, manual: 0, text: 0 };
   for (const entry of data.entries) {
-    if (entry.date.startsWith(prefix)) counts[entry.source] += 1;
+    if (entry.date.startsWith(prefix) && !entry.isPlan)
+      counts[entry.source] += 1;
   }
   return counts;
 }

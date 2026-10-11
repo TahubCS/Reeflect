@@ -190,38 +190,53 @@ async function moveBalance(
  * Adds a transaction typed by hand to one of the workspace's accounts, and
  * moves that account's balance when ADR-050 says so. Null when the account
  * is not in this workspace.
+ *
+ * `id` is for a caller that must not add the same row twice, like confirming
+ * a plan (ADR-102): when a transaction with that id is already in this
+ * workspace, nothing is added and the balance does not move again.
  */
 export async function createTransaction(
   workspaceId: string,
-  input: TransactionInput & { ledger: LedgerInput },
+  input: TransactionInput & { ledger: LedgerInput; id?: string },
 ): Promise<string | null> {
   const { ledger } = input;
   return db.transaction(async (tx) => {
     const account = await lockAccount(tx, workspaceId, ledger.accountId);
     if (!account) return null;
 
-    const id = uuidv7();
+    const id = input.id ?? uuidv7();
     const categoryMetadata = await getCategoryMetadata(
       workspaceId,
       input.description,
       undefined,
       tx,
     );
-    await tx.insert(transaction).values({
-      id,
-      workspaceId,
-      financialAccountId: ledger.accountId,
-      postedOn: ledger.postedOn,
-      amountCents: ledger.amountCents,
-      descriptionRaw: input.description,
-      ...categoryMetadata,
-      status: ledger.status,
-      isTransfer: input.isTransfer,
-      source: "manual",
-      // Typed rows are not imported, so they never collide with each other:
-      // two identical coffees on one day are two transactions (ADR-050).
-      fingerprint: `manual:${id}`,
-    });
+    const inserted = await tx
+      .insert(transaction)
+      .values({
+        id,
+        workspaceId,
+        financialAccountId: ledger.accountId,
+        postedOn: ledger.postedOn,
+        amountCents: ledger.amountCents,
+        descriptionRaw: input.description,
+        ...categoryMetadata,
+        status: ledger.status,
+        isTransfer: input.isTransfer,
+        source: "manual",
+        // Typed rows are not imported, so they never collide with each other:
+        // two identical coffees on one day are two transactions (ADR-050).
+        fingerprint: `manual:${id}`,
+      })
+      .onConflictDoNothing({ target: transaction.id })
+      .returning({ id: transaction.id });
+    if (inserted.length === 0) {
+      const [existing] = await tx
+        .select({ id: transaction.id })
+        .from(transaction)
+        .where(inWorkspace(workspaceId, id));
+      return existing ? id : null;
+    }
     await moveBalance(
       tx,
       ledger.accountId,

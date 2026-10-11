@@ -575,3 +575,125 @@ describe("subscriptionCosts with other schedules", () => {
     });
   });
 });
+
+describe("plans (F-37, ADR-102)", () => {
+  const plan = (overrides: Partial<Entry> & Pick<Entry, "date">) =>
+    entry({ source: "manual", isPlan: true, removable: true, ...overrides });
+
+  it("move the expected balance from their day on", () => {
+    const month = buildMonth(
+      data({ entries: [plan({ date: "2026-02-20", amount: cents(-12000) })] }),
+      FEBRUARY,
+      TODAY,
+    );
+
+    expect(month.days[18]?.endBalance).toBe(100000);
+    expect(month.days[19]?.endBalance).toBe(88000);
+    expect(month.days[19]?.items).toMatchObject([
+      { planned: true, isPlan: true },
+    ]);
+    expect(month.days[19]?.items[0]?.unconfirmed).toBeUndefined();
+  });
+
+  it("lower the per-day amount when they fall before payday", () => {
+    const summary = summarize(
+      data({
+        recurring: [PAYCHECK],
+        entries: [plan({ date: "2026-02-12", amount: cents(-20000) })],
+      }),
+      TODAY,
+    );
+
+    expect(summary).toMatchObject({
+      dueTotal: 20000,
+      freeToSpend: 80000,
+      perDay: 16000,
+    });
+  });
+
+  it("never make planned money in a payday", () => {
+    const summary = summarize(
+      data({
+        recurring: [PAYCHECK],
+        entries: [
+          plan({
+            date: "2026-02-11",
+            name: "Selling the bike",
+            amount: cents(30000),
+            kind: "income",
+          }),
+        ],
+      }),
+      TODAY,
+    );
+
+    expect(summary.payday).toEqual({ date: "2026-02-15", daysAway: 5 });
+  });
+
+  it("show no payday when planned money in is the only income", () => {
+    const summary = summarize(
+      data({
+        entries: [
+          plan({ date: "2026-02-11", amount: cents(30000), kind: "income" }),
+        ],
+      }),
+      TODAY,
+    );
+
+    expect(summary.payday).toBeNull();
+    expect(summary.perDay).toBe(0);
+  });
+
+  it("wait unconfirmed once their day comes, moving no balance or total", () => {
+    const month = buildMonth(
+      data({
+        entries: [
+          plan({ date: "2026-02-08", amount: cents(-12000) }),
+          plan({ date: TODAY, amount: cents(5000), kind: "income" }),
+        ],
+      }),
+      FEBRUARY,
+      TODAY,
+    );
+    const earlier = month.days[7]!;
+    const today = month.days[9]!;
+
+    expect(earlier.items).toMatchObject([{ planned: true, unconfirmed: true }]);
+    expect(today.items).toMatchObject([{ planned: true, unconfirmed: true }]);
+    expect(earlier).toMatchObject({
+      moneyIn: 0,
+      moneyOut: 0,
+      everydaySpent: 0,
+      endBalance: 100000,
+    });
+    expect(today.endBalance).toBe(100000);
+    expect(month.days.at(-1)?.endBalance).toBe(100000);
+  });
+
+  it("leave the month's spending and biggest category alone until confirmed", () => {
+    const summary = summarize(
+      data({ entries: [plan({ date: "2026-02-08" })] }),
+      TODAY,
+    );
+
+    expect(summary.monthOut).toBe(0);
+    expect(summary.biggestCategory).toBeNull();
+  });
+
+  it("on a card show without moving the balance line", () => {
+    const month = buildMonth(
+      data({ entries: [plan({ date: "2026-02-20", onCard: true })] }),
+      FEBRUARY,
+      TODAY,
+    );
+
+    expect(month.days[19]?.moneyOut).toBe(5000);
+    expect(month.days[19]?.endBalance).toBe(100000);
+  });
+
+  it("are not counted as entries from a source", () => {
+    expect(
+      sourceCounts(data({ entries: [plan({ date: "2026-02-20" })] }), TODAY),
+    ).toEqual({ bank: 0, manual: 0, text: 0 });
+  });
+});

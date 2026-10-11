@@ -47,7 +47,7 @@ function describe(day: DayView) {
   if (day.isToday) parts.push("today");
   for (const item of day.items)
     parts.push(
-      `${item.name} ${formatSigned(item.amount)}${item.onCard ? " on card" : ""}`,
+      `${item.name} ${formatSigned(item.amount)}${item.onCard ? " on card" : ""}${item.unconfirmed ? " planned, not confirmed" : ""}`,
     );
   if (day.noSpend) parts.push("no-spend day");
   parts.push(
@@ -116,7 +116,11 @@ function Cell({
           <span
             key={item.id}
             className={
-              cancelling(item) ? "cell-line cell-line-cancelling" : "cell-line"
+              cancelling(item)
+                ? "cell-line cell-line-cancelling"
+                : item.unconfirmed
+                  ? "cell-line cell-line-unconfirmed"
+                  : "cell-line"
             }
           >
             <Mark kind={item.kind} />
