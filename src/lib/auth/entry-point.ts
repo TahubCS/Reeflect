@@ -4,6 +4,8 @@ import type { WorkspaceRole } from "./permissions";
 export type EntryPointTarget = {
   workspaceId: string;
   accountId: string;
+  /** A transaction on `accountId`. */
+  transactionId: string;
 };
 
 /**
