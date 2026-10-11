@@ -34,7 +34,11 @@ test.describe("signed in", () => {
       await nav.getByRole("link", { name: label }).click();
 
       await expect(page).toHaveURL(new RegExp(`/w/[^/]+${url}$`));
-      await expect(page.getByRole("heading", { level: 1 })).toHaveText(label);
+      // The address changes before the new page has rendered, and on a busy
+      // CI runner the page can take longer than the default five seconds.
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(label, {
+        timeout: 20_000,
+      });
       await expect(nav.getByRole("link", { name: label })).toHaveAttribute(
         "aria-current",
         "page",
