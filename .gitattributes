@@ -1,2 +1,4 @@
 # Check text files out with LF on every OS, so Prettier agrees on Windows.
 * text=auto eol=lf
+# CSV fixtures test exact bytes: CRLF and LF line ends, byte order marks.
+tests/fixtures/csv/*.csv -text
