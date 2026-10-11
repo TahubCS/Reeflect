@@ -5,6 +5,7 @@ import {
   AiUnavailableError,
   type Attempt,
   IMAGE_ATTEMPT_TIMEOUT_MS,
+  LONG_ATTEMPT_TIMEOUT_MS,
   createChain,
 } from "./chain";
 import { googleTransport } from "./google";
@@ -30,6 +31,16 @@ const imageChain =
         attemptTimeoutMs: IMAGE_ATTEMPT_TIMEOUT_MS,
       });
 
+// And for a longer piece of writing: the website's summary panel (F-15).
+const longChain =
+  transport === null
+    ? null
+    : createChain({
+        transport,
+        models,
+        attemptTimeoutMs: LONG_ATTEMPT_TIMEOUT_MS,
+      });
+
 /** Model names and outcomes only: never the prompt, the reply or the key. */
 function logSkipped(attempts: readonly Attempt[]): void {
   const skipped = attempts.filter((attempt) => attempt.outcome !== "answered");
@@ -50,6 +61,14 @@ export async function generateText(request: AiRequest): Promise<string> {
  */
 export async function generateFromImage(request: AiRequest): Promise<string> {
   return run(imageChain, request);
+}
+
+/**
+ * The same for a paragraph or more: each model is given longer, since a
+ * few sentences to a shape take longer to write than a text reply.
+ */
+export async function generateLongText(request: AiRequest): Promise<string> {
+  return run(longChain, request);
 }
 
 async function run(

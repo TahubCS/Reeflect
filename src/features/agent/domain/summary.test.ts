@@ -157,6 +157,7 @@ describe("buildFacts", () => {
       bills: "$1,200.00",
       subscription_cost: "$25.98",
       subscription_count: "2 subscriptions",
+      subscription_yearly: "$311.76",
       top_category_1_name: "Housing",
       top_category_1_amount: "$1,100.00",
       top_category_2_name: "Groceries",
@@ -447,6 +448,21 @@ describe("completeDraft", () => {
     ]) {
       expect(completeDraft(draft, facts).ok).toBe(true);
     }
+  });
+
+  it("rejects a yearly figure that is not called a year", () => {
+    expect(
+      completeDraft("Your subscriptions come to {subscription_yearly}.", facts),
+    ).toEqual({ ok: false, reason: "yearly_not_called_a_year" });
+    expect(
+      completeDraft(
+        "Your subscriptions come to about {subscription_yearly} a year.",
+        facts,
+      ),
+    ).toEqual({
+      ok: true,
+      text: "Your subscriptions come to about $311.76 a year.",
+    });
   });
 
   it("rejects a reply too long for a text message", () => {

@@ -130,3 +130,14 @@ describe("a request with a picture (ADR-067)", () => {
     expect(create).not.toHaveBeenCalled();
   });
 });
+
+describe("generateLongText", () => {
+  it("reports unavailable without a key and never calls Google (F-15)", async () => {
+    const { generateLongText } = await import("./client");
+
+    await expect(
+      generateLongText({ system: "write it", user: "Labels:", schema: {} }),
+    ).rejects.toBeInstanceOf(AiUnavailableError);
+    expect(create).not.toHaveBeenCalled();
+  });
+});
