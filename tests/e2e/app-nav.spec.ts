@@ -79,6 +79,19 @@ test.describe("signed in", () => {
 
     expect(grounds.body).toEqual(grounds.header);
     expect(grounds.body.grid).toContain("linear-gradient");
+
+    // Cards, lines and soft text are neutral greys like the header: no
+    // blue cast (red, green and blue channels equal).
+    const greys = await page.evaluate(() => {
+      const root = getComputedStyle(document.documentElement);
+      return ["--surface", "--surface-soft", "--line", "--tint", "--ink-soft"]
+        .map((name) => [name, root.getPropertyValue(name).trim()] as const)
+        .filter(([, hex]) => {
+          const [r, g, b] = [1, 3, 5].map((i) => hex.slice(i, i + 2));
+          return r !== g || g !== b;
+        });
+    });
+    expect(greys).toEqual([]);
   });
 
   test("in light mode pages keep their light ground under the dark header", async ({

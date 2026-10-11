@@ -4365,8 +4365,14 @@ rows", transactions 2 "show more" in steps of 20, plus a view-only list.
   dashboard hero use `background-attachment: fixed`, so their grid lines
   line up while the page scrolls.
 - Light mode is unchanged: light grey pages under the dark header band.
+- The dark greys were blue-grey (`--surface` `#181c1f`, `--line`, `--tint`,
+  `--ink-soft`) next to the neutral header. They are now neutral
+  (`#171717`, `#131313`, `#2e2e2e`, `#242424`, `#a3a3a3`); every text
+  pairing is still 6:1 or better. The dark `--head-tint` override is gone,
+  so the header's Sync and Sign out look the same in both themes.
 - `tests/e2e/app-nav.spec.ts`: dark mode, body and header have the same
-  background colour, grid, size and attachment; light mode, they differ.
+  background colour, grid, size and attachment, and the greys are neutral;
+  light mode, body and header differ.
 
 ### Verified
 - `pnpm build` passes. Earlier in the session, `app-nav`, `bills`,

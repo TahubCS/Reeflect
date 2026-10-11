@@ -57,18 +57,18 @@
   :root {
     /* The header's night (--head-bg below), so pages and header match. */
     --bg: #0a0a0a;
-    --surface: #181c1f;
-    --surface-soft: #15181b;
+    /* Neutral greys, like the header and the light theme: no blue cast. */
+    --surface: #171717;
+    --surface-soft: #131313;
     --ink: #ededed;
-    --ink-soft: #a3a9ae;
-    --line: #2a2f33;
-    --tint: #22272b;
+    --ink-soft: #a3a3a3;
+    --line: #2e2e2e;
+    --tint: #242424;
     --bar: #7d858b;
     --in: #6bd49a;
     --bill: #e0a84a;
     --sub: #9da8f2;
     --head-bg: #0a0a0a;
-    --head-tint: #22272b;
     --page-grid: var(--head-grid);
 
     --sample-bg: #3a2b12;
