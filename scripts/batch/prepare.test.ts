@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { PRESET_CATEGORIES } from "@/features/categorization/client";
 import { GENERATOR_VERSION } from "@/features/synthetic";
 import example from "../../tests/fixtures/synthetic/example-spec.json";
-import { SpecError, prepareBatch } from "./prepare";
+import { SpecError, parseUserMap, prepareBatch } from "./prepare";
 import { formatPersonaTable, formatWarnings, personaRows } from "./report";
-import { INSTITUTION, NAME_PREFIX, buildRows } from "./rows";
+import { INSTITUTION, NAME_PREFIX, buildRows, personRows } from "./rows";
 
 const options = { seed: "s1", today: "2026-10-10" };
 
@@ -252,5 +252,58 @@ describe("report", () => {
       "Checks: 1 to review (warnings only; the batch still loads)",
       "  p1: odd",
     ]);
+  });
+});
+
+describe("parseUserMap (ADR-082)", () => {
+  it("maps spec people to user ids", () => {
+    expect(parseUserMap(["jacob=abc", "simon=def"])).toEqual(
+      new Map([
+        ["jacob", "abc"],
+        ["simon", "def"],
+      ]),
+    );
+  });
+
+  it.each([["jacob"], ["=abc"], ["jacob="], ["a=b=c"]])(
+    "rejects %s",
+    (value) => {
+      expect(() => parseUserMap([value])).toThrow("<personKey>=<userId>");
+    },
+  );
+
+  it("rejects a person given twice", () => {
+    expect(() => parseUserMap(["jacob=a", "jacob=b"])).toThrow("twice");
+  });
+});
+
+describe("personRows", () => {
+  it("writes into the given workspace with its category ids and labelled accounts", () => {
+    const { expansion } = prepareBatch(structuredClone(example), options);
+    const person = expansion.people[0]!;
+    let n = 0;
+    const categoryIds = new Map(
+      PRESET_CATEGORIES.map((p) => [p.key, `existing-${p.key}`]),
+    );
+    const rows = personRows(person, {
+      workspaceId: "ws-real",
+      categoryIds,
+      asOf: expansion.asOf,
+      newId: () => `id-${n++}`,
+      nicknamePrefix: NAME_PREFIX,
+    });
+    expect(rows.transactions).toHaveLength(person.transactions.length);
+    for (const row of [...rows.accounts, ...rows.transactions, ...rows.rules]) {
+      expect(row.workspaceId).toBe("ws-real");
+    }
+    for (const account of rows.accounts) {
+      expect(account.nickname?.startsWith(NAME_PREFIX)).toBe(true);
+      expect(account.source).toBe("synthetic");
+    }
+    const known = new Set(categoryIds.values());
+    expect(rows.transactions.some((t) => t.categoryId)).toBe(true);
+    for (const t of rows.transactions) {
+      if (t.categoryId) expect(known.has(t.categoryId)).toBe(true);
+    }
   });
 });

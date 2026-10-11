@@ -11,6 +11,7 @@ import {
   parseSpec,
 } from "@/features/synthetic";
 import type { syntheticBatch } from "@/lib/db/schema";
+import { TargetError } from "../db/target";
 
 export type PreparedBatch = {
   spec: Spec;
@@ -71,4 +72,20 @@ export function prepareBatch(
       promotedFrom: options.promotedFrom ?? null,
     },
   };
+}
+
+/** `--user jacob=3rM3…`: which spec person goes to which user id. */
+export function parseUserMap(values: readonly string[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const value of values) {
+    const [key, userId, ...rest] = value.split("=");
+    if (!key || !userId || rest.length > 0) {
+      throw new TargetError(
+        `--user ${value}: write it as <personKey>=<userId>.`,
+      );
+    }
+    if (map.has(key)) throw new TargetError(`--user ${key} is given twice.`);
+    map.set(key, userId);
+  }
+  return map;
 }

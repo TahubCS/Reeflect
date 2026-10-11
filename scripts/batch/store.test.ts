@@ -6,14 +6,16 @@ import {
   categoryRule,
   financialAccount,
   insightSample,
+  member,
   organization,
   syntheticBatch,
   syntheticWorkspace,
   transaction,
+  user,
 } from "@/lib/db/schema";
 import example from "../../tests/fixtures/synthetic/example-spec.json";
 import { prepareBatch } from "./prepare";
-import { buildRows } from "./rows";
+import { NAME_PREFIX, buildRows, personRows } from "./rows";
 import {
   connect,
   countBatchRows,
@@ -22,7 +24,9 @@ import {
   getBatch,
   insertBatch,
   listBatches,
+  giveToUser,
   rollupBatch,
+  takeBackFromUser,
 } from "./store";
 
 // Integration tests: they need the PostgreSQL from `docker compose up -d`
@@ -44,11 +48,11 @@ async function load(seed: string) {
   return { batchId, rows };
 }
 
-describe("batch store", () => {
-  afterAll(async () => {
-    await close();
-  });
+afterAll(async () => {
+  await close();
+});
 
+describe("batch store", () => {
   it("loads a batch and counts exactly the rows it built", async () => {
     const { batchId, rows } = await load("store-1");
     expect(await countBatchRows(db, batchId)).toEqual({
@@ -215,5 +219,165 @@ describe("batch store", () => {
 
   it("deleting an unknown batch removes nothing", async () => {
     expect(await deleteBatch(db, uuidv7())).toBe(0);
+  });
+});
+
+describe("giving a developer a sample year (ADR-082)", () => {
+  const userIds: string[] = [];
+
+  afterAll(async () => {
+    await db.delete(organization).where(
+      inArray(
+        organization.slug,
+        userIds.map((id) => `personal-${id}`),
+      ),
+    );
+    await db.delete(user).where(inArray(user.id, userIds));
+  });
+
+  /** A user with a Personal workspace, as ensurePersonalWorkspace makes it. */
+  async function newUser(): Promise<{ userId: string; workspaceId: string }> {
+    const userId = crypto.randomUUID();
+    const workspaceId = uuidv7();
+    userIds.push(userId);
+    await db
+      .insert(user)
+      .values({ id: userId, name: "Dev", email: `${userId}@example.test` });
+    await db.insert(organization).values({
+      id: workspaceId,
+      name: "Personal",
+      slug: `personal-${userId}`,
+      createdAt: new Date(),
+    });
+    await db.insert(member).values({
+      id: uuidv7(),
+      organizationId: workspaceId,
+      userId,
+      role: "owner",
+      createdAt: new Date(),
+    });
+    return { userId, workspaceId };
+  }
+
+  const { expansion } = prepareBatch(structuredClone(example), {
+    seed: "give-1",
+    today: "2026-10-10",
+  });
+  const person = expansion.people[0]!;
+  const give = (userId: string, replace = false) =>
+    giveToUser(
+      db,
+      userId,
+      (workspaceId, categoryIds) =>
+        personRows(person, {
+          workspaceId,
+          categoryIds,
+          asOf: expansion.asOf,
+          newId: uuidv7,
+          nicknamePrefix: NAME_PREFIX,
+        }),
+      { replace, newId: uuidv7 },
+    );
+  const sampleAccounts = (workspaceId: string) =>
+    db
+      .select({ id: financialAccount.id })
+      .from(financialAccount)
+      .where(
+        and(
+          eq(financialAccount.workspaceId, workspaceId),
+          eq(financialAccount.source, "synthetic"),
+        ),
+      );
+
+  it("writes the person into the Personal workspace without marking it synthetic", async () => {
+    const { userId, workspaceId } = await newUser();
+    // The user's renamed preset survives.
+    await db.insert(category).values({
+      id: uuidv7(),
+      workspaceId,
+      name: "My food",
+      sortOrder: 0,
+      presetKey: "groceries",
+    });
+    const result = await give(userId);
+    expect(result).toMatchObject({
+      workspaceId,
+      accounts: person.accounts.length,
+      transactions: person.transactions.length,
+    });
+    const rows = await db
+      .select({ id: transaction.id })
+      .from(transaction)
+      .where(eq(transaction.workspaceId, workspaceId));
+    expect(rows).toHaveLength(person.transactions.length);
+    const groceries = await db
+      .select({ name: category.name })
+      .from(category)
+      .where(
+        and(
+          eq(category.workspaceId, workspaceId),
+          eq(category.presetKey, "groceries"),
+        ),
+      );
+    expect(groceries).toEqual([{ name: "My food" }]);
+    expect(
+      await db
+        .select()
+        .from(syntheticWorkspace)
+        .where(eq(syntheticWorkspace.workspaceId, workspaceId)),
+    ).toEqual([]);
+  });
+
+  it("refuses a second give unless replacing, and replacing does not double up", async () => {
+    const { userId, workspaceId } = await newUser();
+    await give(userId);
+    await expect(give(userId)).rejects.toThrow("--replace");
+    const again = await give(userId, true);
+    expect(again.replaced).toBe(person.accounts.length);
+    expect(await sampleAccounts(workspaceId)).toHaveLength(
+      person.accounts.length,
+    );
+    // Rules from the first give are kept, not added again.
+    expect(again.rules).toBe(0);
+  });
+
+  it("take-back removes only the sample accounts and their transactions", async () => {
+    const { userId, workspaceId } = await newUser();
+    const own = uuidv7();
+    await db.insert(financialAccount).values({
+      id: own,
+      workspaceId,
+      institutionName: "My bank",
+      nickname: "Mine",
+      type: "checking",
+      source: "manual",
+      currentBalanceCents: 100,
+    });
+    await give(userId);
+    expect((await takeBackFromUser(db, userId, { yes: false })).accounts).toBe(
+      person.accounts.length,
+    );
+    expect(await sampleAccounts(workspaceId)).toHaveLength(
+      person.accounts.length,
+    );
+    await takeBackFromUser(db, userId, { yes: true });
+    expect(await sampleAccounts(workspaceId)).toEqual([]);
+    const left = await db
+      .select({ id: financialAccount.id })
+      .from(financialAccount)
+      .where(eq(financialAccount.workspaceId, workspaceId));
+    expect(left).toEqual([{ id: own }]);
+    expect(
+      await db
+        .select({ id: transaction.id })
+        .from(transaction)
+        .where(eq(transaction.workspaceId, workspaceId)),
+    ).toEqual([]);
+  });
+
+  it("refuses a user without a Personal workspace", async () => {
+    await expect(give(crypto.randomUUID())).rejects.toThrow(
+      "no Personal workspace",
+    );
   });
 });
