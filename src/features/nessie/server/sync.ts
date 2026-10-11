@@ -2,16 +2,23 @@ import "server-only";
 // Sync: Nessie is the source of truth for accounts with source 'nessie'.
 // Each sync reads every record of each linked account, then makes our rows
 // match: new records are added, changed ones updated, and rows whose record
-// is gone from Nessie removed. All of a workspace's changes are written in
-// one database transaction, so a failed Nessie call changes nothing.
-import { and, eq, sql } from "drizzle-orm";
+// is gone from Nessie removed. Recurring Nessie bills become confirmed
+// recurring payments the same way. All of a workspace's changes are written
+// in one database transaction, so a failed Nessie call changes nothing.
+import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { applyCategoryRules } from "@/features/categorization";
 import { refreshRecurringSeries } from "@/features/recurring";
 import { db } from "@/lib/db/client";
-import { financialAccount, transaction } from "@/lib/db/schema";
+import {
+  category,
+  financialAccount,
+  recurringSeries,
+  transaction,
+} from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { cents } from "@/lib/money";
 import { type NessieClient, NessieError, nessieClient } from "../api";
+import { mapBills } from "../domain/bills";
 import { planSync } from "../domain/diff";
 import {
   type SyncedRow,
@@ -78,8 +85,16 @@ export async function syncNessieWorkspace(
     throw error;
   }
 
-  const totals = { added: 0, updated: 0, removed: 0, nessieRecords: 0 };
+  const totals = {
+    added: 0,
+    updated: 0,
+    removed: 0,
+    nessieRecords: 0,
+    bills: 0,
+  };
   const touched: string[] = [];
+  /** Preset category key → fingerprints of rows tagged with it. */
+  const tagged = new Map<string, string[]>();
   await db.transaction(async (tx) => {
     // One sync per workspace at a time; a second waits for the first.
     await tx.execute(
@@ -100,6 +115,12 @@ export async function syncNessieWorkspace(
       }
       const rows = mapAccountRecords(records);
       totals.nessieRecords += rows.length;
+      for (const row of rows)
+        if (row.categoryKey)
+          tagged.set(row.categoryKey, [
+            ...(tagged.get(row.categoryKey) ?? []),
+            row.fingerprint,
+          ]);
       const stored = await tx
         .select({
           id: transaction.id,
@@ -178,6 +199,54 @@ export async function syncNessieWorkspace(
             ),
           );
       }
+      // Bills: Nessie owns this account's manual series, so one whose bill
+      // is gone is removed. Detected (non-manual) series are left alone.
+      const series = mapBills(records.bills, todayIso(now));
+      for (const s of series) {
+        const fields = {
+          name: s.name,
+          decision: "confirmed" as const,
+          kind: s.kind,
+          amountMode: "fixed" as const,
+          unit: "months" as const,
+          every: 1,
+          amountCents: s.amountCents,
+          baselineAmountCents: s.amountCents,
+          nextOn: s.nextOn,
+          manual: true,
+        };
+        await tx
+          .insert(recurringSeries)
+          .values({
+            ...fields,
+            workspaceId,
+            accountId: id,
+            merchant: s.merchant,
+          })
+          .onConflictDoUpdate({
+            target: [
+              recurringSeries.workspaceId,
+              recurringSeries.accountId,
+              recurringSeries.merchant,
+            ],
+            set: fields,
+          });
+      }
+      await tx.delete(recurringSeries).where(
+        and(
+          eq(recurringSeries.workspaceId, workspaceId),
+          eq(recurringSeries.accountId, id),
+          eq(recurringSeries.manual, true),
+          series.length > 0
+            ? notInArray(
+                recurringSeries.merchant,
+                series.map((s) => s.merchant),
+              )
+            : undefined,
+        ),
+      );
+      totals.bills += series.length;
+
       // Always written, so updated_at is the "last synced" time.
       await tx
         .update(financialAccount)
@@ -203,6 +272,30 @@ export async function syncNessieWorkspace(
   const live = fetched.filter((f) => f.records).map((f) => f.id);
   try {
     if (touched.length > 0) await applyCategoryRules(workspaceId, touched);
+    // A `[cat:…]` tag from Nessie wins over rules, never over the user.
+    for (const [presetKey, fingerprints] of tagged) {
+      const [target] = await db
+        .select({ id: category.id })
+        .from(category)
+        .where(
+          and(
+            eq(category.workspaceId, workspaceId),
+            eq(category.presetKey, presetKey),
+          ),
+        );
+      if (!target) continue;
+      await db
+        .update(transaction)
+        .set({ categoryId: target.id })
+        .where(
+          and(
+            eq(transaction.workspaceId, workspaceId),
+            eq(transaction.source, "nessie"),
+            eq(transaction.categoryIsManual, false),
+            inArray(transaction.fingerprint, fingerprints),
+          ),
+        );
+    }
     if (live.length > 0) await refreshRecurringSeries(workspaceId, live, now);
   } catch (error) {
     console.error("nessie sync: follow-up failed", {

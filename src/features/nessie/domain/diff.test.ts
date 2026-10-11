@@ -12,6 +12,7 @@ function synced(id: string, amount = -900): SyncedRow {
     descriptionRaw: "Dinner",
     status: "posted",
     isTransfer: false,
+    categoryKey: null,
     transferPairId: null,
   };
 }

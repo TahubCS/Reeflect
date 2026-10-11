@@ -302,5 +302,32 @@ asks.
   and lives on the demo machine.
 - Our database holds only the account rows (made by `pnpm nessie link`);
   every transaction on them comes from Nessie through Sync now.
-- Nessie bills, the cron and on-page-load sync are left out for now. Sync now
-  is the only trigger.
+- The cron and on-page-load sync are left out for now. Sync now is the only
+  trigger.
+- Nessie bills are in (this replaces section 7, step 7). A bill with a
+  `recurring_date` becomes a **confirmed, manual** monthly recurring payment
+  on its account, keyed by the payee's normalized merchant, with cents kept.
+  Its first due date is the bill's `payment_date` (the start date), rolled
+  forward to today or later. On a Nessie account, Nessie owns the manual
+  series: one whose bill is gone is removed at the next sync. Detected
+  series are left alone. A `[cat:subscriptions]` or `[cat:entertainment]`
+  tag makes it a subscription.
+- A demo record can set its category with a hidden `[cat:<preset key>]` tag.
+  Sync applies it after the workspace's rules, and never over a category
+  the user picked.
+
+### Demo commands as built
+
+| Command | What it writes in Nessie | `demo undo` |
+|---|---|---|
+| `pnpm nessie customers` | Nothing; lists seeded customers, `*` on the current one | – |
+| `pnpm nessie use "<name>"` | Nothing; later commands without `--name` act on that customer (kept in the local manifest) | – |
+| `pnpm nessie categories` | Nothing; lists the `--category` keys | – |
+| `demo purchase 90 Dinner --category dining` | A purchase on the card (`--account` to change) | A refund deposit (purchases can't be deleted) |
+| `demo purchase 16 Netflix --category subscriptions --recurring --from 2026-10-11` | The purchase, plus a monthly bill due on the `--from` day (default today) | Refund, and deletes the bill |
+| `demo deposit 1200 Paycheck --category income` | A deposit into checking | Deletes the deposit |
+| `demo transfer 200 --to card` | A withdrawal from checking and a deposit to the card, tagged as one pair (`--to savings` works too) | A reverse transfer (withdrawals can't be deleted) |
+| `demo refund [purchaseId]` | A deposit for the full amount of a demo purchase, by default the last one not yet refunded | Deletes the refund |
+| `demo list` | Nothing; shows the demo actions and their Nessie ids | – |
+
+Every bad argument is rejected before anything is written to Nessie.

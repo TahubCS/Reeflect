@@ -42,6 +42,21 @@ export const nessieMovementSchema = z.object({
 });
 export type NessieMovement = z.infer<typeof nessieMovementSchema>;
 
+/**
+ * A bill. Unlike other records, its amount keeps cents (ADR-048). Only bills
+ * with a `recurring_date` (day of the month) become recurring payments.
+ */
+export const nessieBillSchema = z.object({
+  _id: z.string().min(1),
+  status,
+  payee: z.string(),
+  nickname: z.string().optional(),
+  payment_date: isoDate.optional(),
+  recurring_date: z.number().int().min(1).max(31).optional(),
+  payment_amount: z.number(),
+});
+export type NessieBill = z.infer<typeof nessieBillSchema>;
+
 export const nessieCreatedSchema = z.object({
   objectCreated: z.object({ _id: z.string().min(1) }),
 });
@@ -51,4 +66,5 @@ export type AccountRecords = {
   purchases: NessiePurchase[];
   deposits: NessieMovement[];
   withdrawals: NessieMovement[];
+  bills: NessieBill[];
 };

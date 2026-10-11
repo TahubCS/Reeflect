@@ -3,8 +3,9 @@
 // Nessie transfers can't name the other account (ADR-048 findings), so the
 // seed writes both sides as a withdrawal and a deposit tagged
 // `[xfer:<pair>]` in the description. A refund posted to undo a purchase is
-// tagged `[refund:<purchaseId>]`. Tags are read here and removed from what
-// the user sees.
+// tagged `[refund:<purchaseId>]`, and a demo record can name its category
+// with `[cat:<preset key>]`. Tags are read here and removed from what the
+// user sees.
 import { type Cents, add, fromDollarNumber, negate, sum } from "@/lib/money";
 import type { AccountRecords, NessieAccount } from "./records";
 
@@ -18,6 +19,8 @@ export type SyncedRow = {
   status: "pending" | "posted";
   isTransfer: boolean;
   transferPairId: string | null;
+  /** A preset category key from a `[cat:…]` tag, applied after sync. */
+  categoryKey: string | null;
 };
 
 export type OurAccountType = "checking" | "savings" | "credit_card";
@@ -31,18 +34,25 @@ export const ACCOUNT_TYPE_FROM_NESSIE: Record<
   "Credit Card": "credit_card",
 };
 
-const TAG = /\s*\[(xfer|refund):([^\]\s]+)\]\s*/g;
+const TAG = /\s*\[(xfer|refund|cat):([^\]\s]+)\]\s*/g;
 
-/** The description without tags, and the transfer pair if it has one. */
+/** The description without tags, with the transfer pair and category. */
 export function readTags(description: string): {
   text: string;
   transferPair: string | null;
+  category: string | null;
 } {
   let transferPair: string | null = null;
+  let category: string | null = null;
   for (const match of description.matchAll(TAG)) {
     if (match[1] === "xfer") transferPair = match[2]!;
+    if (match[1] === "cat") category = match[2]!;
   }
-  return { text: description.replace(TAG, " ").trim(), transferPair };
+  return {
+    text: description.replace(TAG, " ").replace(/\s+/g, " ").trim(),
+    transferPair,
+    category,
+  };
 }
 
 function rowStatus(status: string): SyncedRow["status"] | null {
@@ -61,7 +71,7 @@ function row(
   const status = rowStatus(record.status);
   if (!status) return null;
   const magnitude = fromDollarNumber(Math.abs(record.amount));
-  const { text, transferPair } = readTags(description);
+  const { text, transferPair, category } = readTags(description);
   const externalId = `${kind}:${record._id}`;
   return {
     externalId,
@@ -72,6 +82,7 @@ function row(
     status,
     isTransfer: transferPair !== null,
     transferPairId: transferPair ? `nessie:${transferPair}` : null,
+    categoryKey: category,
   };
 }
 

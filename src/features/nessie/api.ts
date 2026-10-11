@@ -7,6 +7,7 @@ import {
   type AccountRecords,
   type NessieAccount,
   nessieAccountSchema,
+  nessieBillSchema,
   nessieCreatedSchema,
   nessieMovementSchema,
   nessiePurchaseSchema,
@@ -138,15 +139,16 @@ export function nessieClient(options: NessieClientOptions) {
         nessieAccountSchema,
       ),
 
-    /** Everything a sync reads for one account: 3 requests, in parallel. */
+    /** Everything a sync reads for one account: 4 requests, in parallel. */
     async accountRecords(account: NessieAccount): Promise<AccountRecords> {
       const at = `/accounts/${encodeURIComponent(account._id)}`;
-      const [purchases, deposits, withdrawals] = await Promise.all([
+      const [purchases, deposits, withdrawals, bills] = await Promise.all([
         list(`${at}/purchases`, nessiePurchaseSchema),
         list(`${at}/deposits`, nessieMovementSchema),
         list(`${at}/withdrawals`, nessieMovementSchema),
+        list(`${at}/bills`, nessieBillSchema),
       ]);
-      return { account, purchases, deposits, withdrawals };
+      return { account, purchases, deposits, withdrawals, bills };
     },
 
     createCustomer: (body: unknown) => create("/customers", body),
@@ -158,10 +160,15 @@ export function nessieClient(options: NessieClientOptions) {
       kind: "purchases" | "deposits" | "withdrawals",
       body: unknown,
     ) => create(`/accounts/${encodeURIComponent(accountId)}/${kind}`, body),
+    createBill: (accountId: string, body: unknown) =>
+      create(`/accounts/${encodeURIComponent(accountId)}/bills`, body),
 
     /** Deposits can be deleted; purchases and withdrawals cannot (ADR-048). */
     deleteDeposit: async (id: string) => {
       await expectOk("DELETE", `/deposits/${encodeURIComponent(id)}`);
+    },
+    deleteBill: async (id: string) => {
+      await expectOk("DELETE", `/bills/${encodeURIComponent(id)}`);
     },
     deleteAccount: async (id: string) => {
       await expectOk("DELETE", `/accounts/${encodeURIComponent(id)}`);

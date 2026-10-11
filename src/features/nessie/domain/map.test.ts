@@ -15,6 +15,7 @@ function records(over: Partial<AccountRecords> = {}): AccountRecords {
     purchases: [],
     deposits: [],
     withdrawals: [],
+    bills: [],
     ...over,
   };
 }
@@ -24,12 +25,26 @@ describe("readTags", () => {
     expect(readTags("Card payment [xfer:p-1]")).toEqual({
       text: "Card payment",
       transferPair: "p-1",
+      category: null,
     });
     expect(readTags("Refund: Dinner [refund:abc]")).toEqual({
       text: "Refund: Dinner",
       transferPair: null,
+      category: null,
     });
-    expect(readTags("Plain")).toEqual({ text: "Plain", transferPair: null });
+    expect(readTags("Plain")).toEqual({
+      text: "Plain",
+      transferPair: null,
+      category: null,
+    });
+  });
+
+  it("reads a category tag wherever it sits", () => {
+    expect(readTags("Netflix [cat:subscriptions] monthly")).toEqual({
+      text: "Netflix monthly",
+      transferPair: null,
+      category: "subscriptions",
+    });
   });
 });
 

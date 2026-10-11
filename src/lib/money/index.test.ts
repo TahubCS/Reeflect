@@ -322,12 +322,16 @@ describe("fromDollarNumber (Nessie, ADR-033)", () => {
     expect(Object.is(fromDollarNumber(dollars), -0)).toBe(false);
   });
 
-  it.each([19.999, 1.005, 0.001, Number.NaN, Number.POSITIVE_INFINITY, 2 ** 53])(
-    "rejects %s",
-    (dollars) => {
-      expect(() => fromDollarNumber(dollars)).toThrow(RangeError);
-    },
-  );
+  it.each([
+    19.999,
+    1.005,
+    0.001,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    2 ** 53,
+  ])("rejects %s", (dollars) => {
+    expect(() => fromDollarNumber(dollars)).toThrow(RangeError);
+  });
 });
 
 describe("toWholeDollarNumber", () => {

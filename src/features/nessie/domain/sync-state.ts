@@ -8,6 +8,8 @@ export type SyncSummary =
       removed: number;
       nessieRecords: number;
       reeflectRows: number;
+      /** Recurring Nessie bills now shown as recurring payments. */
+      bills: number;
       ms: number;
     }
   | { status: "not set up" | "no accounts" | "unreachable" };
@@ -36,7 +38,7 @@ export function describeSync(result: SyncSummary): string {
             ]
               .filter(Boolean)
               .join(", ");
-      return `${changes} from Capital One (${plural(result.accounts, "account")}, ${(result.ms / 1000).toFixed(1)} s). Nessie: ${plural(result.nessieRecords, "record")} · Reeflect: ${plural(result.reeflectRows, "row")}.`;
+      return `${changes} from Capital One (${plural(result.accounts, "account")}, ${(result.ms / 1000).toFixed(1)} s). Nessie: ${plural(result.nessieRecords, "record")} · Reeflect: ${plural(result.reeflectRows, "row")}${result.bills > 0 ? ` · ${plural(result.bills, "recurring bill")}` : ""}.`;
     }
   }
 }

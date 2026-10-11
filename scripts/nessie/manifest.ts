@@ -8,12 +8,18 @@ import type { AccountKey } from "@/features/synthetic";
 export const MANIFEST_PATH = "scripts/nessie/.manifest.json";
 
 export type DemoAction = {
-  type: "purchase" | "deposit" | "refund";
+  type: "purchase" | "deposit" | "refund" | "transfer";
+  /** The record created; for a transfer, its withdrawal. */
   id: string;
   account: AccountKey;
   amount: number;
   date: string;
   description: string;
+  /** A recurring purchase's Nessie bill. */
+  billId?: string;
+  /** A transfer's other side. */
+  to?: AccountKey;
+  depositId?: string;
 };
 
 export type CustomerEntry = {
@@ -30,7 +36,11 @@ export type CustomerEntry = {
   actions: DemoAction[];
 };
 
-export type Manifest = { customers: Record<string, CustomerEntry> };
+export type Manifest = {
+  /** The customer commands act on without --name (`pnpm nessie use`). */
+  current?: string;
+  customers: Record<string, CustomerEntry>;
+};
 
 export function readManifest(path = MANIFEST_PATH): Manifest {
   if (!existsSync(path)) return { customers: {} };

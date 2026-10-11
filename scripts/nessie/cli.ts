@@ -6,10 +6,19 @@
 //   pnpm nessie seed <spec.json> --person <key> [--name "Maya Demo"] [--seed s] [--as-of YYYY-MM-DD]
 //   pnpm nessie link --user <userId> [--name …] --target local|branch|production [--yes]
 //   pnpm nessie status [--name …]
-//   pnpm nessie demo purchase <dollars> <description…> [--account card|checking|savings] [--name …]
-//   pnpm nessie demo deposit <dollars> <description…> [--account checking] [--name …]
-//   pnpm nessie demo refund [purchaseId] [--name …]   (default: the last demo purchase)
-//   pnpm nessie demo undo [--name …]                  (undo the last demo action)
+//   pnpm nessie customers                   (seeded customers; * marks the current one)
+//   pnpm nessie use "<name>"                (later commands act on that customer)
+//   pnpm nessie categories                 (keys for --category)
+//   pnpm nessie demo purchase <dollars> <description…> [--account card] [--category dining]
+//                             [--recurring [--from YYYY-MM-DD]]  (also a monthly Nessie bill)
+//   pnpm nessie demo deposit <dollars> [description…] [--account checking] [--category income]
+//   pnpm nessie demo transfer <dollars> --to savings|card [--account checking] [description…]
+//   pnpm nessie demo refund [purchaseId]   (default: the last demo purchase not yet refunded)
+//   pnpm nessie demo undo                  (undo the last demo action)
+//   pnpm nessie demo list                  (demo actions and their Nessie ids)
+//
+// Every command takes [--name "Reeflect Demo"] to pick the customer;
+// without it, the one chosen by `use`, else "Reeflect Demo".
 //
 // Never prints the key or a request URL. Never calls DELETE /data.
 import { readFileSync } from "node:fs";
@@ -17,6 +26,8 @@ import { eq } from "drizzle-orm";
 import { parseArgs } from "node:util";
 import { nessieClient, NessieError } from "@/features/nessie/api";
 import { planSeed } from "@/features/nessie/domain/seed-plan";
+import { PRESET_CATEGORIES } from "@/features/categorization/client";
+import { dateSchema, dayOf } from "@/features/recurring/client";
 import {
   type AccountKey,
   expandSpec,
@@ -94,6 +105,39 @@ function expand(
       `No person "${entry.person}" in ${entry.spec}. Keys: ${expansion.people.map((p) => p.key).join(", ")}`,
     );
   return person;
+}
+
+/** --name, else the customer chosen by `use`, else the default. */
+function nameOf(flags: Flags): string {
+  return flags.name ?? readManifest().current ?? DEFAULT_NAME;
+}
+
+function customers(): void {
+  const manifest = readManifest();
+  const names = Object.keys(manifest.customers);
+  if (names.length === 0) return say("No customers yet: run seed first.");
+  const current = manifest.current ?? DEFAULT_NAME;
+  say("Nessie customers (* = current):");
+  for (const name of names) {
+    const entry = manifest.customers[name]!;
+    say(
+      `  ${name === current ? "*" : " "} ${name.padEnd(20)} ${entry.customerId ?? "(not created)"}  ${Object.keys(entry.accounts).join(", ")}`,
+    );
+  }
+}
+
+function chooseCustomer(args: string[]): void {
+  const name = args.join(" ").trim();
+  if (!name) throw new TargetError('Give a name: pnpm nessie use "Maya Demo".');
+  const manifest = readManifest();
+  const entry = manifest.customers[name];
+  if (!entry)
+    throw new TargetError(
+      `No customer "${name}". Customers: ${Object.keys(manifest.customers).join(", ") || "none"}`,
+    );
+  manifest.current = name;
+  writeManifest(manifest);
+  say(`Now acting on "${name}" (Nessie customer ${entry.customerId}).`);
 }
 
 function customerOf(name: string): CustomerEntry {
@@ -210,7 +254,7 @@ async function seed(args: string[], flags: Flags): Promise<void> {
 }
 
 async function link(flags: Flags): Promise<void> {
-  const name = flags.name ?? DEFAULT_NAME;
+  const name = nameOf(flags);
   const entry = customerOf(name);
   const userId = flags.user;
   if (!userId) throw new TargetError("Give --user <userId>.");
@@ -305,7 +349,7 @@ async function link(flags: Flags): Promise<void> {
 }
 
 async function status(flags: Flags): Promise<void> {
-  const name = flags.name ?? DEFAULT_NAME;
+  const name = nameOf(flags);
   const entry = customerOf(name);
   const api = client();
   say(`"${name}": customer ${entry.customerId}`);
@@ -334,130 +378,276 @@ function wholeDollars(text: string | undefined): number {
   return toWholeDollarNumber(whole);
 }
 
+const ADDRESS = {
+  street_number: "1",
+  street_name: "Demo St",
+  city: "Chapel Hill",
+  state: "NC",
+  zip: "27514",
+};
+const CATEGORY_KEYS: readonly string[] = PRESET_CATEGORIES.map((c) => c.key);
+
+function categories(): void {
+  say("Categories for --category (key: name):");
+  for (const c of PRESET_CATEGORIES) say(`  ${c.key.padEnd(14)} ${c.name}`);
+}
+
+/** A `[cat:<key>]` tag the sync reads and hides, or "" when none is given. */
+function categoryTag(key: string | undefined): string {
+  if (key === undefined) return "";
+  if (!CATEGORY_KEYS.includes(key))
+    throw new TargetError(
+      `Unknown category "${key}". Run pnpm nessie categories.`,
+    );
+  return ` [cat:${key}]`;
+}
+
+function accountOf(entry: CustomerEntry, key: string): [AccountKey, string] {
+  const id = entry.accounts[key as AccountKey];
+  if (!id)
+    throw new TargetError(
+      `No ${key} account. Accounts: ${Object.keys(entry.accounts).join(", ")}`,
+    );
+  return [key as AccountKey, id];
+}
+
 async function demo(args: string[], flags: Flags): Promise<void> {
   const [action, amountText, ...words] = args;
-  const name = flags.name ?? DEFAULT_NAME;
+  const name = nameOf(flags);
   const manifest = readManifest();
   const entry = manifest.customers[name];
   if (!entry) throw new TargetError(`No customer "${name}": run seed first.`);
+  if (action === "list") return listActions(entry);
   const api = client();
-  const accountKey = (flags.account ??
-    (action === "purchase" ? "card" : "checking")) as AccountKey;
-  const accountId = entry.accounts[accountKey];
+  const date = today();
+  const save = () => writeManifest(manifest);
   const log = (a: DemoAction) => {
     entry.actions.push(a);
-    writeManifest(manifest);
+    save();
     say(
-      `Nessie created ${a.type} ${a.id} on ${a.account} ($${a.amount}, ${a.date}).`,
+      `"${name}": Nessie created ${a.type} ${a.id} on ${a.account}${a.to ? ` → ${a.to}` : ""} ($${a.amount}, ${a.date}).`,
     );
     say("Now press Sync now in the app.");
+  };
+  const deposit = (accountId: string, amount: number, description: string) =>
+    api.createRecord(accountId, "deposits", {
+      medium: "balance",
+      transaction_date: date,
+      amount,
+      status: "completed",
+      description,
+    });
+  const withdrawal = (accountId: string, amount: number, description: string) =>
+    api.createRecord(accountId, "withdrawals", {
+      medium: "balance",
+      transaction_date: date,
+      amount,
+      status: "completed",
+      description,
+    });
+  /** Both sides of a transfer, tagged as one pair (ADR-020). */
+  const transfer = async (
+    from: [AccountKey, string],
+    to: [AccountKey, string],
+    amount: number,
+    description: string,
+  ) => {
+    const tag = ` [xfer:demo-${Date.now().toString(36)}]`;
+    const id = await withdrawal(from[1], amount, description + tag);
+    const depositId = await deposit(to[1], amount, description + tag);
+    return { id, depositId };
   };
 
   switch (action) {
     case "purchase": {
-      if (!accountId) throw new TargetError(`No ${accountKey} account.`);
+      const [accountKey, accountId] = accountOf(entry, flags.account ?? "card");
       const amount = wholeDollars(amountText);
       const description = words.join(" ") || "Demo purchase";
+      const tag = categoryTag(flags.category);
+      const start = flags.from ?? date;
+      if (flags.recurring && !dateSchema.safeParse(start).success)
+        throw new TargetError("--from must be a date like 2026-11-01.");
       const merchant =
         entry.merchants[description] ??
         (entry.merchants[description] = await api.createMerchant({
           name: description,
-          category: "Dining",
-          address: {
-            street_number: "1",
-            street_name: "Demo St",
-            city: "Chapel Hill",
-            state: "NC",
-            zip: "27514",
-          },
+          category: flags.category ?? "other",
+          address: ADDRESS,
           geocode: { lat: 35.9, lng: -79.05 },
         }));
       const id = await api.createRecord(accountId, "purchases", {
         merchant_id: merchant,
         medium: "balance",
-        purchase_date: today(),
+        purchase_date: date,
         amount,
         status: "completed",
-        description,
+        description: description + tag,
       });
+      let billId: string | undefined;
+      if (flags.recurring) {
+        // Monthly on the start date's day, from --from (default today).
+        billId = await api.createBill(accountId, {
+          status: "recurring",
+          payee: description,
+          nickname: description + tag,
+          payment_date: start,
+          recurring_date: dayOf(start),
+          payment_amount: amount,
+        });
+        say(
+          `Nessie created bill ${billId}: $${amount} monthly on day ${dayOf(start)} from ${start}.`,
+        );
+      }
       return log({
         type: "purchase",
         id,
         account: accountKey,
         amount,
-        date: today(),
+        date,
         description,
+        billId,
       });
     }
     case "deposit": {
-      if (!accountId) throw new TargetError(`No ${accountKey} account.`);
+      const [accountKey, accountId] = accountOf(
+        entry,
+        flags.account ?? "checking",
+      );
       const amount = wholeDollars(amountText);
       const description = words.join(" ") || "Demo deposit";
-      const id = await api.createRecord(accountId, "deposits", {
-        medium: "balance",
-        transaction_date: today(),
+      const id = await deposit(
+        accountId,
         amount,
-        status: "completed",
-        description,
-      });
+        description + categoryTag(flags.category),
+      );
       return log({
         type: "deposit",
         id,
         account: accountKey,
         amount,
-        date: today(),
+        date,
         description,
       });
     }
-    case "refund":
-      return refund(entry, amountText, (a) => log(a), api);
+    case "transfer": {
+      if (!flags.to)
+        throw new TargetError(
+          "Give --to savings|card (and --account to move from).",
+        );
+      const from = accountOf(entry, flags.account ?? "checking");
+      const to = accountOf(entry, flags.to);
+      if (from[0] === to[0])
+        throw new TargetError("--to must be a different account.");
+      const amount = wholeDollars(amountText);
+      const description =
+        words.join(" ") ||
+        (to[0] === "card" ? "Credit card payment" : `Transfer to ${to[0]}`);
+      const { id, depositId } = await transfer(from, to, amount, description);
+      return log({
+        type: "transfer",
+        id,
+        depositId,
+        account: from[0],
+        to: to[0],
+        amount,
+        date,
+        description,
+      });
+    }
+    case "refund": {
+      const purchase = findPurchase(entry, amountText);
+      const id = await deposit(
+        entry.accounts[purchase.account]!,
+        purchase.amount,
+        `Refund: ${purchase.description} [refund:${purchase.id}]`,
+      );
+      return log({
+        type: "refund",
+        id,
+        account: purchase.account,
+        amount: purchase.amount,
+        date,
+        description: `Refund: ${purchase.description} [refund:${purchase.id}]`,
+      });
+    }
     case "undo": {
       const last = entry.actions.at(-1);
-      if (!last) throw new TargetError("No demo actions to undo.");
-      if (last.type === "purchase") {
-        // Nessie has no way to delete a purchase (ADR-048): refund it.
-        return refund(entry, last.id, (a) => log(a), api);
+      if (!last)
+        throw new TargetError(`No demo actions to undo for "${name}".`);
+      say(`"${name}": undoing ${last.type} ${last.id}.`);
+      switch (last.type) {
+        case "purchase": {
+          // Nessie can't delete a purchase (ADR-048): refund it instead.
+          const refundId = await deposit(
+            entry.accounts[last.account]!,
+            last.amount,
+            `Refund: ${last.description} [refund:${last.id}]`,
+          );
+          say(`Refunded purchase ${last.id} with deposit ${refundId}.`);
+          if (last.billId) {
+            await api.deleteBill(last.billId);
+            say(`Deleted bill ${last.billId}.`);
+          }
+          break;
+        }
+        case "deposit":
+        case "refund":
+          await api.deleteDeposit(last.id);
+          say(`Deleted ${last.type} ${last.id}.`);
+          break;
+        case "transfer": {
+          // Withdrawals can't be deleted either: move the money back.
+          const back = await transfer(
+            accountOf(entry, last.to!),
+            accountOf(entry, last.account),
+            last.amount,
+            `Reversal: ${last.description}`,
+          );
+          say(
+            `Reversed transfer ${last.id}: ${last.to} → ${last.account} (${back.id}, ${back.depositId}).`,
+          );
+          break;
+        }
       }
-      await api.deleteDeposit(last.id);
       entry.actions.pop();
-      writeManifest(manifest);
-      say(`Deleted ${last.type} ${last.id} in Nessie. Now press Sync now.`);
+      save();
+      say("Now press Sync now in the app.");
       return;
     }
     default:
       throw new TargetError(
-        "Usage: pnpm nessie demo <purchase|deposit|refund|undo> …",
+        "Usage: pnpm nessie demo <purchase|deposit|transfer|refund|undo|list> … (see scripts/nessie/cli.ts)",
       );
   }
 }
 
-async function refund(
-  entry: CustomerEntry,
-  purchaseId: string | undefined,
-  log: (a: DemoAction) => void,
-  api: ReturnType<typeof client>,
-): Promise<void> {
-  const purchase = purchaseId
-    ? entry.actions.find((a) => a.type === "purchase" && a.id === purchaseId)
-    : entry.actions.findLast((a) => a.type === "purchase");
-  if (!purchase) throw new TargetError("No demo purchase to refund.");
-  const account = entry.accounts[purchase.account]!;
-  const description = `Refund: ${purchase.description} [refund:${purchase.id}]`;
-  const id = await api.createRecord(account, "deposits", {
-    medium: "balance",
-    transaction_date: today(),
-    amount: purchase.amount,
-    status: "completed",
-    description,
-  });
-  log({
-    type: "refund",
-    id,
-    account: purchase.account,
-    amount: purchase.amount,
-    date: today(),
-    description,
-  });
+/** The purchase a refund applies to: by id, or the last one not refunded. */
+function findPurchase(entry: CustomerEntry, id: string | undefined) {
+  const refunded = new Set(
+    entry.actions
+      .filter((a) => a.type === "refund")
+      .map((a) => /\[refund:([^\]]+)\]/.exec(a.description)?.[1]),
+  );
+  const purchases = entry.actions.filter((a) => a.type === "purchase");
+  const purchase = id
+    ? purchases.find((a) => a.id === id)
+    : purchases.findLast((a) => !refunded.has(a.id));
+  if (!purchase)
+    throw new TargetError(
+      id
+        ? `No demo purchase ${id}: see pnpm nessie demo list.`
+        : "No demo purchase left to refund.",
+    );
+  return purchase;
+}
+
+function listActions(entry: CustomerEntry): void {
+  if (entry.actions.length === 0) return say("No demo actions yet.");
+  say("Demo actions, oldest first (undo takes the last one):");
+  for (const a of entry.actions)
+    say(
+      `  ${a.date}  ${a.type.padEnd(8)} $${String(a.amount).padStart(5)}  ${a.account}${a.to ? ` → ${a.to}` : ""}  ${a.description}  ${a.id}${a.billId ? `  (monthly bill ${a.billId})` : ""}`,
+    );
 }
 
 type Flags = {
@@ -468,6 +658,10 @@ type Flags = {
   user?: string;
   target?: string;
   account?: string;
+  category?: string;
+  recurring?: boolean;
+  from?: string;
+  to?: string;
   yes?: boolean;
 };
 
@@ -482,6 +676,10 @@ async function main(): Promise<void> {
       user: { type: "string" },
       target: { type: "string" },
       account: { type: "string" },
+      category: { type: "string" },
+      recurring: { type: "boolean" },
+      from: { type: "string" },
+      to: { type: "string" },
       yes: { type: "boolean" },
     },
   });
@@ -493,11 +691,17 @@ async function main(): Promise<void> {
       return link(values);
     case "status":
       return status(values);
+    case "customers":
+      return customers();
+    case "use":
+      return chooseCustomer(args);
+    case "categories":
+      return categories();
     case "demo":
       return demo(args, values);
     default:
       say(
-        "Usage: pnpm nessie <seed|link|status|demo> … (see scripts/nessie/cli.ts)",
+        "Usage: pnpm nessie <seed|link|status|customers|use|categories|demo> … (see scripts/nessie/cli.ts)",
       );
       process.exitCode = 1;
   }
