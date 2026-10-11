@@ -58,6 +58,7 @@ async function charges(
   }));
   return db.insert(transaction).values(values).returning();
 }
+const byId = (x: { id: string }, y: { id: string }) => (x.id < y.id ? -1 : 1);
 const input = (merchant: string, accountId = accountA): PaymentInput => ({
   accountId,
   merchant,
@@ -178,11 +179,14 @@ describe("recurring persistence with real PostgreSQL", () => {
         .from(transaction)
         .where(eq(transaction.financialAccountId, accountA))
         .then((rows) =>
-          rows.filter((item) =>
-            history.some((original) => original.id === item.id),
-          ),
+          rows
+            .filter((item) =>
+              history.some((original) => original.id === item.id),
+            )
+            .sort(byId),
         ),
-    ).toEqual(history);
+      // The database returns rows in no promised order: compare by id.
+    ).toEqual(history.toSorted(byId));
     expect(
       (
         await db

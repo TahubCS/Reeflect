@@ -17,15 +17,21 @@ import {
 } from "@/features/transactions";
 import type { AiRequest } from "@/lib/ai/client";
 import { type Cents, absolute, negate } from "@/lib/money";
-import { type LogCommand, trimFiller } from "../../domain/log";
-import { chooseAccount } from "../../domain/log-account";
+import { type LogCommand, type LogDay, trimFiller } from "../../domain/log";
+import {
+  type LogAccount,
+  chooseAccount,
+  readAccountAnswer,
+} from "../../domain/log-account";
 import {
   LOG_REPLIES,
+  MAX_LISTED_ACCOUNTS,
   UNCLEAR_REPLIES,
   loggedReply,
   undoneReply,
   whichAccountReply,
 } from "../../domain/log-replies";
+import { findPending, rememberPending, takePending } from "../pending";
 import { pickCategory } from "./pickCategory";
 
 // Saves spending a linked phone texted, and takes it back on UNDO (F-27,
@@ -113,30 +119,80 @@ async function budgetLeft(
   }
 }
 
+/** Spending that has been read and only needs its account. */
+type Spending = { amount: Cents; description: string; day: LogDay };
+
+const canHoldSpending = (account: LogAccount) => account.type !== "loan";
+
+/**
+ * Asks which account, and remembers the spending so that the next text can
+ * answer with a number or a name (ADR-065). Nothing is saved.
+ */
+async function ask(
+  spending: Spending,
+  accounts: readonly LogAccount[],
+  context: LogContext,
+  now: Date,
+): Promise<string> {
+  const listed = accounts.filter(canHoldSpending).slice(0, MAX_LISTED_ACCOUNTS);
+  if (listed.length === 0) return LOG_REPLIES.loan;
+  await rememberPending(context, {
+    amount: spending.amount,
+    description: spending.description,
+    day: spending.day,
+    accountIds: listed.map((account) => account.id),
+    askedAt: now,
+  });
+  return whichAccountReply(
+    spending.amount,
+    spending.description,
+    listed.map((account) => account.nickname),
+  );
+}
+
 async function save(
   command: Extract<LogCommand, { type: "log" }>,
   context: LogContext,
 ): Promise<string> {
-  const { workspaceId } = context;
   const now = context.now ?? new Date();
 
-  const accounts = await listAccounts(workspaceId);
+  const accounts = await listAccounts(context.workspaceId);
   const choice = chooseAccount(command.phrase, accounts);
   if (!choice.ok) {
     if (choice.reason === "none") return LOG_REPLIES.noAccounts;
     if (choice.reason === "loan") return LOG_REPLIES.loan;
-    return whichAccountReply(
-      command.amount,
-      command.description,
-      accounts
-        .filter((account) => account.type !== "loan")
-        .map((account) => account.nickname),
-    );
+    return ask(command, accounts, context, now);
   }
-  const { account } = choice;
   const description = trimFiller(choice.rest);
   // Only the account's name was there: "12 on card".
   if (!/\p{L}/u.test(description)) return UNCLEAR_REPLIES.no_description;
+
+  return saveOn(
+    { amount: command.amount, description, day: command.day },
+    choice.account,
+    {
+      postedOn: dayOf(command.day, now),
+      nameAccount: accounts.length > 1,
+      context,
+      now,
+    },
+  );
+}
+
+/** Saves spending on the account that has been settled, and confirms it. */
+async function saveOn(
+  spending: Spending,
+  account: LogAccount,
+  how: {
+    postedOn: string;
+    nameAccount: boolean;
+    context: LogContext;
+    now: Date;
+  },
+): Promise<string> {
+  const { context, now } = how;
+  const { workspaceId } = context;
+  const { description } = spending;
 
   const id = logTransactionId(context.identityId, context.messageId);
   const logged = await countTextTransactions(
@@ -147,7 +203,6 @@ async function save(
 
   // The rules need the workspace's categories to exist.
   await ensureCategories(workspaceId);
-  const postedOn = dayOf(command.day, now);
   const created = await createTransaction(workspaceId, {
     id,
     source: "text",
@@ -155,8 +210,8 @@ async function save(
     isTransfer: false,
     ledger: {
       accountId: account.id,
-      postedOn,
-      amountCents: negate(command.amount),
+      postedOn: how.postedOn,
+      amountCents: negate(spending.amount),
       status: "posted",
     },
   });
@@ -175,10 +230,10 @@ async function save(
   );
 
   return loggedReply({
-    amount: command.amount,
+    amount: spending.amount,
     description,
-    day: command.day,
-    account: accounts.length > 1 ? account.nickname : null,
+    day: spending.day,
+    account: how.nameAccount ? account.nickname : null,
     ...extras,
   });
 }
@@ -249,6 +304,48 @@ export async function logSpending(
     if (command.type === "unclear") return UNCLEAR_REPLIES[command.reason];
     if (command.type === "undo") return await undo(context);
     return await save(command, context);
+  } catch (error) {
+    // Ids only: never the text or the amount.
+    console.error("agent: log failed", {
+      messageId: context.messageId,
+      reason: error instanceof Error ? error.name : "unknown",
+    });
+    return LOG_REPLIES.notSaved;
+  }
+}
+
+/**
+ * Reads a text as the answer to an open "which account?" (ADR-065) and
+ * returns the reply, or null when no question is open or the text is not an
+ * answer; the text is then handled as any other. The spending is saved on
+ * the day it was first texted.
+ */
+export async function answerPending(
+  text: string,
+  context: LogContext,
+): Promise<string | null> {
+  const now = context.now ?? new Date();
+  const pending = await findPending(context, now);
+  if (pending === null) return null;
+
+  const all = await listAccounts(context.workspaceId);
+  const accounts = all.filter(canHoldSpending);
+  const listed = pending.accountIds.flatMap(
+    (id) => accounts.find((account) => account.id === id) ?? [],
+  );
+  const answer = readAccountAnswer(text, listed, accounts);
+  if (answer.type === "none") return null;
+
+  try {
+    if (answer.type === "unclear") return await ask(pending, all, context, now);
+    // Taken first: the same answer arriving twice is acted on once.
+    if (!(await takePending(context, now))) return null;
+    return await saveOn(pending, answer.account, {
+      postedOn: dayOf(pending.day, pending.askedAt),
+      nameAccount: all.length > 1,
+      context,
+      now,
+    });
   } catch (error) {
     // Ids only: never the text or the amount.
     console.error("agent: log failed", {

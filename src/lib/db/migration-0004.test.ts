@@ -10,7 +10,9 @@ const sql = readFileSync(
   "utf8",
 );
 
-describe("0004_verify_existing_users (ADR-052)", () => {
+// Each test builds a whole database, which can pass the default five
+// seconds when the full suite runs beside it.
+describe("0004_verify_existing_users (ADR-052)", { timeout: 30_000 }, () => {
   afterAll(async () => {
     await pool.end();
   });

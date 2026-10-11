@@ -11,14 +11,22 @@ import { ensureCategories, listCategories } from "@/features/categorization";
 import { createTransaction } from "@/features/transactions/server/repository";
 import type { AiRequest } from "@/lib/ai/client";
 import { db } from "@/lib/db/client";
-import { budget, financialAccount, transaction } from "@/lib/db/schema";
+import {
+  agentPendingLog,
+  budget,
+  financialAccount,
+  messagingIdentity,
+  transaction,
+} from "@/lib/db/schema";
 import { cents, formatCents } from "@/lib/money";
 import { fixtures } from "../../../../../tests/support/db-fixtures";
 import { parseLog } from "../../domain/log";
 import { LOG_REPLIES, UNCLEAR_REPLIES } from "../../domain/log-replies";
+import { PENDING_TTL_MS } from "../pending";
 import {
   MAX_LOGS_PER_DAY,
   type LogContext,
+  answerPending,
   logSpending,
   logTransactionId,
 } from "./logSpending";
@@ -36,6 +44,11 @@ const YESTERDAY = isoDateIn(
   DEFAULT_TIME_ZONE,
 );
 
+/** No model unless a test gives one: the category then stays as the rules left it. */
+const noModel = vi.fn<(request: AiRequest) => Promise<string>>(async () => {
+  throw new Error("no model in this test");
+});
+
 type Kind = "checking" | "savings" | "credit_card" | "loan";
 
 async function workspace() {
@@ -49,13 +62,43 @@ async function workspace() {
       maskLast4: null,
       balanceCents: cents(balance),
     });
-  return { workspaceId, account };
+  return { workspaceId, account, userId };
 }
 
-/** No model unless a test gives one: the category then stays as the rules left it. */
-const noModel = vi.fn<(request: AiRequest) => Promise<string>>(async () => {
-  throw new Error("no model in this test");
-});
+/** A linked phone in the workspace, texting as `runAgentTurn` would hand on. */
+async function phone(owner: { workspaceId: string; userId: string }) {
+  const [identity] = await db
+    .insert(messagingIdentity)
+    .values({
+      userId: owner.userId,
+      workspaceId: owner.workspaceId,
+      platform: "imessage",
+      handle: `+1${crypto.randomUUID()}`,
+      spaceId: "space",
+      verifiedAt: NOW,
+    })
+    .returning({ id: messagingIdentity.id });
+  const context = (changes: Partial<LogContext>): LogContext => ({
+    workspaceId: owner.workspaceId,
+    identityId: identity!.id,
+    messageId: crypto.randomUUID(),
+    now: NOW,
+    generate: noModel,
+    ...changes,
+  });
+  return {
+    identityId: identity!.id,
+    /** Texts something that is read as a log. */
+    log: (message: string, changes: Partial<LogContext> = {}) => {
+      const command = parseLog(message);
+      if (command.type === "none") throw new Error(`not a log: ${message}`);
+      return logSpending(command, context(changes));
+    },
+    /** Texts a reply; null means it was not taken as an answer. */
+    answer: (message: string, changes: Partial<LogContext> = {}) =>
+      answerPending(message, context(changes)),
+  };
+}
 
 function sender(workspaceId: string, generate = noModel) {
   const identityId = crypto.randomUUID();
@@ -190,14 +233,17 @@ describe("logging spending", () => {
 
 describe("which account", () => {
   it("asks when there are several and none is named, and saves nothing", async () => {
-    const { workspaceId, account } = await workspace();
+    const owner = await workspace();
+    const { workspaceId, account } = owner;
     await account("checking", "Everyday");
     await account("credit_card", "Quicksilver", -5_000);
+    await account("loan", "Car loan", -900_000);
 
-    const reply = await sender(workspaceId)("12 lunch");
+    const reply = await (await phone(owner)).log("12 lunch");
 
+    // A loan is never offered.
     expect(reply).toBe(
-      'Which account? Send it again with the account at the end, like "12 lunch from Everyday". Your accounts: Everyday, Quicksilver. Nothing was logged.',
+      'Which account for $12.00 "lunch"? Reply with its number or name: 1 Everyday, 2 Quicksilver. Nothing is logged yet.',
     );
     expect(await textRows(workspaceId)).toEqual([]);
   });
@@ -225,12 +271,13 @@ describe("which account", () => {
   });
 
   it("asks when the named account is not one of theirs", async () => {
-    const { workspaceId, account } = await workspace();
+    const owner = await workspace();
+    const { workspaceId, account } = owner;
     await account("checking", "Everyday");
     await account("savings", "Rainy Day");
 
-    expect(await sender(workspaceId)("12 lunch on card")).toContain(
-      "Which account?",
+    expect(await (await phone(owner)).log("12 lunch on card")).toContain(
+      "Which account for",
     );
     expect(await textRows(workspaceId)).toEqual([]);
   });
@@ -259,6 +306,167 @@ describe("which account", () => {
       UNCLEAR_REPLIES.no_description,
     );
     expect(await textRows(workspaceId)).toEqual([]);
+  });
+});
+
+describe("answering which account", () => {
+  async function asked(message = "8.75 cloudflare domain") {
+    const owner = await workspace();
+    const mine = await owner.account("checking", "Muhammad");
+    const card = await owner.account(
+      "credit_card",
+      "Sample · Credit Card",
+      -5_000,
+    );
+    const other = await owner.account("checking", "Sample · 360 Checking");
+    const from = await phone(owner);
+    expect(await from.log(message)).toBe(
+      'Which account for $8.75 "cloudflare domain"? Reply with its number or name: 1 Muhammad, 2 Sample · Credit Card, 3 Sample · 360 Checking. Nothing is logged yet.',
+    );
+    return { ...owner, from, mine, card, other };
+  }
+  const pendingRows = (workspaceId: string) =>
+    db
+      .select()
+      .from(agentPendingLog)
+      .where(eq(agentPendingLog.workspaceId, workspaceId));
+
+  it.each([
+    ["its number", "3", "other"],
+    ["its name", "Muhammad", "mine"],
+    [
+      "its name in a sentence",
+      "it was from my muhammad checking account",
+      "mine",
+    ],
+    ["a kind they have one of", "on my credit card", "card"],
+  ] as const)(
+    "saves the remembered spending on the account answered by %s",
+    async (_case, reply, key) => {
+      const world = await asked();
+
+      const confirmation = await world.from.answer(reply);
+
+      const nickname = {
+        mine: "Muhammad",
+        card: "Sample · Credit Card",
+        other: "Sample · 360 Checking",
+      }[key];
+      expect(confirmation).toContain(
+        `Logged $8.75 for "cloudflare domain" today on ${nickname}`,
+      );
+      expect(await textRows(world.workspaceId)).toEqual([
+        expect.objectContaining({
+          accountId: world[key],
+          postedOn: TODAY,
+          amountCents: -875,
+          description: "cloudflare domain",
+          source: "text",
+        }),
+      ]);
+      // The question is closed: the same reply again is not an answer.
+      expect(await pendingRows(world.workspaceId)).toEqual([]);
+      expect(await world.from.answer(reply)).toBeNull();
+      expect(await textRows(world.workspaceId)).toHaveLength(1);
+    },
+  );
+
+  it("asks again, and keeps waiting, when the answer fits no single account", async () => {
+    const world = await asked();
+
+    // Two checking accounts; no fourth account.
+    for (const reply of ["It was from my checking account", "4"]) {
+      expect(await world.from.answer(reply)).toContain(
+        "Reply with its number or name: 1 Muhammad,",
+      );
+    }
+    expect(await textRows(world.workspaceId)).toEqual([]);
+    expect(await world.from.answer("1")).toContain("on Muhammad");
+    expect(await balanceOf(world.workspaceId, world.mine)).toBe(99_125);
+  });
+
+  it("leaves a text that is not an answer alone, and still waits", async () => {
+    const world = await asked();
+
+    for (const message of [
+      "how am I doing?",
+      "what is on my card?",
+      "thanks",
+    ]) {
+      expect(await world.from.answer(message)).toBeNull();
+    }
+    expect(await textRows(world.workspaceId)).toEqual([]);
+    expect(await world.from.answer("2")).toContain("on Sample · Credit Card");
+  });
+
+  it("stops waiting after ten minutes", async () => {
+    const world = await asked();
+    const late = new Date(NOW.getTime() + PENDING_TTL_MS);
+
+    expect(await world.from.answer("1", { now: late })).toBeNull();
+    expect(await textRows(world.workspaceId)).toEqual([]);
+  });
+
+  it("remembers only the latest question", async () => {
+    const world = await asked();
+    await world.from.log("40 gas");
+
+    expect(await world.from.answer("1")).toContain('Logged $40.00 for "gas"');
+    expect(await textRows(world.workspaceId)).toHaveLength(1);
+  });
+
+  it("keeps the day that was texted", async () => {
+    const world = await asked("8.75 cloudflare domain yesterday");
+
+    expect(await world.from.answer("1")).toContain("yesterday on Muhammad");
+    expect((await textRows(world.workspaceId))[0]!.postedOn).toBe(YESTERDAY);
+  });
+
+  it("does not use a listed account that has since been deleted", async () => {
+    const world = await asked();
+    await db
+      .delete(financialAccount)
+      .where(eq(financialAccount.id, world.card));
+
+    // The list is numbered afresh, so the same number is now another account.
+    expect(await world.from.answer("card")).toBe(
+      'Which account for $8.75 "cloudflare domain"? Reply with its number or name: 1 Muhammad, 2 Sample · 360 Checking. Nothing is logged yet.',
+    );
+    expect(await world.from.answer("2")).toContain("on Sample · 360 Checking");
+  });
+
+  it("never answers another phone's or another workspace's question", async () => {
+    const world = await asked();
+    const theirs = await workspace();
+    await theirs.account("checking", "Muhammad");
+    const stranger = await phone(theirs);
+
+    expect(await stranger.answer("1")).toBeNull();
+    // The right phone, handed the wrong workspace, finds nothing either.
+    expect(
+      await world.from.answer("1", { workspaceId: theirs.workspaceId }),
+    ).toBeNull();
+    expect(await textRows(theirs.workspaceId)).toEqual([]);
+    expect(await textRows(world.workspaceId)).toEqual([]);
+    expect(await pendingRows(world.workspaceId)).toHaveLength(1);
+  });
+
+  it("still stops at the daily limit, and saves nothing", async () => {
+    const world = await asked();
+    await db.insert(transaction).values(
+      Array.from({ length: MAX_LOGS_PER_DAY }, (_, index) => ({
+        workspaceId: world.workspaceId,
+        financialAccountId: world.mine,
+        postedOn: TODAY,
+        amountCents: -100,
+        descriptionRaw: `row ${index}`,
+        source: "text" as const,
+        fingerprint: `test:${index}`,
+      })),
+    );
+
+    expect(await world.from.answer("1")).toBe(LOG_REPLIES.tooMany);
+    expect(await textRows(world.workspaceId)).toHaveLength(MAX_LOGS_PER_DAY);
   });
 });
 
