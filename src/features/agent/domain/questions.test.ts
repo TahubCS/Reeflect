@@ -199,6 +199,30 @@ describe("this month's categories", () => {
     expect(unread.accounts).toHaveLength(4);
   });
 
+  it("counts the categories past their budget, and only when some are", () => {
+    // Only the second category is over its budget.
+    expect(facts().values.over_budget_count).toBe("1 category past budget");
+    expect(isMonthToDate("over_budget_count")).toBe(true);
+    expect(facts({ month: undefined }).values).not.toHaveProperty(
+      "over_budget_count",
+    );
+    expect(
+      facts({
+        month: {
+          totalSpending: cents(5_000),
+          categories: [
+            {
+              name: "Groceries",
+              spent: cents(5_000),
+              allocation: cents(9_000),
+              remaining: cents(4_000),
+            },
+          ],
+        },
+      }).values,
+    ).not.toHaveProperty("over_budget_count");
+  });
+
   it("is not a monthly average", () => {
     for (const label of Object.keys(valuesOf(facts())).filter(isMonthToDate)) {
       expect(MONTHLY_LABELS.has(label as keyof typeof LABELS)).toBe(false);
