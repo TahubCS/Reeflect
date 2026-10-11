@@ -4160,6 +4160,228 @@ rows", transactions 2 "show more" in steps of 20, plus a view-only list.
 - The weekly recap and stale Nessie syncs are not on the tick yet.
 - Previews in the iOS lock screen were not tested with a real phone.
 
+## HO-116: Database readiness preflight and verified cloud Neon access
+
+- **Date:** 2026-10-11 07:43 (EDT)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `chore/database-readiness` (local commits) / not opened
+
+### What changed
+- Based this isolated checkout on main `1cdb016`, including Bills and F-27.
+  Preserved the earlier user-approved optional Neon WebSocket runtime,
+  proxy-aware statement storage and test-database guards. Credentials remain
+  ignored; tests use local PostgreSQL and the dedicated storage-tests bucket.
+- Added `pnpm db:verify --target app|local|branch|production`. Its bounded
+  financial-page contract checks actual column types/nullability, valid
+  unconditional uniqueness, validated ownership/reference semantics and
+  zero-row SELECT access in a read-only snapshot. Equivalent constraint names
+  and compatible extras pass. Journal mismatches are independent warnings.
+- Added the preflight after migrations in both existing CI PostgreSQL jobs,
+  retaining their required job names. Documented release sequencing, app-role
+  verification and limits in DATABASE_READINESS, TESTING and ARCHITECTURE.
+- All 2,008 unit/integration tests and 115 browser tests passed, including
+  real Neon test storage. Commands used pnpm 12.9.1, a 30-second test timeout
+  for proxy/storage latency, and four browser workers with a 60-second timeout.
+  Lint, formatting, typecheck, docs, build, bundle scan and diff checks passed.
+  Final focused verifier/unchanged-health rerun passed 24 tests. Generated
+  browser screenshots were restored rather than included as feature changes.
+- Actual Neon app and named production preflights both report schema READY.
+  They warn about the unrecorded 0010 budget checkpoint and one extra journal
+  timestamp; the recovered budget and Bills schema pass. No production writes
+  or migrations ran. Local app_test was explicitly identified and migrated
+  through 0014; its app-role preflight passes. Direct TCP remains unavailable
+  in this cloud workspace; migrations still use TCP.
+
+- After merging main `e75fc63`, the standalone readiness branch passed 25
+  verifier/driver tests plus all 3 unchanged health-helper tests, docs and the
+  migrated local app-role preflight. Main's migration 0015 was applied only to
+  the explicitly identified local test database. Final actual Neon app and
+  named production preflights report READY for the financial contract, with
+  the recovered 0010 checkpoint and two outside journal timestamps reported
+  separately. No production rows, schema or journal were modified.
+
+### What's next
+- Transfer review is implemented and verified on `feat/transfer-review`. The
+  user authorized local commits and merging main into both branches; no push,
+  PR or deployment has been requested.
+- The user reports no teammate overlap in Transactions, Bills linkage or CI
+  and approved the focused historical/daily cashflow balance correction. That
+  correction and its consumer regressions belong to the transfer branch.
+- A full merged browser run exposed an existing Budgets test pool reused after
+  cleanup. Its isolated test-lifecycle correction is also retained here; no
+  production Budgets behavior or assertions changed.
+
+### Open problems
+- Readiness checks no write privileges, RLS policies, defaults, arbitrary check
+  expressions or financial-row correctness. They do not gate Vercel auto-deploy.
+- Main now uses all earlier handoff slots in Muhammad's block. The next
+  reserved block is added separately, and this entry uses its first slot. It
+  preserves main's independently numbered Bills and agent history;
+  the earlier Neon-only entry remains in the original `work` checkout.
+
+## HO-117: Explicit web transfer review and preserved cashflow balances
+
+- **Date:** 2026-10-11 (EDT)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `feat/transfer-review` (local commits) / not opened
+
+### What changed
+- Built the supplied transfer plan on the separate readiness branch's commit.
+  Transactions links to explicit candidates, paired/individual and legacy
+  states, old date filters and complete bounded counterpart pagination.
+- Added atomic metadata-only confirmation, detachment retaining labels and
+  separate normal-activity actions. Shared Bills advisory locking precedes
+  sorted row locks. Expected facts/version reject stale and competing saves;
+  allocated evidence blocks transfer flag changes in both review and the
+  original transaction editor. Paired financial edits are guarded; ordinary
+  deletion undoes its balance effect once and detaches surviving owned rows.
+- Included the user's approved cashflow correction: liquid transfer amounts
+  retain their posted-day balance effects without entering spending/income.
+  No dashboard UI, Insights algorithm, importer or agent code was changed.
+- The user reports no overlapping teammate work and authorizes local commits,
+  merging current main into the branches and resolving merge conflicts.
+  Renumbered the transfer ADR to ADR-066 because main now owns ADR-065.
+  Readiness uses HO-116; main's handoff history is preserved.
+
+### Verified
+- Merged main `e75fc63` into both implementation branches. The handoff was the
+  merge conflict; kept main's complete history and our separately numbered
+  entries. Both branches contain main, with no unresolved conflicts.
+- All 2,297 unit/integration tests in 129 files pass with unchanged thresholds,
+  including real Neon test storage. Coverage: 90.77% lines, 88.51% branches.
+  The earlier 320 focused tests and final 72 transfer tests also pass.
+- All 124 non-external browser tests pass against the merged production build,
+  including all eight transfer flows. Tests use local PostgreSQL, four workers
+  and a 60-second timeout; no assertions or storage checks were skipped.
+  Pending controls, stale selection, aborted-save retry, edited/deleted rows,
+  allocated evidence, historical padding, access and themes were exercised.
+- Browser verification exposed React's native form reset on validation errors;
+  retained choices until fresh data replaces the form, and caught request
+  failures with retry feedback. Fixed the existing Budgets suite's closed-pool
+  reuse across parallel groups and used the same lifecycle in this new suite.
+  The first full browser run was 123/124; the corrected full run is 124/124.
+- Lint, format, app/worker typecheck, docs, production build, bundle scan and
+  diff checks pass. Synthetic 360px/1280px light/dark transfer screenshots are
+  retained; unrelated regenerated screenshots were restored.
+- Actual Neon app and named production financial-schema preflights report
+  READY. Journal discrepancies remain diagnostic warnings. Main's migration
+  0015 ran only on the verified local test database; no transfer migration and
+  no production writes were made.
+
+### What's next
+- Local commits and main merges are complete. No push, PR or deployment has
+  been requested; published CI and teammate review remain future work.
+
+### Open problems
+- Reviews remain bounded and do not claim complete all-time history. Oversized
+  candidate/group/account scopes show refinement or retry feedback.
+- Publication and deployed CI results remain outside this local verification.
+
+## HO-118: Combine Neon readiness and transfer review for one PR
+
+- **Date:** 2026-10-11
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `feat/transfer-review` / [PR #44](https://github.com/TahubCS/Reeflect/pull/44)
+
+### What changed
+- The user requested merging both implementation branches and opening one PR.
+  Merged `chore/database-readiness` into `feat/transfer-review`, then merged
+  current main `5a60b11`, including quiet hours, UI improvements and receipt
+  photos. This combined branch contains both implementations and main.
+- Resolved documentation conflicts by preserving all team history and both
+  commands in AGENTS.md. Main owns HO-115 for receipt photos; renumbered our
+  readiness entry to HO-116 and transfer entry to HO-117. ADR-066 remains the
+  accepted transfer decision; main's ADR-067 is preserved.
+- Kept original `work` checkout changes untouched. Only the combined feature
+  branch will be published; no deployment or merge into main is requested.
+
+### Verified
+- Lint, formatting, app/worker typechecks, docs, production build, bundle scan
+  (50 files) and diff checks pass after consolidation.
+- The configured Neon app database reports READY through the optional
+  WebSocket transport. Missing journal entries 0010/0017 and one timestamp
+  remain diagnostic warnings; the financial-page schema and SELECT contract
+  pass. The check performs no production writes or repairs.
+- Verified local `app_test`, applied main's pending migrations 0016/0017 only
+  there, and ran its read-only readiness check successfully. Created a
+  separate local database for browser tests so concurrent unit isolation
+  checks cannot observe browser fixture writes.
+- The first full unit run passed 2,684/2,685 tests; one real Neon storage
+  prefix test exceeded its unchanged 5-second timeout. All four storage tests
+  passed on immediate retry. Before the final refresh from main, the full unit run passes all 2,685 tests
+  in 138 files, including real Neon storage, with unchanged thresholds:
+  91.90% lines and 89.09% branches.
+- The first browser run passed 128/131. A categorization fixture reused an
+  ended pool across parallel groups; moved creation to beforeAll, matching
+  the existing Budgets and transfer fixes. Navigation and planned-spending
+  timing failures both pass on focused retry after the unit run finishes;
+  all three failed checks plus setup pass in 12.9 seconds with traces.
+  Before the final refresh from main, the full browser run passes all 131 non-external tests in 2.8 minutes,
+  including all eight transfer flows, with four workers and the same timeout.
+- Scroll to the top after keyboard focus before full-page transfer screenshots,
+  so the sticky header is captured in its normal position. Browser assertions
+  and timeouts remain unchanged. Test changes pass lint and formatting.
+
+- PR #44 is open and attached to the chat. Main advanced to `5116fb5` while
+  verification ran, adding proactive alerts and an opaque-header correction.
+  Refreshed main again; only the append-only handoff conflicted. Preserved
+  HO-097 and all of our entries. Main's migration 0018 ran only on the two
+  verified local test databases; no Neon schema or journal writes were made.
+- After that refresh, 544 affected unit/integration checks are verified. A
+  readiness CLI subprocess timed out under concurrent build load (543/544);
+  all 21 readiness tests pass separately in 7.3 seconds with the original
+  timeout. Transfer, transaction, alert, messaging and isolation checks pass.
+- All 33 affected browser checks now pass, including transfer review, alerts,
+  navigation and categorization. Main's new alerts fixture had the same ended
+  pool problem; initialize its pool per group and clear its cleanup IDs.
+  Wait for each clicked navigation link's hydration. Assertions are unchanged.
+- Final lint, formatting, app/worker typechecks, docs, rebuilt production
+  bundle and bundle scan pass. The transfer screenshots include the opaque
+  header from main; unrelated regenerated screenshots are restored.
+
+### What's next
+- GitHub CI and teammate review; merge only after the repository's required
+  checks and review. No deployment or merge into main was requested.
+
+### Open problems
+- Published CI and teammate review remain pending. Transfer review
+  bounds and readiness limits remain as documented in HO-116 and HO-117.
+
+## HO-119: Dark mode pages sit on the header's gridded night band
+
+- **Date:** 2026-10-11 (UTC)
+- **Author:** Muhammad Tahub Khatri with Claude Code
+- **Branch / PR:** `claude/confident-lamport-14r5fp` / PR linked from the branch
+
+### What changed
+- In dark mode the page ground matched neither the header's colour nor
+  its grid: pages were blue-grey `#111416`, the header near-black
+  `#0a0a0a` with faint grid lines.
+- `--bg` in dark mode is now `#0a0a0a`, the header's `--head-bg`.
+- New `--page-grid` token: `transparent` in light mode, the header's
+  `--head-grid` in dark mode. `body` draws it with the header's 3.5rem
+  grid.
+- The body, the sticky header (`src/app/(app)/layout.module.css`) and the
+  dashboard hero use `background-attachment: fixed`, so their grid lines
+  line up while the page scrolls.
+- Light mode is unchanged: light grey pages under the dark header band.
+- `tests/e2e/app-nav.spec.ts`: dark mode, body and header have the same
+  background colour, grid, size and attachment; light mode, they differ.
+
+### Verified
+- `pnpm build` passes. Earlier in the session, `app-nav`, `bills`,
+  `budgets`, `recurring`, `calendar` and `accounts` e2e specs passed
+  locally. Muhammad will run the e2e suite himself from here.
+
+### What's next
+- Decide whether light mode should also take the dark ground.
+- The committed screenshots in `docs/screenshots/` still show the old dark
+  ground; they regenerate the next time their specs run.
+
+### Open problems
+- iOS Safari ignores `background-attachment: fixed`, so there the grid
+  scrolls with the page and may not line up exactly with the header.
+
 ## HO-098: README rewritten for the Devpost submission, with attributions
 
 - **Date:** 2026-10-11 (EDT)

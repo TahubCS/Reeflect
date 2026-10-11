@@ -2325,3 +2325,30 @@ Rules:
   delivery are unchanged. No worker, messaging, AI, cron, job, notification
   preferences or dashboard integration is implemented here. Those integrations
   must explicitly adopt these invoice semantics if they consume the public API.
+
+### ADR-066: Explicit web transfer review and reversible pair relationships
+
+- **Status:** Accepted (2026-10-11), user authorized the supplied implementation plan.
+- **Context:** Imported repayments can be counted twice. Transfer labels have
+  no provenance, and Bills evidence snapshots include the transfer flag.
+- **Decision:** Review existing transactions on a Transactions subroute.
+  Suggest equal/opposite posted amounts on different owned accounts within
+  three calendar days (ADR-020); the user chooses and confirms every pair.
+  Review reads never classify automatically; this feature adds no import hook.
+  Pair exactly two rows atomically.
+  Remove pairing clears only the relationship and keeps each transfer label;
+  counting standalone rows as normal activity is a separate explicit action.
+  Legacy/orphan groups remain visible and require explicit detachment, with
+  no ownership inferred from pair IDs and no automatic repair on reads.
+  Classification changes no ledger fact or recorded balance. Serialize writes
+  with Bills' workspace advisory lock before deterministic transaction locks.
+  Reject stale/competing forms and flag changes on allocated payment evidence.
+  Paired financial fields/flags cannot be edited until detachment; deletion
+  preserves the existing balance undo and detaches surviving owned members.
+- **Consequences:** Reuse existing transfer fields with no migration. Removing
+  pairing alone does not return amounts to spending/income. Bill evidence must
+  be explicitly unlinked before reclassification; labelled debt repayments
+  may gain/lose a relationship without changing that evidence. Default review
+  covers 90 days with explicit bounded older-date/account navigation.
+  The user approved the focused cashflow correction: liquid transfer amounts
+  move historical and daily balances without becoming spending or income.

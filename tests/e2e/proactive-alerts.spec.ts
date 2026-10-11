@@ -19,10 +19,14 @@ const SERVICE_TOKEN = "e2e-only-agent-service-token-0123456789";
 const WORKER_URL = `http://localhost:${process.env.STAND_IN_WORKER_PORT ?? "8799"}`;
 const MONEY = /[$¢€£]|\d+\.\d{2}\b/;
 
-const pool = new Pool({
-  connectionString:
-    process.env.DATABASE_URL ?? "postgres://test:test@localhost:5433/app_test",
-  max: 2,
+let pool: Pool;
+test.beforeAll(() => {
+  pool = new Pool({
+    connectionString:
+      process.env.DATABASE_URL ??
+      "postgres://test:test@localhost:5433/app_test",
+    max: 2,
+  });
 });
 const users: string[] = [];
 
@@ -60,6 +64,7 @@ test.afterAll(async () => {
     await pool.query(`DELETE FROM "user" WHERE id = ANY($1::text[])`, [users]);
   }
   await pool.end();
+  users.length = 0;
 });
 
 async function textsSentTo(

@@ -31,6 +31,7 @@ test.describe("signed in", () => {
     );
 
     for (const [label, url] of PAGES) {
+      await hydrated(page, `nav[aria-label='Pages'] a[href$='${url}']`);
       await nav.getByRole("link", { name: label }).click();
 
       await expect(page).toHaveURL(new RegExp(`/w/[^/]+${url}$`));
@@ -49,6 +50,53 @@ test.describe("signed in", () => {
     await nav.getByRole("link", { name: "Dashboard" }).click();
     await expect(page).toHaveURL(/\/w\/[^/]+\/dashboard$/);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  });
+
+  test("in dark mode every page sits on the header's gridded night band", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.goto("/accounts");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "Accounts",
+    );
+
+    const grounds = await page.evaluate(() => {
+      const ground = (el: Element) => {
+        const style = getComputedStyle(el);
+        return {
+          color: style.backgroundColor,
+          grid: style.backgroundImage,
+          size: style.backgroundSize,
+          attachment: style.backgroundAttachment,
+        };
+      };
+      return {
+        header: ground(document.querySelector("header")!),
+        body: ground(document.body),
+      };
+    });
+
+    expect(grounds.body).toEqual(grounds.header);
+    expect(grounds.body.grid).toContain("linear-gradient");
+  });
+
+  test("in light mode pages keep their light ground under the dark header", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.goto("/accounts");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "Accounts",
+    );
+
+    const [header, body] = await page.evaluate(() =>
+      [document.querySelector("header")!, document.body].map(
+        (el) => getComputedStyle(el).backgroundColor,
+      ),
+    );
+
+    expect(body).not.toBe(header);
   });
 
   test("every page shows who is signed in and offers sign out", async ({

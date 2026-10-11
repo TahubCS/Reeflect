@@ -11,10 +11,15 @@ import { hydrated, ownClientAddress, signUpVerified } from "./support";
 
 // Real browser + real local PostgreSQL. Fixtures enter transactions as an
 // importer would; categorization and all corrections use the production UI.
-const pool = new Pool({
-  connectionString:
-    process.env.DATABASE_URL ?? "postgres://test:test@localhost:5433/app_test",
-  max: 2,
+let pool: Pool;
+test.beforeAll(() => {
+  // Parallel groups can return to this module after its pool was closed.
+  pool = new Pool({
+    connectionString:
+      process.env.DATABASE_URL ??
+      "postgres://test:test@localhost:5433/app_test",
+    max: 2,
+  });
 });
 const userIds: string[] = [];
 const contexts: BrowserContext[] = [];

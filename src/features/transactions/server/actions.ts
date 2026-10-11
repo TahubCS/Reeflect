@@ -94,7 +94,7 @@ export async function updateTransactionAction(
 
   const parsed = parseTransactionForm(Object.fromEntries(formData), {
     today: today(),
-    ledgerEditable: existing.editableInFull,
+    ledgerEditable: existing.editableInFull && existing.transferPairId === null,
   });
   if (!parsed.ok) return rejected(parsed.errors, formData);
 
@@ -103,6 +103,22 @@ export async function updateTransactionAction(
   if (result === "no such account") {
     return rejected({ accountId: NO_SUCH_ACCOUNT }, formData);
   }
+  if (result === "paired")
+    return rejected(
+      {
+        transfer:
+          "Remove pairing in Review transfers before changing its financial fields or transfer label.",
+      },
+      formData,
+    );
+  if (result === "payment evidence")
+    return rejected(
+      {
+        transfer:
+          "This transaction is linked to a bill. Unlink its payment evidence in Bills before changing its transfer label.",
+      },
+      formData,
+    );
   redirect(listHref(verified));
 }
 
