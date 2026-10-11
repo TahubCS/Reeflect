@@ -4189,3 +4189,56 @@ rows", transactions 2 "show more" in steps of 20, plus a view-only list.
 - Reviews remain bounded and do not claim complete all-time history. Oversized
   candidate/group/account scopes show refinement or retry feedback.
 - Publication and deployed CI results remain outside this local verification.
+
+## HO-118: Combine Neon readiness and transfer review for one PR
+
+- **Date:** 2026-10-11
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `feat/transfer-review` / requested combined PR to `main`
+
+### What changed
+- The user requested merging both implementation branches and opening one PR.
+  Merged `chore/database-readiness` into `feat/transfer-review`, then merged
+  current main `5a60b11`, including quiet hours, UI improvements and receipt
+  photos. This combined branch contains both implementations and main.
+- Resolved documentation conflicts by preserving all team history and both
+  commands in AGENTS.md. Main owns HO-115 for receipt photos; renumbered our
+  readiness entry to HO-116 and transfer entry to HO-117. ADR-066 remains the
+  accepted transfer decision; main's ADR-067 is preserved.
+- Kept original `work` checkout changes untouched. Only the combined feature
+  branch will be published; no deployment or merge into main is requested.
+
+### Verified
+- Lint, formatting, app/worker typechecks, docs, production build, bundle scan
+  (50 files) and diff checks pass after consolidation.
+- The configured Neon app database reports READY through the optional
+  WebSocket transport. Missing journal entries 0010/0017 and one timestamp
+  remain diagnostic warnings; the financial-page schema and SELECT contract
+  pass. The check performs no production writes or repairs.
+- Verified local `app_test`, applied main's pending migrations 0016/0017 only
+  there, and ran its read-only readiness check successfully. Created a
+  separate local database for browser tests so concurrent unit isolation
+  checks cannot observe browser fixture writes.
+- The first full unit run passed 2,684/2,685 tests; one real Neon storage
+  prefix test exceeded its unchanged 5-second timeout. All four storage tests
+  passed on immediate retry. The final full unit run passes all 2,685 tests
+  in 138 files, including real Neon storage, with unchanged thresholds:
+  91.90% lines and 89.09% branches.
+- The first browser run passed 128/131. A categorization fixture reused an
+  ended pool across parallel groups; moved creation to beforeAll, matching
+  the existing Budgets and transfer fixes. Navigation and planned-spending
+  timing failures both pass on focused retry after the unit run finishes;
+  all three failed checks plus setup pass in 12.9 seconds with traces.
+  The final full browser run passes all 131 non-external tests in 2.8 minutes,
+  including all eight transfer flows, with four workers and the same timeout.
+- Scroll to the top after keyboard focus before full-page transfer screenshots,
+  so the sticky header is captured in its normal position. Browser assertions
+  and timeouts remain unchanged. Test changes pass lint and formatting.
+
+### What's next
+- Publish this combined branch as the user requested. GitHub CI and teammate
+  review follow; merge only after the repository's required checks and review.
+
+### Open problems
+- Published CI and teammate review remain pending. Transfer review
+  bounds and readiness limits remain as documented in HO-116 and HO-117.

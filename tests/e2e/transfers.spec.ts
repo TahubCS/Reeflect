@@ -344,6 +344,10 @@ test("loads older padded counterparts across pages and supports narrow screens, 
       await form.getByRole("radio").first().focus();
       await fx.page.keyboard.press("Space");
       await expect(form.getByRole("radio").first()).toBeChecked();
+      // Focus scrolls the form into view; capture the sticky header at the top.
+      await fx.page.evaluate(() =>
+        window.scrollTo({ top: 0, behavior: "instant" }),
+      );
       await fx.page.screenshot({
         path: `docs/screenshots/transfers/${width}-${colorScheme}.png`,
         fullPage: true,
