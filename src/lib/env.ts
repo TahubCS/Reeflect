@@ -25,6 +25,30 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((value) => value?.trim() || undefined),
+  /**
+   * Shared secret the agent worker sends to `/api/agent/turn` (ADR-032).
+   * Optional: without it the endpoint answers 404 to everyone. An empty
+   * value counts as unset.
+   */
+  AGENT_SERVICE_TOKEN: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined)
+    .pipe(z.string().min(32).optional()),
+  /**
+   * The number users text, shown on the Settings card (ADR-051). Optional:
+   * on Photon's shared pool there may be no single number. E.164 format.
+   */
+  AGENT_PHONE_NUMBER: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined)
+    .pipe(
+      z
+        .string()
+        .regex(/^\+[1-9]\d{6,14}$/, "must look like +15551234567")
+        .optional(),
+    ),
 });
 
 export type Env = z.infer<typeof envSchema>;

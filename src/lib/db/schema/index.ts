@@ -4,4 +4,5 @@
 // in the same PR.
 export * from "./auth";
 export * from "./finance";
+export * from "./messaging";
 export * from "./synthetic";

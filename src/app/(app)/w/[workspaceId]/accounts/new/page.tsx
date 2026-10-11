@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { PageLoading } from "@/components/ui/page-loading";
 import {
   AccountForm,
   AccountPage,
@@ -9,9 +11,11 @@ import { getSession } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Add an account" };
 
-export default async function NewAccountPage({
-  params,
-}: PageProps<"/w/[workspaceId]/accounts/new">) {
+type Props = PageProps<"/w/[workspaceId]/accounts/new">;
+
+// Reads the URL and the session, so the page renders this inside a Suspense
+// boundary.
+async function NewAccount({ params }: Pick<Props, "params">) {
   const { workspaceId } = await params;
   const access = await requireWorkspaceAccess(
     await getSession(),
@@ -39,5 +43,13 @@ export default async function NewAccountPage({
         cancelHref={`/w/${access.workspaceId}/accounts`}
       />
     </AccountPage>
+  );
+}
+
+export default function NewAccountPage({ params }: Props) {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <NewAccount params={params} />
+    </Suspense>
   );
 }

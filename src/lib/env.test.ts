@@ -68,6 +68,40 @@ describe("parseEnv", () => {
     ).toBe("ba_key");
   });
 
+  it("treats the agent token as optional, empty as unset, and short as invalid", () => {
+    const base = { DATABASE_URL: POOLED, ...AUTH };
+    const token = "agent-token-0123456789-0123456789-abc";
+
+    expect(parseEnv(base).AGENT_SERVICE_TOKEN).toBe(undefined);
+    expect(
+      parseEnv({ ...base, AGENT_SERVICE_TOKEN: " " }).AGENT_SERVICE_TOKEN,
+    ).toBe(undefined);
+    expect(
+      parseEnv({ ...base, AGENT_SERVICE_TOKEN: token }).AGENT_SERVICE_TOKEN,
+    ).toBe(token);
+
+    const attempt = (): unknown =>
+      parseEnv({ ...base, AGENT_SERVICE_TOKEN: "short-token" });
+    expect(attempt).toThrow(/AGENT_SERVICE_TOKEN/);
+    expect(attempt).not.toThrow(/short-token/);
+  });
+
+  it("accepts the agent phone number only in international format", () => {
+    const base = { DATABASE_URL: POOLED, ...AUTH };
+
+    expect(parseEnv(base).AGENT_PHONE_NUMBER).toBe(undefined);
+    expect(
+      parseEnv({ ...base, AGENT_PHONE_NUMBER: "" }).AGENT_PHONE_NUMBER,
+    ).toBe(undefined);
+    expect(
+      parseEnv({ ...base, AGENT_PHONE_NUMBER: "+15551234567" })
+        .AGENT_PHONE_NUMBER,
+    ).toBe("+15551234567");
+    expect(() =>
+      parseEnv({ ...base, AGENT_PHONE_NUMBER: "555-123-4567" }),
+    ).toThrow(/AGENT_PHONE_NUMBER/);
+  });
+
   it("rejects a malformed auth URL", () => {
     expect(() =>
       parseEnv({ DATABASE_URL: POOLED, ...AUTH, BETTER_AUTH_URL: "localhost" }),

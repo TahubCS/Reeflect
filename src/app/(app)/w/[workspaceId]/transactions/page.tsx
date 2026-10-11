@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { PageLoading } from "@/components/ui/page-loading";
 import { accountIdSchema, listAccounts } from "@/features/accounts";
 import {
   LIST_LIMIT,
@@ -11,10 +13,11 @@ import { getSession } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Transactions" };
 
-export default async function TransactionsPage({
-  params,
-  searchParams,
-}: PageProps<"/w/[workspaceId]/transactions">) {
+type Props = PageProps<"/w/[workspaceId]/transactions">;
+
+// Reads the URL, the session and the transactions, so the page renders this
+// inside a Suspense boundary.
+async function Transactions({ params, searchParams }: Props) {
   const { workspaceId } = await params;
   const access = await requireWorkspaceAccess(
     await getSession(),
@@ -42,5 +45,13 @@ export default async function TransactionsPage({
       truncated={transactions.length === LIST_LIMIT}
       canEdit={roleAtLeast(access.role, "editor")}
     />
+  );
+}
+
+export default function TransactionsPage(props: Props) {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <Transactions {...props} />
+    </Suspense>
   );
 }
