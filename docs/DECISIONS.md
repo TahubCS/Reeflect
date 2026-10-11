@@ -92,6 +92,7 @@ Rules:
 | ADR-083 | Ask the user to categorize large uncategorized payments (refines ADR-055, ADR-057) | Proposed |
 | ADR-084 | Reserved ADR and handoff numbers for each developer | Accepted |
 | ADR-102 | Planned transactions are kept apart from the ledger (refines ADR-042, ADR-050) | Proposed |
+| ADR-103 | Built-in category keywords when no saved rule matches (refines ADR-013) | Proposed |
 
 ---
 
@@ -1802,6 +1803,40 @@ Rules:
   older than the calendar's window (two months back) is no longer shown;
   it stays stored until the account or workspace is deleted. Editing a plan
   means removing and re-adding it for now. The agent does not read plans.
+
+### ADR-103: Built-in category keywords when no saved rule matches (refines ADR-013)
+
+- **Status:** Proposed (2026-10-11)
+- **Context:** ADR-013 sends anything no saved rule matches to
+  "Uncategorized", and a new workspace has no saved rules. So "Choose for
+  me" on the day panel, a plan's category and every imported row ended up
+  Uncategorized until the person wrote rules by hand.
+- **Decision:**
+  - Code ships a short keyword list per preset category
+    (`src/features/categorization/domain/starter-rules.ts`): "coffee",
+    "lunch" → Dining; "uber", "bus pass" → Transport; "rent" → Housing;
+    "paycheck" → Income; and so on.
+  - A keyword matches whole words of the normalized merchant name, in a
+    row ("gas" never matches "Las Vegas"). It is a rule with match type
+    `word`, which only built-in keywords use; people still save
+    `contains`, `starts_with` or `exact` rules.
+  - Built-in keywords rank below every saved rule, so the person's own
+    rules and manual choices always win. Among themselves a keyword of more
+    words wins ("uber eats" is Dining, "uber" is Transport).
+  - They are not stored. Every reader that chooses an automatic category
+    (the Categorization page, budgets, Insights, new transactions, plans)
+    appends them to the saved rules, so all of them agree.
+  - Each keyword must be right almost always; a wrong guess is worse than
+    Uncategorized. No AI is involved.
+- **Alternatives considered:** Gemini picking the category: ADR-040 keeps
+  real users' data away from Gemini until the paid key, and it adds
+  latency. Removing "Choose for me": every entry would need a choice.
+- **Consequences:** Rows that were Uncategorized may now show a category
+  on the Categorization page, budgets and Insights at once. The calendar
+  reads the stored `category_id`, so older rows change there only when the
+  rules are next applied (any rule change or `applyCategoryRules`). A
+  workspace has at most `MAX_RULES` saved rules plus the built-in ones, so
+  the engine accepts up to 2,000 rules.
 
 ---
 

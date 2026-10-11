@@ -3101,6 +3101,11 @@ recommendation, not a decision.
   exported from transactions.
 - `scripts/db/budgets-migration.test.ts` no longer assumes 0012 is the last
   migration.
+- ADR-103 (Proposed): built-in category keywords for "Choose for me", in
+  `categorization/domain/starter-rules.ts`. Whole-word matches, below every
+  saved rule, never stored; budgets, Insights, the Categorization page, new
+  transactions and plans all use them (`listActiveRules`,
+  `withStarterRules`). Saved rules still cannot use the `word` match type.
 
 ### What's next
 - Run `pnpm db:migrate:to branch` / `production` for 0013 once the PR is
@@ -3111,4 +3116,9 @@ recommendation, not a decision.
 ### Open problems
 - An unconfirmed plan older than the calendar's two months back stops
   showing; it stays stored until its account is deleted.
+- Older rows' stored `category_id` only picks up the built-in keywords when
+  rules are next applied, so the calendar may still show them Uncategorized
+  until then. A one-off `applyCategoryRules` per workspace would fix it.
+- The keyword list is a first pass; widen it from real "Uncategorized"
+  descriptions.
 

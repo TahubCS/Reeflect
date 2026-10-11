@@ -56,6 +56,15 @@ Server callers import from `@/features/categorization`:
   F-04 creation and editing use it to save categories with their existing
   balance updates and preserve manual category choices on edits.
 - `listCategories` and `listRules` return only the verified workspace's rows.
+- `listActiveRules(verifiedWorkspaceId, executor?, categories?)` returns the
+  saved rules followed by the built-in keywords (ADR-103), the full set an
+  automatic category is chosen from. Pure callers that already hold rules and
+  categories use `withStarterRules(rules, categories)` from `./client`.
+
+Built-in keywords (`domain/starter-rules.ts`) give "Choose for me" and
+imported rows a category when no saved rule matches: whole words of the
+normalized merchant, ranked below every saved rule, never stored. People can
+always override them or save a rule of their own.
 - `applyCategoryRules(verifiedWorkspaceId, transactionIds?)` is the post-import
   hook for materializing automatic category ids after an import commits.
   Passing ids restricts the work to those workspace-owned rows; an empty list

@@ -1,5 +1,10 @@
 import "server-only";
 import { and, asc, eq, gte, lte } from "drizzle-orm";
+import {
+  classifyStored,
+  listActiveRules,
+  listCategories,
+} from "@/features/categorization";
 import { db } from "@/lib/db/client";
 import { uuidv7 } from "@/lib/db/id";
 import {
@@ -46,6 +51,38 @@ const categoryJoin = and(
 );
 
 /**
+ * A plan left on "Choose for me" shows the category the rules would give it
+ * once confirmed: the saved rules, then the built-in keywords (ADR-103).
+ * Nothing is stored, so a new rule changes waiting plans too.
+ */
+async function withAutomaticCategories(
+  workspaceId: string,
+  plans: PlannedSummary[],
+): Promise<PlannedSummary[]> {
+  if (plans.every((plan) => plan.categoryId !== null)) return plans;
+  const categories = await listCategories(workspaceId);
+  const active = await listActiveRules(workspaceId, undefined, categories);
+  const byId = new Map(categories.map((c) => [c.id, c]));
+  return plans.map((plan) => {
+    if (plan.categoryId !== null) return plan;
+    const { categoryId } = classifyStored(
+      {
+        descriptionRaw: plan.description,
+        categoryId: null,
+        categoryIsManual: false,
+      },
+      active,
+    );
+    const found = categoryId === null ? undefined : byId.get(categoryId);
+    return {
+      ...plan,
+      categoryName: found?.name ?? null,
+      categoryPresetKey: found?.presetKey ?? null,
+    };
+  });
+}
+
+/**
  * The workspace's plans dated `from` to `to` ("YYYY-MM-DD", both included),
  * oldest first, for the calendar.
  */
@@ -70,7 +107,7 @@ export async function listPlansBetween(
       asc(plannedTransaction.createdAt),
       asc(plannedTransaction.id),
     );
-  return rows.map(toSummary);
+  return withAutomaticCategories(workspaceId, rows.map(toSummary));
 }
 
 export async function getPlan(

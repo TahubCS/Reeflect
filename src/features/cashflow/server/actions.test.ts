@@ -190,6 +190,26 @@ describe("addDayEntryAction", () => {
     });
   });
 
+  it("lets the built-in keywords choose when the category is left to us (ADR-103)", async () => {
+    signedInAs(editor);
+    const dining = (await listCategories(workspace)).find(
+      (c) => c.presetKey === "dining",
+    )!;
+
+    await addDayEntryAction(
+      workspace,
+      lunch({ description: "Coffee and a bagel" }),
+    );
+
+    const [row] = (await transactionsIn(workspace)).filter(
+      (r) => r.descriptionRaw === "Coffee and a bagel",
+    );
+    expect(row).toMatchObject({
+      categoryId: dining.id,
+      categoryIsManual: false,
+    });
+  });
+
   it("explains a bad amount and writes nothing", async () => {
     signedInAs(editor);
     const before = (await transactionsIn(workspace)).length;
@@ -572,6 +592,32 @@ describe("plans on the calendar (F-37, ADR-102)", () => {
         categoryIsManual: true,
       }),
     ]);
+  });
+
+  it("shows a plan left to us in its automatic category, and keeps it automatic once confirmed", async () => {
+    signedInAs(editor);
+    const transport = (await listCategories(workspace)).find(
+      (c) => c.presetKey === "transport",
+    )!;
+    const id = (await createPlan(workspace, {
+      accountId: checking,
+      plannedOn: today(),
+      amountCents: cents(-275),
+      description: "Bus fare",
+      categoryId: null,
+    }))!;
+
+    const dashboard = await loadDashboard(workspace);
+    expect(dashboard.data.entries).toContainEqual(
+      expect.objectContaining({ id, category: "Transport" }),
+    );
+
+    await confirmPlanAction(workspace, id);
+    const [row] = (await transactionsIn(workspace)).filter((r) => r.id === id);
+    expect(row).toMatchObject({
+      categoryId: transport.id,
+      categoryIsManual: false,
+    });
   });
 
   it("refuses to confirm a plan before its day", async () => {

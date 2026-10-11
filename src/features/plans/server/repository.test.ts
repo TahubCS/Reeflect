@@ -79,6 +79,37 @@ describe("plans repository", () => {
     });
   });
 
+  it("gives a plan left to us the category the rules would choose (ADR-103)", async () => {
+    await ensureCategories(workspaceA);
+    const id = await createPlan(
+      workspaceA,
+      plan({ plannedOn: "2027-01-05", description: "Rent" }),
+    );
+    const unknown = await createPlan(
+      workspaceA,
+      plan({ plannedOn: "2027-01-06", description: "Thing for Alex" }),
+    );
+
+    const listed = await listPlansBetween(
+      workspaceA,
+      "2027-01-05",
+      "2027-01-06",
+    );
+    expect(listed).toEqual([
+      expect.objectContaining({
+        id,
+        categoryId: null,
+        categoryName: "Housing",
+        categoryPresetKey: "housing",
+      }),
+      expect.objectContaining({
+        id: unknown,
+        categoryId: null,
+        categoryName: null,
+      }),
+    ]);
+  });
+
   it("lists plans between two days, oldest first", async () => {
     const late = await createPlan(
       workspaceA,

@@ -120,11 +120,11 @@ test("opens on today with the account's balance, and adding and removing spendin
   await spend(page, "16", "Bus pass");
 
   await expect(headline(page)).toHaveText("You have $484.00 today.");
-  await expect(dayPanel(page).getByText(/added by you/)).toBeVisible();
-  await expect(cell(page, today)).toContainText("Bus pass");
+  // "Choose for me" knows a bus pass is Transport (ADR-103).
   await expect(
-    page.getByRole("region", { name: /What we noticed/ }),
-  ).toContainText("isn’t in a category yet: $16.00 across 1 purchase");
+    dayPanel(page).getByText("Transport, added by you"),
+  ).toBeVisible();
+  await expect(cell(page, today)).toContainText("Bus pass");
 
   await dayPanel(page).getByRole("button", { name: "Remove Bus pass" }).click();
 
