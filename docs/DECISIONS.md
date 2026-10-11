@@ -84,6 +84,7 @@ Rules:
 | ADR-056 | Insights: compare with sample people (refines ADR-049) | Proposed |
 | ADR-057 | More preset categories; sample people arrive categorized (refines ADR-015) | Proposed |
 | ADR-058 | Recurring payment patterns, confirmation and variable bills | Accepted |
+| ADR-059 | Sample years in the developers' own accounts (exception to ADR-049) | Accepted |
 
 ---
 
@@ -1587,6 +1588,25 @@ Rules:
   quarterly/fortnightly patterns, false positives, preserved user choices,
   account isolation and actual-versus-estimated totals. Use a new additive
   recurring-series migration and a public post-import refresh API.
+
+### ADR-059: Sample years in the developers' own accounts (exception to ADR-049)
+
+- **Status:** Accepted (2026-10-11)
+- **Context:** To test Insights against the sample people, the three
+  developers need a year of history in the accounts they sign in with.
+  ADR-049 keeps synthetic data out of real users' accounts.
+- **Decision:** For the hackathon, `pnpm batch give` may write one spec
+  person's year into a named developer's Personal workspace: sample
+  accounts (`source = 'synthetic'`, nickname starting "Sample · ") and
+  their transactions, plus any missing preset categories and rules. It adds
+  no `synthetic_workspace` marker, so those workspaces stay out of the
+  comparison group (ADR-056). `pnpm batch take-back` removes the sample
+  accounts and their transactions. The only other exception is the Nessie
+  demo customer that judges and developers use (ADR-048). Nobody else's
+  account gets synthetic data.
+- **Consequences:** The developers' own figures in Insights include sample
+  rows, labelled by their accounts. Take the data back before using these
+  accounts for anything real. Categories and rules that were added stay.
 
 ---
 

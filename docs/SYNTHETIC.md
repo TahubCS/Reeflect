@@ -57,6 +57,29 @@ it is labelled "Sample".
   workspaces have none yet. Until a developer viewer exists, use
   `batch report`, or query the branch in the Neon SQL editor.
 
+### Developer accounts (ADR-059)
+
+For the hackathon only, a developer can get one spec person's year in the
+account they sign in with, to test Insights against the sample people.
+Write a spec with one person per developer, then:
+
+```bash
+pnpm batch give dev.json --user jacob=<userId> --dry-run      # preview
+pnpm batch give dev.json --user jacob=<userId> --user simon=<userId> --target production --yes
+pnpm batch take-back --user <userId> --target production --yes
+```
+
+- `<userId>` is the `user.id` from the database; the person must have
+  signed in once so their Personal workspace exists.
+- Accounts arrive named "Sample · …" with `source = 'synthetic'`. The
+  workspace gets no `synthetic_workspace` marker, so it never joins the
+  comparison group.
+- A second `give` to the same user refuses; add `--replace` to swap the
+  sample accounts for a new year. Note the printed seed to get the same rows
+  again.
+- `take-back` removes the sample accounts and their transactions. Without
+  `--yes` it only counts them. Added categories and rules stay.
+
 ### Databases
 
 | Target | Database | Variable in `.env.local` |

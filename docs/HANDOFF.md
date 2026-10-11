@@ -2378,3 +2378,52 @@ recommendation, not a decision.
   as spending.
 - **The Subscriptions category** reads as spending, not as a subscription,
   until the calendar reads recurring payments.
+
+## HO-049: A sample year in the developers' own accounts (ADR-059)
+
+- **Date:** 2026-10-11 (EDT)
+- **Author:** Jacob Heminway with Claude (Claude Code)
+- **Branch / PR:** `feat/dev-sample-data` / not opened
+
+### What changed
+- **Production batch:** the 100-person, one-year batch from the
+  batch-testing branch (`01a128e5-…`) was promoted to production. The
+  promote first failed because production lacked migration 0008
+  (`insight_sample`); Jacob migrated production and reran it.
+- **ADR-059 (Accepted):** the hackathon exception to ADR-049. The three
+  developers may get one spec person's year in their own Personal
+  workspace; the Nessie demo customer is the only other exception.
+- **`pnpm batch give <spec.json> --user <personKey>=<userId> …`**
+  (`scripts/batch/cli.ts`, `giveToUser` in `store.ts`): in one transaction
+  per user, it finds the Personal workspace, adds missing preset categories
+  (keeps renamed ones), adds rules for patterns the user doesn't have, and
+  writes the person's accounts ("Sample · …", `source = 'synthetic'`) and
+  transactions. There's no `synthetic_workspace` marker, so the comparison
+  group stays the 100. It refuses a second give unless `--replace` is set.
+- **`pnpm batch take-back --user <userId> [--yes]`** removes the sample
+  accounts; their transactions cascade.
+- **Refactor:** `rows.ts` now exposes `presetCategoryRows` and
+  `personRows`; `buildRows` uses them, with the same output as before.
+- **Docs:** SYNTHETIC.md "Developer accounts", the `pnpm batch` row in
+  AGENTS.md.
+- **Tests:** `parseUserMap` and `personRows` in `prepare.test.ts`; give,
+  replace, take-back and a missing workspace in `store.test.ts`. The batch
+  tests (34) pass. In the full `pnpm test:unit` run, 1,304 pass and 8 fail;
+  all 8 need `.env.storage-tests`, which this machine doesn't have. The
+  local Docker database was migrated to 0009 first. Lint, typecheck,
+  format and docs:check pass. No Playwright test: this is a CLI with no UI.
+
+### What's next
+- `scripts/batch/specs/devs.json` is written: 9 people, one per developer
+  per pay level (`jacob-low|mid|high`, `simon-…`, `muhammad-…`), Oct 2025
+  for 13 months, checked with seed `devs-1`. Give each developer one level
+  in production, and swap levels later with `--replace`. The 5 remaining
+  warnings come from the car purchases paid from savings.
+- Commit and open a PR once Jacob says so.
+
+### Open problems
+- Production reads and writes from the agent are blocked by the
+  permission classifier; a person runs the production commands.
+- The batch CLI still prints only "Failed (Error)" for database errors.
+  The Postgres code is on `error.cause` (drizzle 0.45); fixing that is
+  still to do.
