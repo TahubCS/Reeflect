@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { type CategoryRule, classifyStored } from "./categorize";
+import {
+  type CategoryRule,
+  categorizeTransaction,
+  classifyStored,
+} from "./categorize";
 import { PRESET_CATEGORIES, ruleInputSchema } from "./forms";
 import {
   STARTER_KEYWORDS,
@@ -131,5 +135,73 @@ describe("saved rules", () => {
         priority: 0,
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("classifyStored with a list it has already checked", () => {
+  const rules = withStarterRules(
+    [
+      {
+        id: "rule-1",
+        categoryId: "category-shopping",
+        pattern: "coffee beans",
+        matchType: "contains",
+        priority: 5,
+      },
+    ],
+    CATEGORIES,
+  );
+
+  it("gives the same answer as categorizeTransaction, row after row", () => {
+    const rows = [
+      "Coffee beans",
+      "Coffee",
+      "Uber Eats",
+      "Las Vegas",
+      "STARBUCKS STORE #1234",
+      "",
+    ];
+    for (const descriptionRaw of rows) {
+      for (const categoryIsManual of [false, true]) {
+        const categoryId = categoryIsManual ? "category-gifts" : null;
+        const expected = categorizeTransaction({
+          descriptionRaw,
+          rules,
+          manualOverride: categoryIsManual,
+          manualCategoryId: categoryId,
+        });
+        expect(expected.success).toBe(true);
+        expect(
+          classifyStored(
+            { descriptionRaw, categoryId, categoryIsManual },
+            rules,
+          ),
+        ).toEqual(expected.success && expected.data);
+      }
+    }
+  });
+
+  it("leaves every row of a list that fails its check uncategorized", () => {
+    const broken = [...rules, rules[0]!]; // a repeated id
+    for (const descriptionRaw of ["Coffee", "Rent"]) {
+      expect(
+        classifyStored(
+          { descriptionRaw, categoryId: null, categoryIsManual: false },
+          broken,
+        ),
+      ).toMatchObject({ categoryId: null, origin: "uncategorized" });
+    }
+  });
+
+  it("classifies a large month quickly", () => {
+    const row = {
+      descriptionRaw: "Market",
+      categoryId: null,
+      categoryIsManual: false,
+    };
+    const start = performance.now();
+    for (let i = 0; i < 20_000; i += 1) classifyStored(row, rules);
+    // Was about 5 s with the rules checked per row; now well under 1 s.
+    expect(performance.now() - start).toBeLessThan(1_000);
   });
 });
