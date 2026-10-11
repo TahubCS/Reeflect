@@ -31,27 +31,23 @@ export const LOG_REPLIES = {
     "There's nothing to undo: I haven't logged anything from your texts in the last day.",
 } as const;
 
-/** At most this many account names in one reply. */
-const MAX_NAMES = 5;
+/** At most this many accounts are listed, and numbered, in one reply. */
+export const MAX_LISTED_ACCOUNTS = 5;
 
-/** Asks which account, naming theirs, with their own text as the example. */
+/**
+ * Asks which account, numbering theirs. The spending is remembered while
+ * the question is open (ADR-065), so the answer is a number or a name.
+ */
 export function whichAccountReply(
   amount: Cents,
   description: string,
   nicknames: readonly string[],
 ): string {
-  const names = nicknames.slice(0, MAX_NAMES);
-  const example =
-    names.length > 0
-      ? `, like "${plain(amount)} ${description} from ${names[0]}"`
-      : "";
-  const list = names.length > 0 ? ` Your accounts: ${names.join(", ")}.` : "";
-  return `Which account? Send it again with the account at the end${example}.${list} Nothing was logged.`;
-}
-
-/** The amount as they would type it: "12", "12.50". */
-function plain(amount: Cents): string {
-  return formatCents(amount).replace(/[$,]/g, "").replace(/\.00$/, "");
+  const list = nicknames
+    .slice(0, MAX_LISTED_ACCOUNTS)
+    .map((nickname, index) => `${index + 1} ${nickname}`)
+    .join(", ");
+  return `Which account for ${formatCents(amount)} "${description}"? Reply with its number or name: ${list}. Nothing is logged yet.`;
 }
 
 export type Logged = {

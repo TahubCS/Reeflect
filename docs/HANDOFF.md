@@ -60,7 +60,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-24 Phone linking | C | Muhammad Tahub Khatri | `feat/photon-agent` | Built (HO-032); the phone is texted when the link is approved (HO-061, ADR-062) |
 | F-25 "How am I doing?" + week-ahead image | C | Muhammad Tahub Khatri | `feat/agent-payday-answer` | Answers built (HO-050, HO-061): balances, the last 30 days, and what is owed before payday with the calendar's per-day figure. The image is not built |
 | F-26 Subscription alerts | C | Unassigned | — | Not started |
-| F-27 Log spending by text | C | Muhammad Tahub Khatri | `feat/agent-log-spending` | Built (HO-071, ADR-064): log, ask when unsure, UNDO. Not built: money in, days before yesterday, receipts |
+| F-27 Log spending by text | C | Muhammad Tahub Khatri | `feat/agent-log-spending` | Built (HO-071, ADR-064): log, ask when unsure, UNDO. The account question is remembered and answered in the next text (HO-073, ADR-065). Not built: money in, days before yesterday, receipts |
 | F-28 Category and balance questions | C | Muhammad Tahub Khatri | `feat/agent-questions` | Built (HO-072, ADR-059): this month's spending and budgets by category, the next payments before payday, each account's balance. Not built: any period other than this month so far |
 | F-32 Agent worker | C | Muhammad Tahub Khatri | `feat/agent-worker` | Done, replies only (HO-039, PR #17); live on Render (HO-049) |
 | F-22 Bill reminders (P1) | A + C | Unassigned | — | Not started |
@@ -3699,3 +3699,112 @@ recommendation, not a decision.
 - When nothing was spent this month the model has no category labels and
   is not told why, so it may say it does not have that yet.
 - Flaky tests outside this feature, listed under Verified.
+
+## HO-073: The agent remembers "which account?" so the next text can answer
+
+- **Date:** 2026-10-11 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `fix/agent-log-account-followup` / not opened
+
+### What changed
+- **Found on a real phone:** four texts about one $8.75 purchase logged
+  nothing. Photon was not at fault; the app kept nothing between texts.
+  Three causes, each reproduced against the parser: the answer "it was from
+  my checking account" had no amount and went to the summary; the example
+  the agent told the person to send was over the short form's six words,
+  so it was not read as spending; "from muhammad checking" was not matched.
+- **One open question is remembered** per linked phone for 10 minutes
+  (ADR-065, Proposed): new table `agent_pending_log`, **migration 0015**,
+  repository `src/features/agent/server/pending.ts`.
+- **The question numbers the accounts:** `Which account for $8.75
+  "cloudflare to buy a domain"? Reply with its number or name: 1 Muhammad,
+  2 ... Nothing is logged yet.` The next text may be "1", "Muhammad", or a
+  kind they have one of ("my credit card"). `readAccountAnswer` in
+  `domain/log-account.ts` reads it; `answerPending` in
+  `tools/logSpending.ts` saves through the same code as any log.
+- Two accounts of the kind named, or a number off the list: asked again.
+  New spending or UNDO closes the question; a question in between does not.
+- `chooseAccount` also accepts a kind or "account" after a nickname and a
+  nickname typed without its punctuation.
+- `runAgentTurn` order is now LINK, STOP, the link, the open question,
+  logging, the answer.
+- **Merged with main (PR #37):** this entry was HO-072 until main's F-28
+  entry took that number, so it is now HO-073. Conflicts were in
+  `.gitignore`, `ARCHITECTURE.md`, `TESTING.md` and this file; both sides
+  were kept. No code conflicted.
+
+### Verified
+- The four real texts reproduced against the parser before the change, and
+  as a conversation in `runAgentTurn.test.ts` after it.
+- `pnpm lint`, `format:check`, `typecheck`, `docs:check`, `build` and
+  `scan:bundle`: see the results reported with the follow-up commit.
+- **Follow-up, same session:** `.claude/worktrees/` (other agents'
+  checkouts) is ignored by git, ESLint and Prettier, so lint and format
+  check this checkout only. `recurring/server/repository.test.ts` compared
+  rows in whatever order the database returned and failed about two runs
+  in three; it now compares by id. The two tests that build a whole
+  database (`budgets-migration`, `migration-0004`) have 30 seconds, not
+  the default 5, which they passed in full runs on this machine.
+- `pnpm test:unit` after that, twice: 2002 pass; the 8 that fail are the
+  storage tests that need `.env.storage-tests` (no Neon CLI or login on
+  this machine).
+
+### What's next
+- Apply migration 0015 to the Neon branch and production before deploying
+  (`pnpm db:migrate:to`), then repeat the four texts on the real phone.
+- Next agent plan: F-28, category and balance questions.
+
+### Open problems
+- An answer delivered twice is saved once, but the second copy is read as
+  an ordinary text ("1" gets "What was it for?").
+- A nickname containing a number ("Sample · 360 Checking") cannot be named
+  in the first text; its number in the list works.
+- Expired rows are ignored and replaced, not swept.
+- Not tried with a real iMessage yet.
+
+## HO-074: F-29 receipt photos planned; the follow-up branch pushed
+
+- **Date:** 2026-10-11 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `fix/agent-log-account-followup` (pushed, `3f5f8cb`) / not opened
+
+### What changed
+- The ADR-065 work (HO-073, migration 0015) was committed and pushed so
+  other agents can build on it. No code changed in this session.
+- A second agent wrote a plan for F-29 (receipt photos). Nothing is built.
+  It was asked to run in the cloud but ran **on this machine**, in the
+  worktree `.claude/worktrees/agent-a503939b6c667a740`, on a local branch
+  `feat/agent-receipt-photos` at `3f5f8cb`. That branch is not on GitHub.
+- Decided by Muhammad for F-29: receipt reading is behind an env switch,
+  off by default; tests and the demo use generated receipts only (ADR-040);
+  plan first, build only after he approves the plan.
+- The handoff number just below this entry's, and the next decision
+  number, are left free for the F-28 work on `feat/agent-questions`.
+
+### Verified
+- Before the push: `pnpm typecheck` and `pnpm docs:check` pass. ESLint
+  passes with `.claude/` ignored; plain `pnpm lint` fails on files inside
+  the other agent's worktree. Prettier passes on the committed code files.
+- `pnpm test:unit`, full run: 11 to 12 of 2010 fail. Most are the storage
+  tests that need `.env.storage-tests`. `scripts/db/budgets-migration.test.ts`
+  timed out at 5 seconds in full runs; it, `migration-0004.test.ts` and
+  `recurring/server/repository.test.ts` pass when run on their own.
+  `insights/server/insights.test.ts` failed once and was not re-run alone.
+- Not run: `pnpm build`, `pnpm test:e2e`.
+
+### What's next
+- Muhammad reviews the F-29 plan and answers its open questions (tapback
+  as yes, a limit on photo reads, captions, `pnpm ai:check receipt`, the
+  date, 3 MB base64 or multipart, yes/no with nothing open).
+- After approval: build on `feat/agent-receipt-photos`, with migration
+  0016 and a new decision record. F-28 may also want 0016 and edits `runAgentTurn.ts`;
+  whichever merges second regenerates its migration.
+
+### Open problems
+- The plan was made by reading only: no Gemini image call, no real phone.
+  Image support per model, `response_format` on this key and image latency
+  are unverified.
+- A threaded (swipe) reply is dropped by the worker today, so an account
+  answer sent that way is lost (found while planning; not fixed).
+- The full unit run is not clean on this machine while another agent's
+  worktree is active.

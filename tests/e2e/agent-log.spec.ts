@@ -115,7 +115,7 @@ test("a text logs spending onto the calendar, and UNDO takes it back", async ({
   await expect(dayPanel(page).getByText("texted in")).toHaveCount(0);
 });
 
-test("with two accounts the agent asks which, then logs on the one named", async ({
+test("with two accounts the agent asks which, and the next text can answer", async ({
   browser,
   baseURL,
 }) => {
@@ -129,17 +129,24 @@ test("with two accounts the agent asks which, then logs on the one named", async
   const text = await linkPhone(page);
 
   expect(await text("40 gas")).toBe(
-    'Which account? Send it again with the account at the end, like "40 gas from Everyday". Your accounts: Everyday, Quicksilver. Nothing was logged.',
+    'Which account for $40.00 "gas"? Reply with its number or name: 1 Everyday, 2 Quicksilver. Nothing is logged yet.',
   );
   await openDashboard(page);
   await expect(headline(page)).toHaveText("You have $500.00 today.");
 
-  expect(await text("40 gas on card")).toContain(
+  // The answer is the next text: a number, a name or the kind of account.
+  expect(await text("2")).toContain(
     'Logged $40.00 for "gas" today on Quicksilver',
   );
-  expect(await text("12 lunch from Everyday")).toContain(
+  expect(await text("12 lunch")).toContain('Which account for $12.00 "lunch"?');
+  expect(await text("it was from my checking account")).toContain(
     'Logged $12.00 for "lunch" today on Everyday',
   );
+  // Naming the account in the first text needs no question.
+  expect(await text("3 gum on card")).toContain(
+    'Logged $3.00 for "gum" today on Quicksilver',
+  );
+  expect(await text("undo")).toBe('Removed $3.00 for "gum".');
 
   // The card purchase shows as spending without moving the balance; the
   // checking one moves it.
