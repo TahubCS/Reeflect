@@ -168,13 +168,14 @@ test("shows evidence for variable bills and fixed subscriptions, requiring confi
     page.getByRole("article", { name: "irregular market" }),
   ).toHaveCount(0);
   await expect(totals(page)).toContainText("$0.00");
-  // The rhythm is in words under the button; the list shows each gap.
+  // The rhythm is in words above the ledger; each row shows its gap. Three
+  // charges fit before "Show all", so there is no button.
   await expect(card(page, "city electric")).toContainText(
-    /Every \d+(–\d+)? days/,
+    /Matching charges · Every \d+(–\d+)? days/,
   );
-  await card(page, "city electric")
-    .getByRole("button", { name: /See 3 matching charges/ })
-    .click();
+  await expect(
+    card(page, "city electric").getByRole("button", { name: /Show all/ }),
+  ).toHaveCount(0);
   await expect(card(page, "city electric")).toContainText(longDate(date(-3)));
   await expect(card(page, "city electric")).toContainText("First one found");
   await expect(card(page, "city electric")).toContainText(

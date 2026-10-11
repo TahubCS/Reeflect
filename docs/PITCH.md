@@ -97,9 +97,9 @@ This does not depend on an AI call or change transaction amounts.
 
 Optional F-10 website demo after migration 0009: open **Recurring payments**
 with three monthly electricity charges of $95, $130 and $110. The header's
-Recurring payments link shows how many suggestions wait. Point at the dots
-with the days between the charges, press **See 3 matching charges**, and
-confirm the suggestion: the header's count drops, and it becomes a variable bill
+Recurring payments tab shows how many suggestions wait. Point at the
+matching charges listed on the card, each with the days since the one
+before, and confirm the suggestion: the header's count drops, and it becomes a variable bill
 with a $110 typical payment and a $95–$130 recent range. Say: “We look for
 patterns in payment dates, even when the amount changes. You confirm the
 pattern; future amounts and dates are estimates.” Add rent manually, or

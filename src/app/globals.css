@@ -7,17 +7,32 @@
 :root {
   color-scheme: light dark;
 
-  --bg: #f5f6f3;
-  --surface: #ffffff;
-  --surface-soft: #fafbf9;
-  --ink: #14202b;
-  --ink-soft: #55616d;
-  --line: #dde2e5;
-  --tint: #edf3f6;
-  --bar: #9db3c5;
-  --in: #1c7a55;
-  --bill: #a2650a;
-  --sub: #4a56b0;
+  /* Style B of the UI rework: the landing page's light grey sheets, with
+     its dark grid band for the header (--head-*). */
+  --bg: #e4e4e4;
+  --surface: #f5f5f5;
+  --surface-soft: #ededed;
+  --ink: #171717;
+  --ink-soft: #474747;
+  --line: #cfcfcf;
+  --tint: #e8e8e8;
+  --bar: #7d858b;
+  --in: #17734c;
+  --bill: #8f5806;
+  --sub: #434da0;
+
+  /* The night band behind the signed-in header. It stays dark in both
+     themes, like the landing page's hero. */
+  --head-bg: #161616;
+  --head-ink: #f5f5f5;
+  --head-soft: #b5b5b5;
+  --head-line: rgb(255 255 255 / 0.14);
+  --head-tint: #2a2a2a;
+  --head-grid: rgb(255 255 255 / 0.035);
+  --head-in: #6bd49a;
+
+  /* Figures that should line up like a statement. */
+  --font-num: var(--font-mono), ui-monospace, Menlo, monospace;
 
   /* "Sample" label (ADR-024) and Insights' slight comparison tints
      (ADR-056). Tints sit behind ink text: the words carry the meaning. */
@@ -36,17 +51,19 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0d1318;
-    --surface: #131b22;
-    --surface-soft: #10171d;
-    --ink: #e6ebef;
-    --ink-soft: #9aa7b3;
-    --line: #25313c;
-    --tint: #1b2833;
-    --bar: #54718a;
-    --in: #62c99c;
+    --bg: #111416;
+    --surface: #181c1f;
+    --surface-soft: #15181b;
+    --ink: #ededed;
+    --ink-soft: #a3a9ae;
+    --line: #2a2f33;
+    --tint: #22272b;
+    --bar: #7d858b;
+    --in: #6bd49a;
     --bill: #e0a84a;
     --sub: #9da8f2;
+    --head-bg: #0a0a0a;
+    --head-tint: #22272b;
 
     --sample-bg: #3a2b12;
     --sample-ink: #f1cf91;
@@ -109,7 +126,7 @@ html {
   font-size: clamp(16px, 11px + 0.42vw, 20px);
   /* Room for the sticky header (src/app/(app)/layout.tsx), so a focused or
      linked-to element is never hidden underneath it. */
-  scroll-padding-top: 5.5rem;
+  scroll-padding-top: 8rem;
 }
 
 body {
@@ -179,7 +196,29 @@ strong {
     "why sums";
   align-items: end;
   gap: 0.5rem 3rem;
-  padding: clamp(1.5rem, 3vw, 2.5rem) 0;
+  /* Style B: the headline continues the header's night band, edge to edge
+     (the negative margins undo .page's padding). */
+  margin: -1rem calc(-1 * clamp(1rem, 3vw, 3.5rem)) 1.5rem;
+  padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1rem, 3vw, 3.5rem);
+  background-color: var(--head-bg);
+  background-image:
+    linear-gradient(var(--head-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--head-grid) 1px, transparent 1px);
+  background-size: 3.5rem 3.5rem;
+  color: var(--head-ink);
+}
+
+.hero a {
+  color: var(--head-ink);
+}
+
+.hero .primary {
+  background: var(--head-ink);
+  color: var(--head-bg);
+}
+
+.hero :focus-visible {
+  outline-color: var(--head-ink);
 }
 
 h1 {
@@ -199,7 +238,7 @@ h1 {
 .hero-why {
   grid-area: why;
   max-width: 52ch;
-  color: var(--ink-soft);
+  color: var(--head-soft);
 }
 
 /* A workspace with no accounts yet: the headline, why, and where to start */
@@ -238,13 +277,14 @@ h1 {
 
 .sums dt {
   max-width: 11rem;
-  color: var(--ink-soft);
+  color: var(--head-soft);
   font-size: 0.875rem;
   line-height: 1.3;
 }
 
 .sums dd {
   margin-top: 0.125rem;
+  font-family: var(--font-num);
   font-size: 1.5rem;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -252,7 +292,7 @@ h1 {
 
 .sums-op {
   padding-bottom: 0.25rem;
-  color: var(--ink-soft);
+  color: var(--head-soft);
   font-size: 1.25rem;
 }
 
@@ -264,41 +304,6 @@ h1 {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem 1rem;
-}
-
-.month-nav {
-  display: flex;
-}
-
-.month-nav button {
-  margin-left: -1px;
-  padding: 0.375rem 0.75rem;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  cursor: pointer;
-  font-size: 0.875rem;
-}
-
-.month-nav button:first-child {
-  border-radius: 8px 0 0 8px;
-}
-
-.month-nav button:last-child {
-  border-radius: 0 8px 8px 0;
-}
-
-.month-nav button:disabled {
-  color: var(--ink-soft);
-  opacity: 0.55;
-  cursor: default;
-}
-
-.month-nav button:not(:disabled):hover {
-  background: var(--tint);
-}
-
-.month-nav button:focus-visible {
-  position: relative;
 }
 
 /* Balance line */
@@ -431,23 +436,59 @@ h1 {
   color: var(--bg);
 }
 
-/* The month row under the filters: one line that scrolls sideways when
-   there are more months than fit. */
-.month-chips {
-  flex-wrap: nowrap;
-  max-width: 100%;
-  overflow-x: auto;
-  padding-bottom: 0.125rem;
-  scrollbar-width: thin;
+/* The month row right above the calendar: ‹ Month ›, Today, and Go to a
+   day. */
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
 }
 
-.month-chips button {
-  flex: none;
+.chips button:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
-.chip-now {
-  font-size: 0.75rem;
-  opacity: 0.75;
+.chips button:disabled:hover {
+  background: var(--surface);
+}
+
+.chips .stepper button {
+  align-self: stretch;
+  min-width: 2.25rem;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  justify-content: center;
+}
+
+.stepper-month {
+  min-width: 9.5rem;
+  padding: 0 0.75rem;
+  border-inline: 1px solid var(--line);
+  font-weight: 600;
+  line-height: 2rem;
+  text-align: center;
+}
+
+.go-day {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+}
+
+.go-day input {
+  min-height: 2.125rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
 }
 
 .grid-hint {
@@ -757,6 +798,7 @@ button.cell:hover,
 }
 
 .item-amount {
+  font-family: var(--font-num);
   white-space: nowrap;
 }
 
@@ -1192,14 +1234,6 @@ footer {
   .cell-bar {
     align-self: stretch;
     margin-inline: 0.25rem;
-  }
-
-  .month-nav {
-    width: 100%;
-  }
-
-  .month-nav button {
-    flex: 1;
   }
 }
 

@@ -500,10 +500,29 @@ test("empty and paginated states work without a page error", async ({
   await expect(list.getByRole("listitem")).toHaveCount(15);
   await expect(list).toContainText("Showing 15 of 50");
   await hydrated(page, "button[aria-controls]");
-  await list.getByRole("button", { name: "Show 35 more" }).click();
+  // Each press adds 20 more; Show all adds the rest at once.
+  await list.getByRole("button", { name: "Show 20 more" }).click();
+  await expect(list.getByRole("listitem")).toHaveCount(35);
+  await expect(list).toContainText("Showing 35 of 50");
+  await expect(list.getByRole("button", { name: "Show all" })).toHaveCount(0);
+  await list.getByRole("button", { name: "Show 15 more" }).click();
   await expect(list.getByRole("listitem")).toHaveCount(50);
   await list.getByRole("button", { name: "Show fewer" }).click();
   await expect(list.getByRole("listitem")).toHaveCount(15);
+  await list.getByRole("button", { name: "Show all" }).click();
+  await expect(list.getByRole("listitem")).toHaveCount(50);
+  await list.getByRole("button", { name: "Show fewer" }).click();
+  // The view-only list opens in its own window with all 51 and no controls.
+  const [view] = await Promise.all([
+    page.context().waitForEvent("page"),
+    page.getByRole("link", { name: /Open a view-only list/ }).click(),
+  ]);
+  const all = view.getByRole("region", { name: "Your transactions" });
+  await expect(all.getByRole("listitem")).toHaveCount(51);
+  await expect(view.getByText("All 51 transactions")).toBeVisible();
+  await expect(all.getByRole("link", { name: /^Edit/ })).toHaveCount(0);
+  await expect(all.getByRole("button")).toHaveCount(0);
+  await view.close();
   await page.getByRole("link", { name: "Next page" }).click();
   await expect(list.getByRole("listitem")).toHaveCount(1);
   await expect(list.getByRole("button", { name: /^Show/ })).toHaveCount(0);

@@ -148,12 +148,22 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: 0.5rem 1rem;
   margin-top: 1rem;
   padding: 0.75rem 1rem;
   border: 1px dashed var(--line);
   border-radius: 12px;
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+}
+
+.more > span {
+  margin-right: auto;
+}
+
+/* The link to the view-only list, which opens in a new window. */
+.viewOnly {
+  margin-left: auto;
   color: var(--ink-soft);
   font-size: 0.875rem;
 }
@@ -287,4 +297,10 @@
 .choice .hint,
 .choice .fieldError {
   width: 100%;
+}
+
+/* The view-only list (TransactionView): the same rows, nothing to change. */
+.viewNote {
+  margin-top: 0.5rem;
+  color: var(--ink-soft);
 }

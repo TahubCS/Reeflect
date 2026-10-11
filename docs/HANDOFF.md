@@ -3684,3 +3684,64 @@ recommendation, not a decision.
 - A Nessie purchase whose status becomes "cancelled" still disappears from
   the history (mapper drops cancelled records); keeping it needs a status we
   don't have.
+
+## HO-079: UI rework part 2: style B, two-row header, month stepper, ledger rows, +20 transactions, app icon
+
+- **Date:** 2026-10-11 08:40 (EDT)
+- **Author:** Jacob Heminway with Claude (Claude Code)
+- **Branch / PR:** `UI/Fixes` (after "UI fixes Part 1") / not opened; nothing committed
+
+### What changed
+Jacob's picks from the mockups (HO-078): style B "landing night band",
+header 3 "two rows", month control 2 "stepper + date", recurring 2 "ledger
+rows", transactions 2 "show more" in steps of 20, plus a view-only list.
+- **Style B** (`src/app/globals.css`, `src/app/layout.tsx`): Geist for text
+  and Geist Mono (`--font-num`) for the dashboard sums, list amounts, charge
+  amounts and header counts; the landing page's grey sheets as `--bg`,
+  `--surface` and friends (light and dark). New `--head-*` tokens are the
+  night band, dark in both themes.
+- **Header** (`src/app/(app)/layout.tsx`): two rows on the night band with
+  the grid texture. Top: the logo (`src/components/ui/logo.tsx`) and
+  wordmark, the Capital One status chip (`NessieNavSync`: "Capital One ·
+  Synced 5 min ago", "Sync now"), the address and Sign out. Below: the tabs,
+  current one underlined, counts as light pills. `scroll-padding-top` is now
+  8rem for the taller header.
+- **Dashboard:** the headline continues the night band edge to edge. The
+  month chips are replaced by `‹ Month ›`, Today, and "Go to a day" (a date
+  input bounded by `dayBounds`, checked by `dayWithin`) right above the
+  calendar. The old Earlier / This month / Later buttons by the month title
+  are gone; the stepper does the same. `monthRange` and `monthChipLabel`
+  are removed.
+- **Recurring payments:** `ChargeEvidence` is now ledger rows: "Matching
+  charges · Every 30 days, no breaks", the latest 3 charges newest first with
+  the days since the one before, then "Show all N charges". The dot timeline
+  is gone.
+- **Transactions:** 15 rows, then "Show 20 more" per press (`splitBatches`,
+  `MORE_ROWS`; each cut still finishes a day when it can), "Show all" and
+  "Show fewer". "Open a view-only list" opens
+  `/w/[id]/transactions/view` in a new window: up to 1000 rows
+  (`VIEW_ROWS`), same day groups, no edit links or category controls,
+  viewer access, honours `?account=`.
+- **App icon:** `src/app/icon.svg` is the landing logo on its night square;
+  `src/app/favicon.ico` is deleted.
+- `docs/PITCH.md` recurring demo matches the ledger rows.
+
+### Verified
+- `pnpm lint`, `format:check`, `typecheck`, `build` pass.
+- Unit: the cashflow dates, transaction-input and evidence tests pass (77),
+  including new `dayBounds` / `dayWithin` / `splitBatches` cases.
+- E2E: calendar, categorization and recurring specs pass (35), with the
+  stepper and Go to a day, the 15 → 35 → 50 batches, Show all, and the
+  view-only window (51 rows, no buttons or edit links).
+- Full `pnpm test:e2e`: all 117 pass with the new header and style.
+
+### What's next
+- Other pages still use the plain heading; a night-band hero per page
+  (Bills, Recurring) would finish style B.
+- The landing page keeps its own copy of the logo; it could use
+  `components/ui/logo.tsx`.
+
+### Open problems
+- The e2e run retook the Bills, Budgets and Recurring screenshots in
+  `docs/screenshots/` in the new style; other docs images may still show the
+  old look.

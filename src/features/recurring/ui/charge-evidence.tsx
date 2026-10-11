@@ -7,15 +7,17 @@ import {
   describeEvidence,
   gapNote,
   longDate,
-  shortDate,
 } from "../domain/evidence";
 import type { Charge } from "../domain/patterns";
 import styles from "./recurring.module.css";
 
+/** Charges listed before "Show all". */
+const LEDGER_ROWS = 3;
+
 /**
- * The charges behind a recurring payment: their rhythm as a row of dots
- * with the days between them, and a button that lists each one. The words
- * under the button say the same as the dots, so the drawing is decorative.
+ * The charges behind a recurring payment as ledger rows, newest first: the
+ * rhythm in words above, the days since the one before under each date,
+ * and the latest few shown until "Show all".
  */
 export function ChargeEvidence({
   charges,
@@ -24,53 +26,31 @@ export function ChargeEvidence({
   charges: readonly Charge[];
   kind: "bill" | "subscription" | "income";
 }) {
-  const [open, setOpen] = useState(false);
+  const [all, setAll] = useState(false);
   const id = useId();
   const evidence = chargeEvidence(charges);
-  const noun = kind === "income" ? "deposit" : "charge";
-  const count = evidence.steps.length;
-  const label = `See ${count} matching ${count === 1 ? noun : `${noun}s`}`;
+  const noun = kind === "income" ? "deposits" : "charges";
+  const steps = [...evidence.steps].reverse();
+  const shown = all ? steps : steps.slice(0, LEDGER_ROWS);
 
   return (
     <div className={styles.evidence}>
-      {count > 1 ? (
-        <ol className={styles.timeline} aria-hidden="true" data-kind={kind}>
-          {evidence.steps.map((step) => (
-            <li key={step.id} data-off={step.offPattern || undefined}>
-              {step.gapDays !== null && (
-                <span className={styles.gap}>{step.gapDays} d</span>
-              )}
-              <span className={styles.dot} />
-              <span className={styles.when}>{shortDate(step.postedOn)}</span>
-            </li>
-          ))}
-        </ol>
-      ) : null}
-      <button
-        type="button"
-        className={styles.evidenceButton}
-        aria-expanded={open}
-        aria-controls={id}
-        onClick={() => setOpen(!open)}
-      >
-        <span>
-          <strong>{open ? `Hide the ${noun}s` : label}</strong>
-          <span className={styles.evidenceNote}>
-            {describeEvidence(evidence)}
-          </span>
+      <p className={styles.evidenceHead}>
+        <strong>Matching {noun}</strong>{" "}
+        <span className={styles.evidenceNote}>
+          · {describeEvidence(evidence)}
         </span>
-        <span className={styles.chevron} aria-hidden="true">
-          ›
-        </span>
-      </button>
-      <ul id={id} className={styles.charges} hidden={!open}>
-        {[...evidence.steps].reverse().map((step) => (
+      </p>
+      <ul id={id} className={styles.charges}>
+        {shown.map((step) => (
           <li key={step.id}>
             <span>
               <time dateTime={step.postedOn}>{longDate(step.postedOn)}</time> ·{" "}
               {step.source}
             </span>
-            <span>{formatSigned(cents(step.amountCents))}</span>
+            <span className={styles.chargeAmount}>
+              {formatSigned(cents(step.amountCents))}
+            </span>
             <span
               className={styles.gapNote}
               data-off={step.offPattern || undefined}
@@ -80,6 +60,17 @@ export function ChargeEvidence({
           </li>
         ))}
       </ul>
+      {steps.length > LEDGER_ROWS ? (
+        <button
+          type="button"
+          className={styles.showAll}
+          aria-expanded={all}
+          aria-controls={id}
+          onClick={() => setAll(!all)}
+        >
+          {all ? "Show fewer" : `Show all ${steps.length} ${noun}`}
+        </button>
+      ) : null}
     </div>
   );
 }

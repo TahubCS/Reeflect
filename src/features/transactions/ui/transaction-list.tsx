@@ -6,7 +6,7 @@ import {
   type TransactionSummary,
   formatDay,
   groupByDay,
-  splitPreview,
+  splitBatches,
 } from "../domain/transaction-input";
 import { ShowMore } from "./show-more";
 import styles from "./transactions.module.css";
@@ -45,7 +45,7 @@ function Labels({ transaction }: { transaction: TransactionSummary }) {
 }
 
 /** Rows under a heading per day. */
-function DayGroups({
+export function DayGroups({
   transactions,
   base,
   canEdit,
@@ -116,7 +116,7 @@ export function TransactionList({
   children,
 }: Props) {
   const base = `/w/${workspaceId}/transactions`;
-  const preview = splitPreview(transactions);
+  const [first = [], ...rest] = splitBatches(transactions);
   const addHref = accountId
     ? `${base}/new?account=${accountId}`
     : `${base}/new`;
@@ -157,6 +157,16 @@ export function TransactionList({
             <button type="submit" className={styles.secondary}>
               Show
             </button>
+            {/* Every transaction in one plain list, to read or print. */}
+            <a
+              href={`${base}/view${accountId ? `?account=${accountId}` : ""}`}
+              target="_blank"
+              rel="noopener"
+              className={styles.viewOnly}
+            >
+              Open a view-only list
+              <span className="sr-only"> (opens in a new window)</span>
+            </a>
           </form>
 
           {transactions.length === 0 ? (
@@ -164,23 +174,26 @@ export function TransactionList({
           ) : (
             <section aria-label="Your transactions">
               <DayGroups
-                transactions={preview.shown}
+                transactions={first}
                 base={base}
                 canEdit={canEdit}
                 categoryControls={categoryControls}
               />
-              {preview.hidden.length > 0 && (
+              {rest.length > 0 && (
                 <ShowMore
-                  shown={preview.shown.length}
-                  total={transactions.length}
-                >
-                  <DayGroups
-                    transactions={preview.hidden}
-                    base={base}
-                    canEdit={canEdit}
-                    categoryControls={categoryControls}
-                  />
-                </ShowMore>
+                  shown={first.length}
+                  batches={rest.map((batch) => ({
+                    rows: batch.length,
+                    content: (
+                      <DayGroups
+                        transactions={batch}
+                        base={base}
+                        canEdit={canEdit}
+                        categoryControls={categoryControls}
+                      />
+                    ),
+                  }))}
+                />
               )}
             </section>
           )}

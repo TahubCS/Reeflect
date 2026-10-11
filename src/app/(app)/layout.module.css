@@ -1,60 +1,80 @@
-/* The header shared by every signed-in page. Uses the tokens in
+/* The header shared by every signed-in page: two rows on the landing
+   page's night band (style B of the UI rework). Uses the --head-* tokens in
    src/app/globals.css (ADR-046). */
 
-/* Stays at the top while the page scrolls. The background spans the full
-   width so page content passes underneath it cleanly; the row and its line
-   keep the page's side margins. */
+/* Stays at the top while the page scrolls. The band spans the full width;
+   its rows keep the page's side margins. */
 .top {
   position: sticky;
   top: 0;
   z-index: 10;
   padding: 0 clamp(1rem, 3vw, 3.5rem);
-  background: var(--bg);
+  background-color: var(--head-bg);
+  background-image:
+    linear-gradient(var(--head-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--head-grid) 1px, transparent 1px);
+  background-size: 3.5rem 3.5rem;
+  color: var(--head-ink);
+}
+
+.top :focus-visible {
+  outline-color: var(--head-ink);
 }
 
 .bar {
   display: flex;
   align-items: center;
-  gap: 0.5rem 1.75rem;
-  padding: 1.125rem 0 1rem;
-  border-bottom: 1px solid var(--line);
+  gap: 0.5rem 1.25rem;
+  padding: 0.875rem 0 0.625rem;
 }
 
 .wordmark {
-  color: var(--ink);
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.625rem;
+  color: var(--head-ink);
   font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   text-decoration: none;
 }
 
 /* The address and the Sign out button are laid out as items of the row
-   itself, so the address can give up its width before the links do. */
+   itself, so the address can give up its width first. */
 .account {
   display: contents;
-  color: var(--ink-soft);
   font-size: 0.875rem;
 }
 
 .email {
   flex: 0 100 auto;
-  /* Longer navigation labels must not shrink the identity to zero width. */
   min-width: 8rem;
   max-width: 16rem;
   margin-left: auto;
   overflow: hidden;
-  color: var(--ink-soft);
+  color: var(--head-soft);
   font-size: 0.875rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* Sync with Capital One (NessieNavSync), next to the address. It renders
-   nothing for a workspace without Nessie accounts; then the address takes
-   the space as before. */
+.account > button {
+  border-color: var(--head-line);
+  background: transparent;
+  color: var(--head-ink);
+}
+
+.account > button:hover {
+  background: var(--head-tint);
+}
+
+/* Sync with Capital One (NessieNavSync). It renders nothing for a
+   workspace without Nessie accounts; then the address takes the space. */
 .sync {
   display: flex;
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
   margin-left: auto;
 }
 
@@ -71,17 +91,8 @@
   color: var(--ink-soft);
 }
 
-/* Phones: the links take their own row under the wordmark and account. */
+/* Phones: the address steps aside; Sign out stays at the end of the row. */
 @media (max-width: 40rem) {
-  .bar {
-    flex-wrap: wrap;
-  }
-
-  .bar nav {
-    order: 3;
-    flex-basis: 100%;
-  }
-
   .email {
     display: none;
   }

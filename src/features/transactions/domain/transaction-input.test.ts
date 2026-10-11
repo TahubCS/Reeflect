@@ -6,6 +6,7 @@ import {
   formValues,
   formatDay,
   groupByDay,
+  splitBatches,
   splitPreview,
   isIsoDate,
   parseTransactionForm,
@@ -272,5 +273,23 @@ describe("splitPreview", () => {
 
   it("shows everything when finishing the day leaves only a few rows", () => {
     expect(splitPreview(days(14, 6, 3), 15).hidden).toEqual([]);
+  });
+
+  it("splits a page of 50 into 15, then batches of 20", () => {
+    const rows = days(...Array.from({ length: 50 }, () => 1));
+    const batches = splitBatches(rows);
+    expect(batches.map((batch) => batch.length)).toEqual([15, 20, 15]);
+    expect(batches.flat()).toEqual(rows);
+  });
+
+  it("keeps a short list in one batch", () => {
+    expect(splitBatches(days(12))).toHaveLength(1);
+    expect(splitBatches([])).toEqual([[]]);
+  });
+
+  it("folds a small remainder into the batch before it", () => {
+    // 15 + 20 + 3: three rows are not worth their own button press.
+    const rows = days(...Array.from({ length: 38 }, () => 1));
+    expect(splitBatches(rows).map((batch) => batch.length)).toEqual([15, 23]);
   });
 });

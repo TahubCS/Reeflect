@@ -121,13 +121,22 @@
   list-style: none;
   padding: 0;
   margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
 }
 .charges li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0 1rem;
-  border-bottom: 1px solid var(--line);
-  padding-block: 0.45rem;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.9rem;
+}
+.charges li + li {
+  border-top: 1px solid var(--line);
+}
+.chargeAmount {
+  font-family: var(--font-num);
+  text-align: right;
 }
 .gapNote {
   grid-column: 1 / -1;
@@ -139,107 +148,22 @@
   font-weight: 600;
 }
 
-/* The charges behind a payment (ChargeEvidence): dots with the days
-   between them, then a button that lists each charge. */
+/* The charges behind a payment (ChargeEvidence): ledger rows, newest
+   first, with the days since the one before under each date. */
 .evidence {
   display: grid;
   gap: 0.5rem;
   margin-block: 0.75rem;
 }
-.timeline {
-  display: flex;
+.evidenceHead {
   margin: 0;
-  padding: 1.4rem 0.75rem 1.5rem;
-  overflow-x: auto;
-  list-style: none;
-}
-.timeline li {
-  position: relative;
-  display: flex;
-  flex: 1 0 3rem;
-  align-items: center;
-}
-.timeline li:first-child {
-  flex: none;
-}
-/* The line from the charge before, with its gap above it. */
-.timeline li:not(:first-child)::before {
-  content: "";
-  flex: 1;
-  height: 2px;
-  background: var(--line);
-}
-.dot {
-  flex: none;
-  width: 0.75rem;
-  height: 0.75rem;
-  border: 2px solid var(--surface);
-  border-radius: 50%;
-  background: var(--sub);
-  box-shadow: 0 0 0 1px var(--sub);
-}
-.timeline[data-kind="bill"] .dot {
-  background: var(--bill);
-  box-shadow: 0 0 0 1px var(--bill);
-}
-.timeline[data-kind="income"] .dot {
-  background: var(--in);
-  box-shadow: 0 0 0 1px var(--in);
-}
-.gap,
-.when {
-  position: absolute;
-  color: var(--ink-soft);
-  font-size: 0.7rem;
-  white-space: nowrap;
-}
-.gap {
-  top: -1.25rem;
-  left: calc(50% - 0.375rem);
-  transform: translateX(-50%);
-}
-.timeline li[data-off] .gap {
-  color: var(--bill);
-  font-weight: 700;
-}
-.when {
-  top: 1rem;
-  right: 0.375rem;
-  transform: translateX(50%);
-}
-.page .evidenceButton {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  width: 100%;
-  padding: 0.65rem 0.85rem;
-  border-radius: 0.5rem;
-  text-align: left;
-}
-.page .evidenceButton:hover {
-  border-color: var(--ink-soft);
-}
-.evidenceButton > span:first-child {
-  display: grid;
+  font-size: 0.9rem;
 }
 .evidenceNote {
   color: var(--ink-soft);
-  font-size: 0.8rem;
 }
-.chevron {
-  flex: none;
-  font-size: 1.25rem;
-  line-height: 1;
-  transition: transform 0.15s ease;
-}
-[aria-expanded="true"] > .chevron {
-  transform: rotate(90deg);
-}
-@media (prefers-reduced-motion: reduce) {
-  .chevron {
-    transition: none;
-  }
+.page .showAll {
+  justify-self: start;
 }
 .card details {
   margin-block: 0.6rem;

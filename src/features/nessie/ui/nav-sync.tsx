@@ -79,10 +79,10 @@ export function NessieNavSync({ statusAction, syncAction }: Props) {
 
   return (
     <div className={styles.navSync}>
+      <span className={styles.navSyncLive} aria-hidden="true" />
+      <span className={styles.navSyncSource}>Capital One</span>
       <span className={styles.navSyncText} role="status" aria-live="polite">
-        {pending
-          ? "Syncing with Capital One…"
-          : message || syncedAgo(current.lastSyncedAt, now)}
+        {pending ? "Syncing…" : message || syncedAgo(current.lastSyncedAt, now)}
       </span>
       {current.canSync && (
         <button
@@ -96,7 +96,7 @@ export function NessieNavSync({ statusAction, syncAction }: Props) {
           <span className={styles.navSyncIcon} aria-hidden="true">
             ↻
           </span>
-          Sync
+          Sync now
         </button>
       )}
     </div>

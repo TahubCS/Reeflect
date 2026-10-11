@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { type ReactNode, Suspense } from "react";
 import { AppNav, AppNavFallback } from "@/components/ui/app-nav";
+import { Logo } from "@/components/ui/logo";
 import { APP_NAME } from "@/config/app";
 import { SignOutButton } from "@/features/auth/ui/sign-out-button";
 import {
@@ -47,14 +48,14 @@ async function SignedIn({ children }: { children: ReactNode }) {
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <>
+      {/* Two rows on the landing page's night band: the wordmark, Capital
+          One sync and the account above; the page tabs below. */}
       <header className={styles.top}>
         <div className={styles.bar}>
           <Link href="/dashboard" className={styles.wordmark}>
+            <Logo size={26} />
             {APP_NAME}
           </Link>
-          <Suspense fallback={<AppNavFallback />}>
-            <AppNav counts={NAV_COUNTS} />
-          </Suspense>
           <div className={styles.sync}>
             <Suspense fallback={null}>
               <NessieNavSync
@@ -69,6 +70,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             </Suspense>
           </div>
         </div>
+        <Suspense fallback={<AppNavFallback />}>
+          <AppNav counts={NAV_COUNTS} />
+        </Suspense>
       </header>
       <Suspense fallback={<p className={styles.loading}>Loading…</p>}>
         <SignedIn>{children}</SignedIn>

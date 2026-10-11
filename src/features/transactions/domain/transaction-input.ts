@@ -332,3 +332,32 @@ export function splitPreview<T extends { postedOn: string }>(
   if (items.length - cut < slack) return { shown: [...items], hidden: [] };
   return { shown: items.slice(0, cut), hidden: items.slice(cut) };
 }
+
+/** The most rows the view-only list shows, newest first. */
+export const VIEW_ROWS = 1000;
+
+/** Rows each "Show more" adds after the first PREVIEW_ROWS. */
+export const MORE_ROWS = 20;
+
+/**
+ * Splits a newest-first list into the rows shown at once, then batches that
+ * "Show more" reveals one at a time. Every cut follows splitPreview, so a
+ * batch ends with its day when it can.
+ */
+export function splitBatches<T extends { postedOn: string }>(
+  items: readonly T[],
+  first = PREVIEW_ROWS,
+  more = MORE_ROWS,
+  slack = 5,
+): T[][] {
+  const batches: T[][] = [];
+  let rest: readonly T[] = items;
+  let size = first;
+  for (;;) {
+    const { shown, hidden } = splitPreview(rest, size, slack);
+    batches.push(shown);
+    if (hidden.length === 0) return batches;
+    rest = hidden;
+    size = more;
+  }
+}
