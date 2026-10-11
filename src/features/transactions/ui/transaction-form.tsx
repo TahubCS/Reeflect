@@ -25,6 +25,7 @@ type Props = {
    */
   ledgerEditable: boolean;
   fixedSummary?: string;
+  paired?: boolean;
   /** "YYYY-MM-DD": the latest date the date field accepts. */
   today: string;
   submitLabel: string;
@@ -74,6 +75,7 @@ export function TransactionForm({
   accounts,
   ledgerEditable,
   fixedSummary,
+  paired = false,
   today,
   submitLabel,
   busyLabel,
@@ -86,6 +88,7 @@ export function TransactionForm({
     direction: useId(),
     amount: useId(),
     description: useId(),
+    transfer: useId(),
   };
   const { errors } = state;
   // After a rejected submit, show what was typed rather than the start values.
@@ -226,9 +229,27 @@ export function TransactionForm({
           type="checkbox"
           name="transfer"
           defaultChecked={value("transfer") === "on"}
+          disabled={paired}
+          aria-invalid={errors.transfer !== undefined}
+          aria-describedby={
+            errors.transfer ? `${ids.transfer}-error` : undefined
+          }
         />
         Transfer between my own accounts (not spending or income)
       </label>
+      {paired && (
+        <input type="hidden" name="transfer" value={initial.transfer} />
+      )}
+      <Note id={ids.transfer} error={errors.transfer} />
+      <p className={styles.hint}>
+        <Link href={`${cancelHref}/transfers`}>Review transfers</Link> to pair
+        activity or remove a relationship. Linked bill evidence must be reviewed
+        in{" "}
+        <Link href={cancelHref.replace(/\/transactions$/, "/bills")}>
+          Bills
+        </Link>{" "}
+        before changing its transfer label.
+      </p>
 
       <div className={styles.actions}>
         <button type="submit" className={styles.primary} disabled={pending}>

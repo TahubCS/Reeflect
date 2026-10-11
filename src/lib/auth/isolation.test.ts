@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ACCOUNT_ENTRY_POINTS } from "@/features/accounts/server/entry-points";
 import { CASHFLOW_ENTRY_POINTS } from "@/features/cashflow/server/entry-points";
 import { BUDGET_ENTRY_POINTS } from "@/features/budgets/server/entry-points";
+import { TRANSFER_ENTRY_POINTS } from "@/features/transfers/server/entry-points";
 import { BILL_ENTRY_POINTS } from "@/features/bills/server/entry-points";
 import { saveBill } from "@/features/bills";
 import { CATEGORIZATION_ENTRY_POINTS } from "@/features/categorization/server/entry-points";
@@ -62,6 +63,7 @@ const ENTRY_POINTS: EntryPoint[] = [
   ...CASHFLOW_ENTRY_POINTS,
   ...BUDGET_ENTRY_POINTS,
   ...BILL_ENTRY_POINTS,
+  ...TRANSFER_ENTRY_POINTS,
 ];
 
 const getSession = vi.hoisted(() => vi.fn());

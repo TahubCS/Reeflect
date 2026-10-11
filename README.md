@@ -40,3 +40,8 @@ connection role. It checks financial schema and read access without changing
 data; a successful health check or migration journal alone is insufficient.
 See [database readiness](docs/DATABASE_READINESS.md) for targets, limitations
 and the migrate/verify/release sequence.
+
+Review recorded transfers from Transactions → **Review transfers**. Choose a
+specific counterpart and confirm the classification; removing a pairing keeps
+the existing labels. See [transfer review](docs/TRANSFER_REVIEW.md) for the
+window, limits, Bills evidence rules and the separate normal-activity action.

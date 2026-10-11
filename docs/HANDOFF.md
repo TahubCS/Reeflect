@@ -3659,3 +3659,48 @@ recommendation, not a decision.
   reserved block is added separately, and this entry uses its first slot. It
   preserves main's independently numbered Bills and agent history;
   the earlier Neon-only entry remains in the original `work` checkout.
+
+## HO-116: Explicit web transfer review and preserved cashflow balances
+
+- **Date:** 2026-10-11 (EDT)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `feat/transfer-review` (local commits) / not opened
+
+### What changed
+- Built the supplied transfer plan on the separate readiness branch's commit.
+  Transactions links to explicit candidates, paired/individual and legacy
+  states, old date filters and complete bounded counterpart pagination.
+- Added atomic metadata-only confirmation, detachment retaining labels and
+  separate normal-activity actions. Shared Bills advisory locking precedes
+  sorted row locks. Expected facts/version reject stale and competing saves;
+  allocated evidence blocks transfer flag changes in both review and the
+  original transaction editor. Paired financial edits are guarded; ordinary
+  deletion undoes its balance effect once and detaches surviving owned rows.
+- Included the user's approved cashflow correction: liquid transfer amounts
+  retain their posted-day balance effects without entering spending/income.
+  No dashboard UI, Insights algorithm, importer or agent code was changed.
+- The user reports no overlapping teammate work and authorizes local commits,
+  merging current main into the branches and resolving merge conflicts.
+  Renumbered the transfer ADR to ADR-066 because main now owns ADR-065.
+  Readiness uses HO-115; main's handoff history is preserved.
+
+### Verified
+- Before merging main: 320 focused domain, PostgreSQL, action, consumer and
+  isolation tests pass, including rollback, concurrency and actual finance
+  totals. Strict typecheck passes. A lint warning in the metadata comparison
+  helper was corrected. Full gates and the new browser scenarios are pending
+  the merged checkout's final verification; no browser success is claimed yet.
+- The readiness baseline passed its complete gates before main's newer agent
+  and Nessie changes, including real Neon storage; see HO-115.
+
+### What's next
+- Merge the fetched main into each branch, resolve all conflicts, run the
+  merged tree's full gates and update this entry with their actual results.
+- Main adds agent migration 0015. Apply it to the explicitly identified local
+  test database for merged tests. No transfer migration is introduced.
+- No push, PR, production migration or deployment has been requested.
+
+### Open problems
+- Reviews remain bounded and do not claim complete all-time history. Oversized
+  candidate/group/account scopes show refinement or retry feedback.
+- Publication and deployed CI results remain outside this local verification.

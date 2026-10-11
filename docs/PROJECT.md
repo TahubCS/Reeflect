@@ -183,3 +183,8 @@ Freemium subscription plus licensing the product to banks and credit unions
 | Nessie | Capital One's hackathon sandbox banking API. It starts empty: we create its customers and transactions (ADR-033, ADR-048) |
 | Synthetic batch | A set of invented customers made by the generator from a spec and a seed, loaded and deleted as a unit (ADR-049) |
 | Messaging identity | A verified link between a phone handle and a Reeflect user (ADR-034) |
+
+Transactions now includes an explicit transfer review subroute (ADR-066).
+Suggestions require a selected counterpart and confirmation; independent
+labels and pair relationships are reversible metadata, with Bills evidence
+guards and no change to recorded account balances.

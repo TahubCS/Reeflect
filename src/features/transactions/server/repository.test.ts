@@ -98,6 +98,7 @@ describe("createTransaction", () => {
       description: "Lunch",
       status: "posted",
       isTransfer: false,
+      transferPairId: null,
       source: "manual",
       editableInFull: true,
     });

@@ -191,6 +191,24 @@ Caching: pages that show workspace data render dynamically. No `unstable_cache`
 or fetch caching of workspace data. Client state is keyed by workspace id and
 cleared on workspace switch and sign-out.
 
+### Web transfer review (built, ADR-066)
+
+The Transactions subroute uses `features/transfers` for a bounded read-only
+snapshot and explicit metadata writes. Every entry point authorizes before
+financial reads; the repository scopes every row and account join by workspace.
+Candidates use posted, safe integer, nonzero opposite cents on different owned
+accounts within three calendar days. The UI requires a specific choice and
+confirmation, including for an unambiguous suggestion.
+
+Review writes and ordinary transaction update/delete acquire Bills' workspace
+advisory lock (seed 53) before transaction locks sorted by ID. The shared
+`lib/db/transaction-guards` module checks allocated evidence without feature
+dependency cycles. Pair creation validates both expected states and updates
+only flags, pair IDs and timestamps. Detachment retains flags; paired financial
+edits are refused; deletion keeps its balance undo and detaches surviving owned
+rows. Account deletion keeps its cascade; remaining orphans are reviewed
+explicitly. Labels cannot change allocated Bills snapshots before unlinking.
+
 ## ARCH-05: Import pipeline
 
 Governed by: ADR-009, ADR-010, ADR-012, ADR-020, ADR-025, ADR-044
@@ -244,6 +262,11 @@ Governed by: ADR-014, ADR-018, ADR-026, ADR-042
    money math.
 4. The headline, day panel and accessible labels come from the same
    results, so the visual and the text can never disagree.
+
+Liquid recorded transfer movements are kept as `balanceOnly` entries for the
+calendar's opening and daily balance calculation. They never enter activity,
+income, spending or recurring totals. Thus classification changes totals while
+preserving the balance line, including transfers posted on different days.
 
 ## ARCH-07: AI layer
 

@@ -76,6 +76,7 @@ and never connects to a database.
 | `lib/money` | Parsing "$1,234.56", "(12.00)", "-12", "12.5" (→ 1250 cents); rejecting non-USD and malformed input; rounding half to even; splitting without losing cents (e.g. $10.00 / 3); formatting negatives; `Number.isSafeInteger` enforcement |
 | Money properties (fast-check) | Sum of category spending equals total spending; splitting then summing returns the original; add/subtract are inverse; no operation produces a non-integer |
 | Cash flow (`src/features/cashflow/domain`, ADR-042) | Per-day amount with balance above, equal to and below what is due before payday (never negative); payday tomorrow (N = 1) and no expected income; repeating items clamped to the last day of short months; a month's end balance equals its start plus its items; later months carry the earlier months' balance; a no-spend day needs nothing going out; yearly subscription cost and saving; every number shown has a text label |
+| Transfer review (ADR-066) | Calendar boundaries, safe opposite cents, explicit choice/confirmation, immutable expected states and legacy group validity. Real PG: metadata-only snapshots, rollback, duplicate/competing confirmation, edit/delete races, scoped orphans, Bills evidence races and unchanged labelled debt evidence. Test actual Budgets, Insights, recurring and daily cashflow results through pair/detach/reclassification. All six read/write entries join the isolation matrix |
 | Web Bills (ADR-063) | Stable monthly/day anchors; bounded projections without invented overdue history; explicit due/expected provenance; zero vs unknown invoice; variable amounts; partial/full/overpayment; manual marks; edited/deleted/pending/future/refund evidence; repayment transfers; integer cash coverage; validation and pagination |
 | Budgets | Calendar month boundaries and DST in the app's zone; leap years and year navigation; mid-month edits; posted/current-day cutoff; refunds including negative net spending; marked transfers, income and saving excluded; unknown credits not treated as refunds; zero vs unset; bounded progress; immutable paged reductions and integer overflow |
 | Categorization | Rule priority and deterministic ties; `contains` / `starts_with` / `exact`; merchant normalization (store numbers, reference codes); manual override including Uncategorized beats rules; form validation and limits |
@@ -162,6 +163,8 @@ and never connects to a database.
 | `a11y.spec.ts` | axe checks on every main page in light and dark themes; zero serious or critical violations |
 | `reduced-motion.spec.ts` | With reduced motion emulated, no animation runs and all labels still show |
 | `responsive.spec.ts` | Dashboard at 360px, 768px, and 1440px wide: no horizontal scroll, numbers panel visible |
+
+| `transfers.spec.ts` | Explicit ambiguous choice and confirmation; persistence; detach keeps labels; separate normal activity; stale retained selection; paired edit/delete cleanup; old-window padding and counterpart pages; viewer/outsider; Bills allocation feedback; failed-read retry; keyboard, 360px, light/dark and reduced motion. Synthetic screenshots are in `docs/screenshots/transfers/` |
 
 ## TEST-08: Fixtures and data
 

@@ -1,8 +1,12 @@
 import "server-only";
-import { and, asc, count, desc, eq, gte, lte } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { getCategoryMetadata } from "@/features/categorization";
 import { uuidv7 } from "@/lib/db/id";
+import {
+  hasBillEvidence,
+  lockLedgerWorkspace,
+} from "@/lib/db/transaction-guards";
 import { category, financialAccount, transaction } from "@/lib/db/schema";
 import { type Cents, add, cents, negate } from "@/lib/money";
 import {
@@ -32,6 +36,7 @@ const columns = {
   description: transaction.descriptionRaw,
   status: transaction.status,
   isTransfer: transaction.isTransfer,
+  transferPairId: transaction.transferPairId,
   source: transaction.source,
 };
 
@@ -308,7 +313,8 @@ export async function countTextTransactions(
   return row?.logged ?? 0;
 }
 
-export type UpdateResult = "updated" | "not found" | "no such account";
+export type UpdateResult =
+  "updated" | "not found" | "no such account" | "paired" | "payment evidence";
 
 /**
  * Updates a transaction. Account, date, amount and status change only on a
@@ -321,6 +327,7 @@ export async function updateTransaction(
   input: TransactionInput,
 ): Promise<UpdateResult> {
   return db.transaction(async (tx) => {
+    await lockLedgerWorkspace(tx, workspaceId);
     const [existing] = await tx
       .select({
         accountId: transaction.financialAccountId,
@@ -329,6 +336,9 @@ export async function updateTransaction(
         source: transaction.source,
         categoryId: transaction.categoryId,
         categoryIsManual: transaction.categoryIsManual,
+        status: transaction.status,
+        isTransfer: transaction.isTransfer,
+        transferPairId: transaction.transferPairId,
       })
       .from(transaction)
       .where(inWorkspace(workspaceId, transactionId))
@@ -336,6 +346,21 @@ export async function updateTransaction(
     if (!existing) return "not found";
 
     const ledger = isTyped(existing.source) ? input.ledger : null;
+    if (
+      existing.transferPairId !== null &&
+      (existing.isTransfer !== input.isTransfer ||
+        (ledger &&
+          (ledger.accountId !== existing.accountId ||
+            ledger.postedOn !== existing.postedOn ||
+            ledger.amountCents !== existing.amountCents ||
+            ledger.status !== existing.status)))
+    )
+      return "paired";
+    if (
+      existing.isTransfer !== input.isTransfer &&
+      (await hasBillEvidence(tx, workspaceId, [transactionId]))
+    )
+      return "payment evidence";
     if (ledger) {
       // Lock both accounts in id order, so two edits cannot deadlock.
       const ids = [...new Set([existing.accountId, ledger.accountId])].sort();
@@ -408,6 +433,38 @@ export async function deleteTransaction(
   transactionId: string,
 ): Promise<boolean> {
   return db.transaction(async (tx) => {
+    await lockLedgerWorkspace(tx, workspaceId);
+    const [existing] = await tx
+      .select({ pairId: transaction.transferPairId })
+      .from(transaction)
+      .where(inWorkspace(workspaceId, transactionId));
+    if (!existing) return false;
+    const affected =
+      existing.pairId === null
+        ? [transactionId]
+        : (
+            await tx
+              .select({ id: transaction.id })
+              .from(transaction)
+              .where(
+                and(
+                  eq(transaction.workspaceId, workspaceId),
+                  eq(transaction.transferPairId, existing.pairId),
+                ),
+              )
+              .orderBy(asc(transaction.id))
+          ).map((r) => r.id);
+    await tx
+      .select({ id: transaction.id })
+      .from(transaction)
+      .where(
+        and(
+          eq(transaction.workspaceId, workspaceId),
+          inArray(transaction.id, affected),
+        ),
+      )
+      .orderBy(asc(transaction.id))
+      .for("update");
     const [deleted] = await tx
       .delete(transaction)
       .where(inWorkspace(workspaceId, transactionId))
@@ -418,6 +475,18 @@ export async function deleteTransaction(
         source: transaction.source,
       });
     if (!deleted) return false;
+
+    const survivors = affected.filter((id) => id !== transactionId);
+    if (survivors.length)
+      await tx
+        .update(transaction)
+        .set({ transferPairId: null })
+        .where(
+          and(
+            eq(transaction.workspaceId, workspaceId),
+            inArray(transaction.id, survivors),
+          ),
+        );
 
     if (isTyped(deleted.source)) {
       const account = await lockAccount(tx, workspaceId, deleted.accountId);
