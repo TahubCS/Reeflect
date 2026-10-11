@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ACCOUNT_ENTRY_POINTS } from "@/features/accounts/server/entry-points";
 import { CASHFLOW_ENTRY_POINTS } from "@/features/cashflow/server/entry-points";
+import { BUDGET_ENTRY_POINTS } from "@/features/budgets/server/entry-points";
 import { CATEGORIZATION_ENTRY_POINTS } from "@/features/categorization/server/entry-points";
 import {
   createRule,
@@ -14,6 +15,7 @@ import { uuidv7 } from "@/lib/db/id";
 import {
   category,
   categoryRule,
+  budget,
   importBatch,
   recurringSeries,
   transaction,
@@ -51,6 +53,7 @@ const ENTRY_POINTS: EntryPoint[] = [
   ...INSIGHTS_ENTRY_POINTS,
   ...RECURRING_ENTRY_POINTS,
   ...CASHFLOW_ENTRY_POINTS,
+  ...BUDGET_ENTRY_POINTS,
 ];
 
 const getSession = vi.hoisted(() => vi.fn());
@@ -80,6 +83,11 @@ async function snapshotB(executor: Pick<typeof db, "select"> = db) {
   // a stable order so planner changes cannot look like unauthorized writes.
   return {
     accounts: await listAccounts(b.workspaceId),
+    budgets: await executor
+      .select()
+      .from(budget)
+      .where(eq(budget.workspaceId, b.workspaceId))
+      .orderBy(budget.id),
     categories: await executor
       .select()
       .from(category)

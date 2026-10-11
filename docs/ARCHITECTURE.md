@@ -86,6 +86,7 @@ Built so far: `accounts` (F-03: add, edit and delete accounts; HO-030),
 `insights` (F-35: compare with sample people, ADR-056; its `index.ts` is
 pure for `scripts/batch`, and `server.ts` exports the page),
 `recurring` (F-10: confirmed patterns, variable bills and manual tracking, ADR-058),
+`budgets` (F-09: calendar-month allocations, posted actuals and history, ADR-060),
 `auth` (sign-in, sign-up, email verification and password reset, ADR-052),
 `cashflow` (the calendar, on sample
 data), `landing` (the home page) and `synthetic`. `accounts` and
@@ -133,7 +134,7 @@ have `updated_at`.
 | `synthetic_workspace` | workspace_id (PK, cascade), batch_id (restrict), person_key, persona, summary | The synthetic marker: a row means the workspace is synthetic, no row means real (ADR-049). Built |
 | `insight_sample` | batch_id (cascade), workspace_id (cascade), period_days, measure, value; PK (workspace_id, period_days, measure) | Each sample person's Insights figures for the last 30, 90 and 365 days to the batch's as-of: cents per month, or plain counts (ADR-056). Written at batch load and by `pnpm batch rollup`. Built in migration 0008 |
 | `category` | id, workspace_id, name, color_token, sort_order, is_preset, preset_key | Built in migration 0005. Eighteen presets (ADR-057) initialized on the first authorized editor visit, and by the batch loader for sample workspaces; unique (workspace_id, preset_key) preserves renames |
-| `budget` | id, workspace_id, category_id, month (`YYYY-MM`), amount_cents | Unique (category_id, month) |
+| `budget` | id, workspace_id, category_id, month (`YYYY-MM`), amount_cents, created_at, updated_at | Built in 0010 (ADR-060). Unique (workspace_id, month, category_id); composite workspace/category FK and workspace FK cascade; month and nonnegative amount checks. Writes change allocation metadata only |
 | `category_rule` | id, workspace_id, pattern, match_type, category_id, priority, origin (`user`/`ai_confirmed`) | Built in migration 0005. Composite workspace/category FK; current rules are user-created |
 | `recurring_series` | id, workspace_id, financial_account_id, merchant_normalized, name, decision (`candidate`/`confirmed`/`dismissed`), kind (`subscription`/`bill`), amount_mode (`fixed`/`variable`), schedule_unit (`days`/`months`), schedule_every, amount_cents (nullable override), baseline_amount_cents, next_on (nullable user date), manual, user_intent (`none`/`keep`/`cancel`), last_charged_on, observed_amount_cents | Built in 0009 (ADR-058). Unique (workspace_id, account, payee); composite workspace/account FK cascades. Recurring metadata never changes ledger rows or balances. Lender dates/autopay remain F-22/F-23 additions |
 | `reminder` | id, workspace_id, recurring_series_id, due_on, remind_on, status (`scheduled`/`sent`/`cancelled_paid`/`dismissed`), channel (`in_app`/`imessage`), low_balance_warning (bool), sent_at | Unique (recurring_series_id, due_on) so each cycle reminds once |
