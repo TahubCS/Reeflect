@@ -9,7 +9,6 @@ import {
   subscriptionCosts,
   summarize,
 } from "./cashflow";
-import { DEMO_DATA, TODAY as DEMO_TODAY } from "./demo-data";
 
 const FEBRUARY = { year: 2026, month: 2 };
 const TODAY = "2026-02-10";
@@ -408,28 +407,65 @@ describe("subscriptionCosts", () => {
   });
 });
 
-describe("demo data", () => {
-  it("produces the figures the home page opens with", () => {
-    expect(summarize(DEMO_DATA, DEMO_TODAY)).toMatchObject({
-      balanceToday: 44142,
-      payday: { date: "2026-10-15", daysAway: 8 },
-      dueTotal: 14588,
-      freeToSpend: 29554,
-      perDay: 3694,
-      monthIn: 0,
-      monthOut: 149858,
-      biggestCategory: { name: "Groceries", total: 10599, count: 2 },
-      noSpendDays: 1,
+describe("card rows", () => {
+  const card = (date: string, amount: number) =>
+    entry({ date, name: "Card purchase", amount: cents(amount), onCard: true });
+
+  it("count as spending but leave the balance line alone", () => {
+    const month = buildMonth(
+      data({
+        entries: [
+          card("2026-02-03", -3000),
+          entry({ date: "2026-02-03", amount: cents(-1000) }),
+        ],
+      }),
+      FEBRUARY,
+      TODAY,
+    );
+
+    expect(month.days[2]).toMatchObject({
+      moneyOut: 4000,
+      everydaySpent: 4000,
+      endBalance: 100000 - 1000,
+      noSpend: false,
     });
-    expect(sourceCounts(DEMO_DATA, DEMO_TODAY)).toEqual({
-      bank: 8,
-      manual: 1,
-      text: 1,
-    });
-    expect(subscriptionCosts(DEMO_DATA, new Set())).toMatchObject({
-      count: 4,
-      monthly: 6547,
-      yearly: 78564,
+  });
+
+  it("do not carry into later months' balances", () => {
+    const march = buildMonth(
+      data({ entries: [card("2026-02-03", -3000)] }),
+      { year: 2026, month: 3 },
+      TODAY,
+    );
+
+    expect(march.days[0]?.endBalance).toBe(100000);
+  });
+
+  it("are neither a payday nor owed before one", () => {
+    const summary = summarize(
+      data({
+        entries: [card("2026-02-12", 5000), card("2026-02-13", -2000)],
+        recurring: [PAYCHECK, bill(14, -10000)],
+      }),
+      TODAY,
+    );
+
+    expect(summary.payday?.date).toBe("2026-02-15");
+    expect(summary.dueTotal).toBe(10000);
+    expect(summary.balanceToday).toBe(100000);
+  });
+
+  it("count toward the month's spending and biggest category", () => {
+    const summary = summarize(
+      data({ entries: [card("2026-02-03", -3000)] }),
+      TODAY,
+    );
+
+    expect(summary.monthOut).toBe(3000);
+    expect(summary.biggestCategory).toEqual({
+      name: "Groceries",
+      total: 3000,
+      count: 1,
     });
   });
 });

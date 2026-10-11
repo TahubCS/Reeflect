@@ -39,6 +39,23 @@ export type TransactionSummary = {
   editableInFull: boolean;
 };
 
+/** A transaction as the calendar reads it (F-12), with its category. */
+export type CalendarTransaction = {
+  id: string;
+  accountId: string;
+  /** "YYYY-MM-DD". */
+  postedOn: string;
+  /** Signed per ADR-008: negative is money out of the account. */
+  amountCents: Cents;
+  description: string;
+  isTransfer: boolean;
+  source: DataSource;
+  categoryName: string | null;
+  categoryPresetKey: string | null;
+  /** Typed by hand (ADR-050). */
+  editableInFull: boolean;
+};
+
 /** An account the form offers, as the page hands it over. */
 export type AccountChoice = {
   id: string;

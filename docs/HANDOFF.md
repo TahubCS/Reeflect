@@ -49,8 +49,8 @@ Update this table when work is assigned or finished. Features are listed in
 | F-08 Categorization | A | Codex | `feat/transaction-categorization` | Full feature implemented and verified (HO-037); PR #12 awaits merge |
 | F-09 Monthly budgets (P1) | A | Unassigned | — | Not started |
 | F-10 Subscriptions (detection P0, marks P1) | A | Unassigned | — | Not started |
-| F-12 Calendar home screen | B | Unassigned | — | Scaffolded on sample data (HO-019) |
-| F-13 Drill-down | B | Unassigned | — | Scaffolded on sample data (HO-019) |
+| F-12 Calendar home screen | B | Simon Ormond | `feat/real-cashflow-dashboard` | On real accounts and transactions (HO-045); paydays, bills and subscriptions wait for recurring series |
+| F-13 Drill-down | B | Simon Ormond | `feat/real-cashflow-dashboard` | Day panel adds and removes real typed transactions (HO-045) |
 | F-18 Themes and accessibility | B | Unassigned | — | Not started |
 | F-19 Delete data | B | Unassigned | — | Not started |
 | F-21 Demo seed (incl. Nessie) | A | Jacob Heminway | — | Synthetic generator and batch scripts merged (HO-026, PR #7); Nessie seeding and `pnpm db:seed` not started |
@@ -2126,3 +2126,103 @@ recommendation, not a decision.
 
 ### Open problems
 - Simon's storage tests (8) need `.env.storage-tests` to run locally.
+
+## HO-045: The calendar runs on the workspace's own accounts (F-12, F-13)
+
+- **Date:** 2026-10-11 (EDT)
+- **Author:** Simon Ormond with Claude (Claude Code)
+- **Branch / PR:** `feat/real-cashflow-dashboard` / not opened
+
+### What changed
+- **The sample is gone.** `/w/[workspaceId]/dashboard` is a server page.
+  `loadDashboard` (`src/features/cashflow/server/load.ts`) reads the
+  workspace's accounts, transactions, categories and phone link and hands
+  them to `CashflowDashboard`. Removed:
+  - `demo-data.ts`
+  - the text simulator (`read-text.ts`, `text-thread.tsx`)
+  - the "Sample data" note and the footer
+- **`toCashflowData`** (`src/features/cashflow/domain/from-records.ts`) is
+  pure and turns those rows into the calendar's data:
+  - **Balance:** checking plus savings (ADR-024). Today's balance equals the
+    stored balances; the opening balance is worked back through the window's
+    rows up to today.
+  - **Window:** two months back, two ahead (`dashboardWindow`).
+  - **Card rows** show as spending, labelled "on card · <account>", without
+    moving the balance line (`Entry.onCard` in `cashflow.ts`). Transfers
+    (ADR-020) and a loan account's own rows are left out.
+  - **Kinds:**
+    - money in → income
+    - Housing, Utilities, Insurance and Loans presets → bill
+    - the rest → spending
+
+    Sources: manual and text keep their names; every import or sync reads
+    as "from your bank".
+  - **`recurring` is empty** until recurring series exist, so the headline
+    shows "You have $X today." Subscriptions show a note instead of a list.
+- **Day panel:**
+  - `addDayEntryAction` and `removeDayEntryAction`
+    (`src/features/cashflow/server/actions.ts`) add and remove real typed
+    transactions through the transactions feature's repository. They follow
+    ADR-050's rules: today or earlier, and the balance moves. They refresh in
+    place (`refresh()` from `next/cache`), so the month and day stay put.
+  - The panel offers the workspace's categories ("Choose for me" lets the
+    rules pick) and an account picker, defaulting to checking, when there
+    are several accounts.
+  - Only typed rows have a remove button; imported rows link to their
+    transaction page. Viewers get no form. Future days explain that adding
+    stops at today.
+- **No accounts:** a new workspace sees "Add an account to see your month."
+  with links to add an account or import a statement.
+- **Sources section:** real counts per source, plus the phone-link state
+  from Settings.
+- **Transactions:** `listTransactionsBetween` (with each row's category).
+  `createTransaction`, `deleteTransaction` and `parseTransactionForm` are
+  exported from the feature's index; categorization exports `saveOverride`.
+- **Accessibility:** the day panel's selects use `htmlFor`, so their names
+  no longer include the option text.
+- **Tests:**
+  - Vitest:
+    - `from-records.test.ts`
+    - card rows in `cashflow.test.ts`
+    - `listTransactionsBetween`
+    - `cashflow/server/actions.test.ts` (loader and actions, roles)
+    - three new entries in the isolation matrix (TEST-06)
+  - Playwright: `calendar.spec.ts` rewritten for real users. `auth`,
+    `workspaces` and `app-nav` no longer expect the sample headline.
+  - Results:
+    - `pnpm test:unit`: 1206 passed. One run failed once, in the isolation
+      matrix's `addDayEntryAction` cross-workspace case; it passed in the
+      four full runs and three single-file runs since.
+    - `pnpm test:e2e`: 83 passed.
+    - `lint`, `typecheck`, `format:check`, `build`, `scan:bundle` and
+      `docs:check` pass.
+- **Docs:**
+  - PITCH.md has a note that the 1:00 step must not claim upcoming paydays
+    and bills yet.
+  - Assignments table: F-12 and F-13 are Simon's.
+
+### What's next
+- **PR 2, recurring series:**
+  - a new ADR for detecting recurring income (ADR-042 needs it; ADR-014
+    covers charges only)
+  - the `recurring_series` table and its migration
+  - detection plus a manual "add a payday, bill or subscription" form
+  - keep and cancel marks
+  - feeding `CashflowData.recurring`
+
+  That turns on the per-day headline, the dotted line and the subscriptions
+  list without changing the calendar UI.
+- Bring the demo script's 1:00 step back to "paydays and bills on their
+  days" once PR 2 lands.
+
+### Open problems
+- **The intermittent isolation failure above:** watch for it in CI.
+- **Imported rows without a balance:** the opening balance assumes the
+  stored balance is today's. A statement import that leaves the balance
+  older than its rows (a card export, ADR-054) can be off; card rows don't
+  move the line, so this mostly affects checking imports.
+- **Card payments and refunds:** until transfer pairing (F-08, ADR-020), an
+  unpaired card payment shows as money in on the card, and the checking side
+  as spending.
+- **The Subscriptions category** reads as spending, not as a subscription,
+  until recurring series exist.

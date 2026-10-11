@@ -1,72 +1,85 @@
 "use client";
 
 import { motion } from "motion/react";
-import { type FormEvent, useState } from "react";
-import {
-  type Cents,
-  formatCents,
-  formatSigned,
-  negate,
-  parseDollars,
-} from "@/lib/money";
+import Link from "next/link";
+import { type FormEvent, useId, useState, useTransition } from "react";
+import type { AccountChoice } from "@/features/transactions";
+import { formatCents, formatSigned, parseDollars } from "@/lib/money";
 import type { DayView, Item } from "../domain/cashflow";
 import { formatLong, formatShort } from "../domain/dates";
-import { SPENDING_CATEGORIES } from "../domain/demo-data";
+import { addDayEntryAction, removeDayEntryAction } from "../server/actions";
+import type { DashboardCategory } from "../server/load";
 import { KIND_LABEL, Mark, SOURCE_LABEL } from "./month-grid";
 
-export type NewEntry = {
-  name: string;
-  amount: Cents;
-  category: string;
-  isIncome: boolean;
-};
+/** Lets the saved rules pick the category (ADR-013). */
+const AUTOMATIC = "";
 
 function itemNote(item: Item, cancelling: boolean) {
   const what = item.kind === "everyday" ? item.category : KIND_LABEL[item.kind];
   if (cancelling) return `${what}, planning to cancel`;
   if (!item.source) return `${what}, expected`;
-  if (item.planned) return `${what}, planned by you`;
-  return `${what}, ${SOURCE_LABEL[item.source]}`;
+  const parts = [`${what}, ${SOURCE_LABEL[item.source]}`];
+  if (item.onCard) parts.push("on card");
+  const note = parts.join(", ");
+  return item.accountName ? `${note} · ${item.accountName}` : note;
+}
+
+/** Checking first, so a new entry lands where most spending happens. */
+function defaultAccount(accounts: readonly AccountChoice[]) {
+  return (accounts.find((a) => a.type === "checking") ?? accounts[0])?.id ?? "";
 }
 
 function AddForm({
+  workspaceId,
   day,
-  onAdd,
+  accounts,
+  categories,
 }: {
+  workspaceId: string;
   day: DayView;
-  onAdd: (entry: NewEntry) => void;
+  accounts: readonly AccountChoice[];
+  categories: readonly DashboardCategory[];
 }) {
   const [isIncome, setIsIncome] = useState(false);
   const [name, setName] = useState("");
   const [amountText, setAmountText] = useState("");
-  const [category, setCategory] = useState(SPENDING_CATEGORIES[0]);
+  const [accountId, setAccountId] = useState(() => defaultAccount(accounts));
+  const [categoryId, setCategoryId] = useState(AUTOMATIC);
   const [error, setError] = useState("");
+  const [pending, startTransition] = useTransition();
+  const ids = useId();
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    const amount = parseDollars(amountText);
-    if (!amount) {
+    if (!parseDollars(amountText)) {
       setError("Enter an amount like 12.50.");
       return;
     }
-    onAdd({
-      name: name.trim() || (isIncome ? "Money in" : category),
-      amount: isIncome ? amount : negate(amount),
-      category: isIncome ? "Pay" : category,
-      isIncome,
+    const chosen = categories.find((c) => c.id === categoryId);
+    const description =
+      name.trim() || (isIncome ? "Money in" : (chosen?.name ?? "Spending"));
+    startTransition(async () => {
+      const result = await addDayEntryAction(workspaceId, {
+        accountId,
+        postedOn: day.date,
+        direction: isIncome ? "in" : "out",
+        amount: amountText,
+        description,
+        categoryId: isIncome || !chosen ? null : chosen.id,
+      });
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      setName("");
+      setAmountText("");
+      setError("");
     });
-    setName("");
-    setAmountText("");
-    setError("");
   };
 
   return (
     <form className="add" onSubmit={submit} noValidate>
-      <h3>
-        {day.isFuture
-          ? "Plan something for this day"
-          : "Add something to this day"}
-      </h3>
+      <h3>Add something to this day</h3>
       <div className="switch" role="radiogroup" aria-label="Type">
         <label>
           <input
@@ -75,7 +88,7 @@ function AddForm({
             checked={!isIncome}
             onChange={() => setIsIncome(false)}
           />
-          <span>{day.isFuture ? "I will spend" : "I spent"}</span>
+          <span>I spent</span>
         </label>
         <label>
           <input
@@ -84,7 +97,7 @@ function AddForm({
             checked={isIncome}
             onChange={() => setIsIncome(true)}
           />
-          <span>{day.isFuture ? "I will get" : "I got"}</span>
+          <span>I got</span>
         </label>
       </div>
       <div className="fields">
@@ -109,22 +122,42 @@ function AddForm({
               isIncome ? "Refund, gift, side job" : "Lunch, bus fare"
             }
             value={name}
-            maxLength={40}
+            maxLength={200}
             onChange={(event) => setName(event.target.value)}
           />
         </label>
         {!isIncome && (
-          <label className="field">
-            <span>Category</span>
+          <div className="field">
+            <label htmlFor={`${ids}-category`}>Category</label>
             <select
-              value={category}
-              onChange={(event) => setCategory(event.target.value)}
+              id={`${ids}-category`}
+              value={categoryId}
+              onChange={(event) => setCategoryId(event.target.value)}
             >
-              {SPENDING_CATEGORIES.map((option) => (
-                <option key={option}>{option}</option>
+              <option value={AUTOMATIC}>Choose for me</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
               ))}
             </select>
-          </label>
+          </div>
+        )}
+        {accounts.length > 1 && (
+          <div className="field">
+            <label htmlFor={`${ids}-account`}>Account</label>
+            <select
+              id={`${ids}-account`}
+              value={accountId}
+              onChange={(event) => setAccountId(event.target.value)}
+            >
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.nickname}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
       </div>
       {error && (
@@ -132,26 +165,34 @@ function AddForm({
           {error}
         </p>
       )}
-      <button type="submit" className="primary">
-        Add to {formatShort(day.date)}
+      <button type="submit" className="primary" disabled={pending}>
+        {pending ? "Adding…" : `Add to ${formatShort(day.date)}`}
       </button>
     </form>
   );
 }
 
 export function DayPanel({
+  workspaceId,
   day,
+  accounts,
+  categories,
+  canEdit,
   cancelPlans,
-  onAdd,
-  onRemove,
 }: {
+  workspaceId: string;
   day: DayView;
+  accounts: readonly AccountChoice[];
+  categories: readonly DashboardCategory[];
+  canEdit: boolean;
   cancelPlans: ReadonlySet<string>;
-  onAdd: (entry: NewEntry) => void;
-  onRemove: (id: string) => void;
 }) {
+  const [removing, startRemoving] = useTransition();
+  const remove = (id: string) =>
+    startRemoving(() => removeDayEntryAction(workspaceId, id));
+
   return (
-    <aside className="panel" aria-label="Selected day">
+    <aside className="panel" aria-label="Selected day" aria-busy={removing}>
       <motion.div
         key={day.date}
         initial={{ opacity: 0, y: 6 }}
@@ -181,7 +222,7 @@ export function DayPanel({
         {day.items.length === 0 ? (
           <p className="panel-empty">
             {day.isFuture
-              ? "Nothing planned for this day yet."
+              ? "Nothing expected on this day yet."
               : "Nothing went in or out. A no-spend day."}
           </p>
         ) : (
@@ -215,15 +256,24 @@ export function DayPanel({
                   </span>
                   {item.recurringId ? (
                     <span className="item-remove" />
-                  ) : (
+                  ) : canEdit && item.removable ? (
                     <button
                       type="button"
                       className="item-remove"
                       aria-label={`Remove ${item.name}`}
-                      onClick={() => onRemove(item.id)}
+                      disabled={removing}
+                      onClick={() => remove(item.id)}
                     >
                       <span aria-hidden="true">×</span>
                     </button>
+                  ) : (
+                    <Link
+                      className="item-remove"
+                      href={`/w/${workspaceId}/transactions/${item.id}`}
+                      aria-label={`Open ${item.name}`}
+                    >
+                      <span aria-hidden="true">›</span>
+                    </Link>
                   )}
                 </li>
               );
@@ -231,7 +281,20 @@ export function DayPanel({
           </ul>
         )}
 
-        <AddForm day={day} onAdd={onAdd} />
+        {canEdit &&
+          (day.isFuture ? (
+            <p className="add-note">
+              You can add spending up to today. Paydays and bills still to come
+              will show here once we&rsquo;ve seen them repeat.
+            </p>
+          ) : (
+            <AddForm
+              workspaceId={workspaceId}
+              day={day}
+              accounts={accounts}
+              categories={categories}
+            />
+          ))}
       </motion.div>
     </aside>
   );

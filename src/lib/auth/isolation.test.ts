@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ACCOUNT_ENTRY_POINTS } from "@/features/accounts/server/entry-points";
+import { CASHFLOW_ENTRY_POINTS } from "@/features/cashflow/server/entry-points";
 import { CATEGORIZATION_ENTRY_POINTS } from "@/features/categorization/server/entry-points";
 import {
   createRule,
@@ -46,10 +47,13 @@ const ENTRY_POINTS: EntryPoint[] = [
   ...TRANSACTION_ENTRY_POINTS,
   ...CATEGORIZATION_ENTRY_POINTS,
   ...INSIGHTS_ENTRY_POINTS,
+  ...CASHFLOW_ENTRY_POINTS,
 ];
 
 const getSession = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/auth/session", () => ({ getSession }));
+// The calendar's actions refresh the page in place, which needs a request.
+vi.mock("next/cache", () => ({ refresh: vi.fn() }));
 
 const f = fixtures();
 let userA: string;
