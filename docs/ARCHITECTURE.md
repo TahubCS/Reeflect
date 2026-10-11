@@ -85,6 +85,7 @@ Built so far: `accounts` (F-03: add, edit and delete accounts; HO-030),
 `categorization` (F-08: category controls, rules and manual choices),
 `insights` (F-35: compare with sample people, ADR-056; its `index.ts` is
 pure for `scripts/batch`, and `server.ts` exports the page),
+`recurring` (F-10: confirmed patterns, variable bills and manual tracking, ADR-058),
 `auth` (sign-in, sign-up, email verification and password reset, ADR-052),
 `cashflow` (the calendar, on sample
 data), `landing` (the home page) and `synthetic`. `accounts` and
@@ -134,7 +135,7 @@ have `updated_at`.
 | `category` | id, workspace_id, name, color_token, sort_order, is_preset, preset_key | Built in migration 0005. Eighteen presets (ADR-057) initialized on the first authorized editor visit, and by the batch loader for sample workspaces; unique (workspace_id, preset_key) preserves renames |
 | `budget` | id, workspace_id, category_id, month (`YYYY-MM`), amount_cents | Unique (category_id, month) |
 | `category_rule` | id, workspace_id, pattern, match_type, category_id, priority, origin (`user`/`ai_confirmed`) | Built in migration 0005. Composite workspace/category FK; current rules are user-created |
-| `recurring_series` | id, workspace_id, financial_account_id, merchant_normalized, median_amount_cents, cadence (`weekly`/`monthly`), last_charged_on, user_intent (`none`/`keep`/`cancel`), manual (bool), kind (`subscription`/`bill`), next_due_on (nullable), due_date_source (`lender`/`user`/`predicted`), autopay (bool) | Subscriptions are `kind = subscription` only (ADR-030) |
+| `recurring_series` | id, workspace_id, financial_account_id, merchant_normalized, name, decision (`candidate`/`confirmed`/`dismissed`), kind (`subscription`/`bill`), amount_mode (`fixed`/`variable`), schedule_unit (`days`/`months`), schedule_every, amount_cents (nullable override), baseline_amount_cents, next_on (nullable user date), manual, user_intent (`none`/`keep`/`cancel`), last_charged_on, observed_amount_cents | Built in 0009 (ADR-058). Unique (workspace_id, account, payee); composite workspace/account FK cascades. Recurring metadata never changes ledger rows or balances. Lender dates/autopay remain F-22/F-23 additions |
 | `reminder` | id, workspace_id, recurring_series_id, due_on, remind_on, status (`scheduled`/`sent`/`cancelled_paid`/`dismissed`), channel (`in_app`/`imessage`), low_balance_warning (bool), sent_at | Unique (recurring_series_id, due_on) so each cycle reminds once |
 | `savings_goal` | id, workspace_id, name, target_cents, saved_cents, target_date, active | One active goal in MVP |
 | `import_batch` | id, workspace_id, financial_account_id, kind (`csv`/`pdf`/`plaid`/`nessie`), file_sha256 (nullable), statement_institution, statement_last4, product_name, period_start, period_end, opening_balance_cents (nullable), closing_balance_cents (nullable), reconciliation (`passed`/`failed`/`not_applicable`), rows_parsed, rows_imported, rows_skipped_duplicate, checks (jsonb), csv_object_key, csv_sha256, status (`previewed`/`committed`/`rejected`), created_by, committed_at | Unique (financial_account_id, file_sha256). Built (migration 0006) for PDF imports, used by CSV imports too; balances are null when the file has none, like a card's CSV export (migration 0007, ADR-054); `csv_object_key` and `csv_sha256` locate and verify the stored CSV (ADR-053). Blocked previews write no row, so `rejected` is unused so far |
@@ -410,11 +411,30 @@ again later." Other import sources keep working when Plaid is down.
 
 ## ARCH-12: Bill reminders
 
-Governed by: ADR-030, ADR-014, ADR-019, ADR-041
+Governed by: ADR-030, ADR-058, ADR-019, ADR-041
+
+Reminder scheduling/delivery below is planned F-22. F-10's website uses
+`recurring/domain/patterns.ts` and `payments.ts` to infer observed timing,
+show supporting charges, and separate posted spending from estimates.
+Every suggestion needs confirmation; amount variation does not reject a
+timing pattern. Users can correct kind, fixed/variable mode, cadence, date
+and amount source, or track a payment without history. See the
+[recurring README](../src/features/recurring/README.md) for guardrails and APIs.
+The existing `/subscriptions` route is labelled **Recurring payments**;
+the Bills route remains the future reminder screen.
+
+Reads derive current suggestions without writing. Editors can materialize
+suggestions through `refreshRecurringSeries(verifiedWorkspaceId, accountIds?)`.
+Writes serialize per workspace and preserve user choices. Import callers
+authorize, commit financial rows, classify categories/transfers, then invoke
+this public API from `@/features/recurring`, catching/retrying a failure
+without undoing the import. The page also reevaluates the ledger on every
+read, so it works without an importer hook. Current imports do not yet pair
+transfers; recurring analysis excludes rows explicitly marked as transfers.
 
 | Step | Where | What happens |
 |---|---|---|
-| 1. Classify | `src/features/recurring/domain/classify.ts` | Each recurring series gets `kind` (`subscription` or `bill`) from category, linked liability, or user override |
+| 1. Classify | `src/features/recurring/domain/patterns.ts` | Built: category-based initial kind and user corrections; future liability integration must add lender provenance |
 | 2. Due date | `src/features/reminders/domain/nextDueDate.ts` | Picks the due date by source precedence (lender, user, predicted) and applies the month-end rule |
 | 3. Schedule | Job tick every 5 minutes from the worker (ADR-041), plus a daily Vercel Cron backup → `src/features/reminders/server/schedule.ts` | For every bill due in 7 days (workspace time zone) with no reminder row for that cycle, create one |
 | 4. Check paid | `src/features/reminders/domain/isPaid.ts` | If a matching payment already posted this cycle, mark `cancelled_paid` instead of sending |
@@ -509,7 +529,9 @@ Governed by: ADR-033, ADR-048, ADR-010, ADR-020, ADR-030
 | Demo control | `src/features/nessie/server/demo.ts` | Dev-only action to create a purchase or deposit in Nessie during the live demo, then sync |
 
 De-duplication uses the Nessie object id as `external_id`. Bills become
-`recurring_series` of kind `bill` with `due_date_source = 'lender'`.
+`recurring_series` of kind `bill`; recording a lender due-date source is
+planned with the Nessie/reminder integration. F-10 currently supports user
+dates and dates predicted from charges, never claims a lender due date.
 
 Nessie as verified on 2026-10-10 (ADR-048):
 - **Data:** it starts empty; we create every customer and transaction.

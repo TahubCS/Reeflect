@@ -14,6 +14,7 @@ import {
   category,
   categoryRule,
   importBatch,
+  recurringSeries,
   transaction,
 } from "@/lib/db/schema";
 import {
@@ -25,6 +26,7 @@ import { INSIGHTS_ENTRY_POINTS } from "@/features/insights/server/entry-points";
 import { listPreviews } from "@/features/imports/server/repository";
 import { MESSAGING_ENTRY_POINTS } from "@/features/messaging/server/entry-points";
 import { TRANSACTION_ENTRY_POINTS } from "@/features/transactions/server/entry-points";
+import { RECURRING_ENTRY_POINTS } from "@/features/recurring/server/entry-points";
 import { createTransaction } from "@/features/transactions/server/repository";
 import { cents } from "@/lib/money";
 import {
@@ -46,6 +48,7 @@ const ENTRY_POINTS: EntryPoint[] = [
   ...TRANSACTION_ENTRY_POINTS,
   ...CATEGORIZATION_ENTRY_POINTS,
   ...INSIGHTS_ENTRY_POINTS,
+  ...RECURRING_ENTRY_POINTS,
 ];
 
 const getSession = vi.hoisted(() => vi.fn());
@@ -79,6 +82,10 @@ async function snapshotB() {
       .select()
       .from(categoryRule)
       .where(eq(categoryRule.workspaceId, b.workspaceId)),
+    recurring: await db
+      .select()
+      .from(recurringSeries)
+      .where(eq(recurringSeries.workspaceId, b.workspaceId)),
     transactions: await db
       .select()
       .from(transaction)

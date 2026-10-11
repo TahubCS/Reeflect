@@ -38,7 +38,8 @@
 
 .email {
   flex: 0 100 auto;
-  min-width: 0;
+  /* Longer navigation labels must not shrink the identity to zero width. */
+  min-width: 8rem;
   max-width: 16rem;
   margin-left: auto;
   overflow: hidden;

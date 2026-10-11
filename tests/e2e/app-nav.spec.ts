@@ -8,7 +8,7 @@ const PAGES = [
   ["Accounts", "/accounts"],
   ["Transactions", "/transactions"],
   ["Import", "/import"],
-  ["Subscriptions", "/subscriptions"],
+  ["Recurring payments", "/subscriptions"],
   ["Bills", "/bills"],
   ["Budgets", "/budgets"],
   ["Insights", "/insights"],
