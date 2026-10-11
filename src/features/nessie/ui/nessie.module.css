@@ -1,0 +1,52 @@
+/* Capital One sandbox panel (ADR-033). Uses the tokens in
+   src/app/globals.css (ADR-046). */
+
+.panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.text {
+  display: grid;
+  gap: 0.25rem;
+  max-width: 52ch;
+}
+
+.text h2 {
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.meta,
+.status {
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+}
+
+.status:empty {
+  display: none;
+}
+
+.button {
+  min-height: 2.75rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}

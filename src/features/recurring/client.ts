@@ -2,6 +2,7 @@ export {
   cadenceLabel,
   dateSchema,
   dayOf,
+  monthNumber,
   shiftDays,
   shiftMonths,
 } from "./domain/dates";

@@ -131,7 +131,9 @@ async function assertBudgetConstraints(client: pg.Client) {
   ).rejects.toMatchObject({ code: "23503" });
 }
 
-describe("budget forward migration recovery", () => {
+// Each test builds a whole database, which can pass the default five
+// seconds when the full suite runs beside it.
+describe("budget forward migration recovery", { timeout: 30_000 }, () => {
   it("migrates a fresh database and enforces the budget constraints", async () => {
     await isolatedDatabase(async (client) => {
       await migrate(drizzle(client), { migrationsFolder });
