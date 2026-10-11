@@ -4381,3 +4381,24 @@ rows", transactions 2 "show more" in steps of 20, plus a view-only list.
 ### Open problems
 - iOS Safari ignores `background-attachment: fixed`, so there the grid
   scrolls with the page and may not line up exactly with the header.
+
+## HO-098: README rewritten for the Devpost submission, with attributions
+
+- **Date:** 2026-10-11 (EDT)
+- **Author:** Simon Ormond with Claude (Claude Code)
+- **Branch / PR:** `docs/readme-devpost` (uncommitted) / not opened
+
+### What changed
+- `README.md` now says what Reeflect does, how the pieces fit, and how to
+  run it, and has an Attributions section: APIs and services, frameworks
+  and libraries, AI and LLM usage (Gemini inside the product; Claude Code,
+  Claude, Codex and CodeRabbit used to build it), and a note that all data
+  is synthetic. HackNC requires these attributions in every submission.
+- The getting-started steps and links to AGENTS.md and docs/ are kept.
+
+### What's next
+- Teammates: check the "Building the product" list matches the tools you
+  actually used (for example, add Gemini CLI or Copilot if you used them).
+
+### Open problems
+- None
