@@ -32,8 +32,8 @@ test("a new user lands in their Personal workspace", async ({
   const page = await newSignedInPage(browser, baseURL);
 
   await personalDashboardUrl(page);
-  await expect(page.getByRole("heading", { level: 1 })).toContainText(
-    "a day until payday",
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Add an account to see your month.",
   );
 });
 
@@ -65,7 +65,9 @@ test.describe("another user's workspace", () => {
     await page.goto(theirs);
 
     await expect(page.getByText("This page could not be found.")).toBeVisible();
-    await expect(page.getByText("a day until payday")).toHaveCount(0);
+    await expect(
+      page.getByText("Add an account to see your month."),
+    ).toHaveCount(0);
   });
 });
 

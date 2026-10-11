@@ -49,18 +49,18 @@ Update this table when work is assigned or finished. Features are listed in
 | F-08 Categorization | A | Codex | `feat/transaction-categorization` | Full feature merged in PR #12 (HO-037) |
 | F-09 Monthly budgets (P1) | A | Unassigned | — | Not started |
 | F-10 Recurring payments (detection P0, marks P1) | A | Codex | `feat/subscriptions` | Full website built (HO-045, ADR-058); local checks pass; external Neon storage regressions pending |
-| F-12 Calendar home screen | B | Unassigned | — | Scaffolded on sample data (HO-019) |
-| F-13 Drill-down | B | Unassigned | — | Scaffolded on sample data (HO-019) |
+| F-12 Calendar home screen | B | Simon Ormond | `feat/real-cashflow-dashboard` | On real accounts and transactions (HO-048); paydays, bills and subscriptions not yet read from recurring payments (F-10) |
+| F-13 Drill-down | B | Simon Ormond | `feat/real-cashflow-dashboard` | Day panel adds and removes real typed transactions (HO-048) |
 | F-18 Themes and accessibility | B | Unassigned | — | Not started |
 | F-19 Delete data | B | Unassigned | — | Not started |
 | F-21 Demo seed (incl. Nessie) | A | Jacob Heminway | — | Synthetic generator and batch scripts merged (HO-026, PR #7); Nessie seeding and `pnpm db:seed` not started |
 | F-23 Nessie import and sync | A | Unassigned | — | Not started |
 | F-24 Phone linking | C | Muhammad Tahub Khatri | `feat/photon-agent` | Built (HO-032); real texts need the worker (F-32) |
-| F-25 "How am I doing?" + week-ahead image | C | Muhammad Tahub Khatri | `feat/agent-answers` | Answers built (HO-049): balances and the last 30 days. Owed before payday, the per-day figure and the image wait for bills and paydays |
+| F-25 "How am I doing?" + week-ahead image | C | Muhammad Tahub Khatri | `feat/agent-answers` | Answers built (HO-050): balances and the last 30 days. Owed before payday, the per-day figure and the image wait for bills and paydays |
 | F-26 Subscription alerts | C | Unassigned | — | Not started |
 | F-27 Log spending by text | C | Unassigned | — | Not started |
 | F-28 Category and balance questions | C | Unassigned | — | Not started |
-| F-32 Agent worker | C | Muhammad Tahub Khatri | `feat/agent-worker` | Done, replies only (HO-039, PR #17); live on Render (HO-048) |
+| F-32 Agent worker | C | Muhammad Tahub Khatri | `feat/agent-worker` | Done, replies only (HO-039, PR #17); live on Render (HO-049) |
 | F-22 Bill reminders (P1) | A + C | Unassigned | — | Not started |
 | F-15 Gemini summary on the website (P1, ADR-045) | C | Unassigned | — | Not started |
 | F-35 Compare with people like you (Later, ADR-056) | A + B | Jacob Heminway | `feat/insights` | Built: the Insights page, stored sample figures and `pnpm batch rollup` (HO-043); ADR-056 and ADR-057 Proposed |
@@ -2280,9 +2280,110 @@ recommendation, not a decision.
 - HO-045's local Neon storage network restriction remains. CI can reach the
   test bucket and passed its storage/import tests in the initial PR run.
 
+## HO-048: The calendar runs on the workspace's own accounts (F-12, F-13)
+
+- **Date:** 2026-10-11 (EDT)
+- **Author:** Simon Ormond with Claude (Claude Code)
+- **Branch / PR:** `feat/real-cashflow-dashboard` / not opened
+
+### What changed
+- **The sample is gone.** `/w/[workspaceId]/dashboard` is a server page.
+  `loadDashboard` (`src/features/cashflow/server/load.ts`) reads the
+  workspace's accounts, transactions, categories and phone link and hands
+  them to `CashflowDashboard`. Removed:
+  - `demo-data.ts`
+  - the text simulator (`read-text.ts`, `text-thread.tsx`)
+  - the "Sample data" note and the footer
+- **`toCashflowData`** (`src/features/cashflow/domain/from-records.ts`) is
+  pure and turns those rows into the calendar's data:
+  - **Balance:** checking plus savings (ADR-024). Today's balance equals the
+    stored balances; the opening balance is worked back through the window's
+    rows up to today.
+  - **Window:** two months back, two ahead (`dashboardWindow`).
+  - **Card rows** show as spending, labelled "on card · <account>", without
+    moving the balance line (`Entry.onCard` in `cashflow.ts`). Transfers
+    (ADR-020) and a loan account's own rows are left out.
+  - **Kinds:**
+    - money in → income
+    - Housing, Utilities, Insurance and Loans presets → bill
+    - the rest → spending
+
+    Sources: manual and text keep their names; every import or sync reads
+    as "from your bank".
+  - **`recurring` is empty** until recurring series exist, so the headline
+    shows "You have $X today." Subscriptions show a note instead of a list.
+- **Day panel:**
+  - `addDayEntryAction` and `removeDayEntryAction`
+    (`src/features/cashflow/server/actions.ts`) add and remove real typed
+    transactions through the transactions feature's repository. They follow
+    ADR-050's rules: today or earlier, and the balance moves. They refresh in
+    place (`refresh()` from `next/cache`), so the month and day stay put.
+  - The panel offers the workspace's categories ("Choose for me" lets the
+    rules pick) and an account picker, defaulting to checking, when there
+    are several accounts.
+  - Only typed rows have a remove button; imported rows link to their
+    transaction page. Viewers get no form. Future days explain that adding
+    stops at today.
+- **No accounts:** a new workspace sees "Add an account to see your month."
+  with links to add an account or import a statement.
+- **Sources section:** real counts per source, plus the phone-link state
+  from Settings.
+- **Transactions:** `listTransactionsBetween` (with each row's category).
+  `createTransaction`, `deleteTransaction` and `parseTransactionForm` are
+  exported from the feature's index; categorization exports `saveOverride`.
+- **Accessibility:** the day panel's selects use `htmlFor`, so their names
+  no longer include the option text.
+- **Tests:**
+  - Vitest:
+    - `from-records.test.ts`
+    - card rows in `cashflow.test.ts`
+    - `listTransactionsBetween`
+    - `cashflow/server/actions.test.ts` (loader and actions, roles)
+    - three new entries in the isolation matrix (TEST-06)
+  - Playwright: `calendar.spec.ts` rewritten for real users. `auth`,
+    `workspaces` and `app-nav` no longer expect the sample headline.
+  - Results:
+    - `pnpm test:unit`: 1206 passed before the merge with main. One run
+      failed once, in the isolation matrix's `addDayEntryAction`
+      cross-workspace case. That is likely the unordered snapshot HO-047
+      fixed on main, which this branch now includes.
+    - `pnpm test:e2e`: 83 passed.
+    - `lint`, `typecheck`, `format:check`, `build`, `scan:bundle` and
+      `docs:check` pass.
+- **Docs:**
+  - PITCH.md has a note that the 1:00 step must not claim upcoming paydays
+    and bills yet.
+  - Assignments table: F-12 and F-13 are Simon's.
+
+### What's next
+- **Feed the calendar from recurring payments:** F-10's recurring payments
+  (`src/features/recurring`, ADR-058) merged into main while this branch
+  was open. Map confirmed series into `CashflowData.recurring` (income,
+  bills, subscriptions), and keep the cancel marks in that feature's state
+  instead of the dashboard's local state. That turns on the per-day
+  headline, the dotted line and the subscriptions list without changing
+  the calendar UI.
+- **Detect paydays:** check whether ADR-058 covers recurring income. The
+  headline needs the next payday (ADR-042). If it doesn't, write the ADR.
+- **Demo script:** bring the 1:00 step back to "paydays and bills on their
+  days" once that lands.
+
+### Open problems
+- **Imported rows without a balance:** the opening balance assumes the
+  stored balance is today's. A statement import that leaves the balance
+  older than its rows (a card export, ADR-054) can be off; card rows don't
+  move the line, so this mostly affects checking imports.
+- **Card payments and refunds:** until transfer pairing (F-08, ADR-020), an
+  unpaired card payment shows as money in on the card, and the checking side
+  as spending.
+- **The Subscriptions category** reads as spending, not as a subscription,
+  until the calendar reads recurring payments.
+
 ---
 
-## HO-048: Agent worker live on Render; replies are placeholders for now
+---
+
+## HO-049: Agent worker live on Render; replies are placeholders for now
 
 - **Date:** 2026-10-11 01:30 (EDT)
 - **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
@@ -2323,7 +2424,7 @@ recommendation, not a decision.
 
 ---
 
-## HO-049: F-25 "how am I doing?": Gemini writes the reply, code supplies every figure
+## HO-050: F-25 "how am I doing?": Gemini writes the reply, code supplies every figure
 
 - **Date:** 2026-10-11 03:00 (EDT)
 - **Author:** Muhammad Tahub Khatri with Claude (Claude Code)

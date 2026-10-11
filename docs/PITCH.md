@@ -16,6 +16,14 @@ Agent Track, Best Use of Nessie with Capital One, MLH Best Use of Gemini API
 > by code) is now one of the four main features. The demo script in section 5
 > does not show a statement upload yet; add a step once the import works.
 
+> **Updated 2026-10-11 (HO-048):** the website calendar now runs on the
+> workspace's own accounts and transactions; the sample data and the chat
+> simulator are gone. The calendar does not read recurring payments (F-10,
+> ADR-058) yet, so paydays, bills and subscriptions still to come are not
+> on it. Until then the
+> headline shows today's balance, not the per-day amount, and the 1:00 step
+> must not say that upcoming paydays and bills are on the calendar.
+
 ---
 
 ## 1. One line

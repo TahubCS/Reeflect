@@ -6,6 +6,11 @@ import {
 } from "@/features/accounts/server/repository";
 import { db } from "@/lib/db/client";
 import { financialAccount, transaction } from "@/lib/db/schema";
+import {
+  ensureCategories,
+  listCategories,
+  saveOverride,
+} from "@/features/categorization/server/repository";
 import { cents } from "@/lib/money";
 import { fixtures } from "../../../../tests/support/db-fixtures";
 import type { LedgerInput } from "../domain/transaction-input";
@@ -14,6 +19,7 @@ import {
   deleteTransaction,
   getTransaction,
   listTransactions,
+  listTransactionsBetween,
   updateTransaction,
 } from "./repository";
 
@@ -161,6 +167,52 @@ describe("listTransactions", () => {
     expect(await listTransactions(workspace, { limit: 1 })).toHaveLength(1);
     expect(await listTransactions(workspaceB, { accountId: one })).toEqual([]);
     expect(await getTransaction(workspaceB, old!)).toBeNull();
+  });
+});
+
+describe("listTransactionsBetween", () => {
+  it("lists the window's rows oldest first, with their category, and never other workspaces", async () => {
+    const accountId = await account(workspaceA, 20_000);
+    const otherAccount = await account(workspaceB, 20_000);
+    await ensureCategories(workspaceA);
+    const housing = (await listCategories(workspaceA)).find(
+      (c) => c.presetKey === "housing",
+    )!;
+    const before = await add(workspaceA, { accountId, postedOn: "2026-08-31" });
+    const late = await add(workspaceA, { accountId, postedOn: "2026-10-09" });
+    const rent = await add(
+      workspaceA,
+      { accountId, postedOn: "2026-09-01", amountCents: cents(-90000) },
+      "Rent",
+    );
+    await saveOverride(workspaceA, rent!, {
+      mode: "manual",
+      categoryId: housing.id,
+    });
+    await add(workspaceB, { accountId: otherAccount, postedOn: "2026-09-15" });
+
+    const rows = await listTransactionsBetween(
+      workspaceA,
+      "2026-09-01",
+      "2026-10-31",
+    );
+    const mine = rows.filter((r) => r.accountId === accountId);
+
+    expect(mine.map((r) => r.id)).toEqual([rent, late]);
+    expect(mine.map((r) => r.id)).not.toContain(before);
+    expect(mine[0]).toEqual({
+      id: rent,
+      accountId,
+      postedOn: "2026-09-01",
+      amountCents: -90000,
+      description: "Rent",
+      isTransfer: false,
+      source: "manual",
+      categoryName: "Housing",
+      categoryPresetKey: "housing",
+      editableInFull: true,
+    });
+    expect(rows.every((r) => r.accountId !== otherAccount)).toBe(true);
   });
 });
 

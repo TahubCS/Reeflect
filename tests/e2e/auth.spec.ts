@@ -102,11 +102,11 @@ test("sign up, confirm the email, sign out, a wrong password, then sign in", asy
   await page.goto(await emailedLink(email, VERIFY_SUBJECT));
   await expect(page).toHaveURL(/\/w\/[^/]+\/dashboard$/);
   await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
-  await expect(page.getByRole("heading", { level: 1 })).toContainText(
-    "a day until payday",
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Add an account to see your month.",
   );
 
-  await hydrated(page, "button[data-date]");
+  await hydrated(page, "nav[aria-label='Pages'] a");
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/$/);
   await page.goto("/dashboard");

@@ -1,11 +1,12 @@
 import "server-only";
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lte } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { getCategoryMetadata } from "@/features/categorization";
 import { uuidv7 } from "@/lib/db/id";
-import { financialAccount, transaction } from "@/lib/db/schema";
+import { category, financialAccount, transaction } from "@/lib/db/schema";
 import { type Cents, add, cents, negate } from "@/lib/money";
 import {
+  type CalendarTransaction,
   type LedgerInput,
   type TransactionInput,
   type TransactionSummary,
@@ -88,6 +89,57 @@ export async function listTransactions(
     .limit(options.limit ?? LIST_LIMIT)
     .offset(options.offset ?? 0);
   return rows.map(toSummary);
+}
+
+/**
+ * The workspace's transactions dated `from` to `to` ("YYYY-MM-DD", both
+ * included), oldest first, with each one's category, for the calendar
+ * (F-12). Not limited to `LIST_LIMIT`: the calendar needs every row in its
+ * window, and the window is a few months.
+ */
+export async function listTransactionsBetween(
+  workspaceId: string,
+  from: string,
+  to: string,
+): Promise<CalendarTransaction[]> {
+  const rows = await db
+    .select({
+      id: transaction.id,
+      accountId: transaction.financialAccountId,
+      postedOn: transaction.postedOn,
+      amountCents: transaction.amountCents,
+      description: transaction.descriptionRaw,
+      isTransfer: transaction.isTransfer,
+      source: transaction.source,
+      categoryName: category.name,
+      categoryPresetKey: category.presetKey,
+    })
+    .from(transaction)
+    .innerJoin(financialAccount, accountJoin)
+    .leftJoin(
+      category,
+      and(
+        eq(category.id, transaction.categoryId),
+        eq(category.workspaceId, transaction.workspaceId),
+      ),
+    )
+    .where(
+      and(
+        eq(transaction.workspaceId, workspaceId),
+        gte(transaction.postedOn, from),
+        lte(transaction.postedOn, to),
+      ),
+    )
+    .orderBy(
+      asc(transaction.postedOn),
+      asc(transaction.createdAt),
+      asc(transaction.id),
+    );
+  return rows.map((row) => ({
+    ...row,
+    amountCents: cents(row.amountCents),
+    editableInFull: row.source === "manual",
+  }));
 }
 
 export async function getTransaction(

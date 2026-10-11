@@ -38,6 +38,15 @@ export type Entry = {
   kind: Kind;
   category: string;
   source: Source;
+  /** The account's nickname, when the workspace has more than one account. */
+  accountName?: string;
+  /**
+   * True for a credit-card row: it is spending, but it does not move the
+   * balance line, which is checking plus savings (ADR-024).
+   */
+  onCard?: boolean;
+  /** True for a row typed by hand, which the day panel may remove (ADR-050). */
+  removable?: boolean;
 };
 
 /** Something that repeats on the same day every month. */
@@ -92,6 +101,10 @@ export type MonthView = {
 const amounts = (items: readonly { amount: Cents }[]) =>
   sum(items.map((item) => item.amount));
 
+/** What moves the balance line: everything except card rows. */
+const balanceChange = (items: readonly Item[]) =>
+  amounts(items.filter((item) => !item.onCard));
+
 /** Real entries for the month, plus each repeating item that has not happened yet. */
 function monthItems(
   data: CashflowData,
@@ -127,7 +140,7 @@ function balanceBefore(
   for (let i = 0; i < monthsApart(data.start, month); i += 1) {
     balance = add(
       balance,
-      amounts(monthItems(data, addMonths(data.start, i), today)),
+      balanceChange(monthItems(data, addMonths(data.start, i), today)),
     );
   }
   return balance;
@@ -159,7 +172,7 @@ export function buildMonth(
       );
       if (everydaySpent > largestEverydaySpend)
         largestEverydaySpend = everydaySpent;
-      balance = add(balance, amounts(dayItems));
+      balance = add(balance, balanceChange(dayItems));
       return {
         date,
         day: index + 1,
@@ -209,7 +222,8 @@ export function summarize(data: CashflowData, today: IsoDate): Summary {
     ...monthItems(data, thisMonth, today),
     ...monthItems(data, addMonths(thisMonth, 1), today),
   ]
-    .filter((item) => item.date > today)
+    // A card row is neither a payday nor paid out of today's balance.
+    .filter((item) => item.date > today && !item.onCard)
     .sort((a, b) => a.date.localeCompare(b.date));
   const nextIncome = upcoming.find((item) => item.amount > 0);
   const dueBeforePayday = upcoming.filter(

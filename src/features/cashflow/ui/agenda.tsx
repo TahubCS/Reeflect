@@ -56,7 +56,10 @@ export function Agenda({
                 }
               >
                 <Mark kind={item.kind} />
-                <span className="cell-name">{item.name}</span>
+                <span className="cell-name">
+                  {item.name}
+                  {item.onCard && <span className="cell-card"> · on card</span>}
+                </span>
                 <span
                   className={
                     item.amount > 0

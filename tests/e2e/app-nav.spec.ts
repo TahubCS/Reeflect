@@ -43,9 +43,8 @@ test.describe("signed in", () => {
     }
 
     await nav.getByRole("link", { name: "Dashboard" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toContainText(
-      "a day until payday",
-    );
+    await expect(page).toHaveURL(/\/w\/[^/]+\/dashboard$/);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   });
 
   test("every page shows who is signed in and offers sign out", async ({

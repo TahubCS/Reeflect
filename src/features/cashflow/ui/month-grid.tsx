@@ -46,7 +46,9 @@ function describe(day: DayView) {
   const parts = [formatLong(day.date)];
   if (day.isToday) parts.push("today");
   for (const item of day.items)
-    parts.push(`${item.name} ${formatSigned(item.amount)}`);
+    parts.push(
+      `${item.name} ${formatSigned(item.amount)}${item.onCard ? " on card" : ""}`,
+    );
   if (day.noSpend) parts.push("no-spend day");
   parts.push(
     `${day.isFuture ? "expected balance" : "balance"} ${formatCents(day.endBalance)}`,
