@@ -236,7 +236,11 @@ describe("approveLink", () => {
     const code = await newCode(userId);
     await claimLinkCode(from(handle, code));
 
-    expect(await approveLink(userId, workspaceId)).toBe(true);
+    // The phone's own conversation comes back, so it can be told.
+    expect(await approveLink(userId, workspaceId)).toEqual({
+      platform: "imessage",
+      spaceId: `any;-;${handle}`,
+    });
 
     expect(await findIdentity("imessage", handle)).toMatchObject({
       userId,
@@ -247,23 +251,23 @@ describe("approveLink", () => {
       handleLabel: `phone ending ${handle.slice(-4)}`,
       proactiveOptIn: false,
     });
-    expect(await approveLink(userId, workspaceId)).toBe(false);
+    expect(await approveLink(userId, workspaceId)).toBeNull();
     expect(await claimLinkCode(from(newPhone(), code))).toBe("failed");
   });
 
   it("does nothing without a request, or once the code has expired", async () => {
     const { userId, workspaceId } = await newUser();
-    expect(await approveLink(userId, workspaceId)).toBe(false);
+    expect(await approveLink(userId, workspaceId)).toBeNull();
 
     // A code nobody has texted is not a request.
     const now = new Date();
     const code = await newCode(userId, now);
-    expect(await approveLink(userId, workspaceId, now)).toBe(false);
+    expect(await approveLink(userId, workspaceId, now)).toBeNull();
 
     const handle = newPhone();
     await claimLinkCode(from(handle, code), now);
     const tooLate = new Date(now.getTime() + LINK_CODE_TTL_MS + 1000);
-    expect(await approveLink(userId, workspaceId, tooLate)).toBe(false);
+    expect(await approveLink(userId, workspaceId, tooLate)).toBeNull();
     expect(await findIdentity("imessage", handle)).toBeNull();
   });
 
@@ -275,8 +279,8 @@ describe("approveLink", () => {
     await claimLinkCode(from(handle, await newCode(first.userId)));
     await claimLinkCode(from(handle, await newCode(second.userId)));
 
-    expect(await approveLink(first.userId, first.workspaceId)).toBe(true);
-    expect(await approveLink(second.userId, second.workspaceId)).toBe(false);
+    expect(await approveLink(first.userId, first.workspaceId)).not.toBeNull();
+    expect(await approveLink(second.userId, second.workspaceId)).toBeNull();
 
     expect(await findIdentity("imessage", handle)).toMatchObject({
       userId: first.userId,
@@ -294,7 +298,7 @@ describe("rejectLink", () => {
     await rejectLink(userId);
 
     expect(await getLinkState(userId)).toEqual({ status: "none" });
-    expect(await approveLink(userId, workspaceId)).toBe(false);
+    expect(await approveLink(userId, workspaceId)).toBeNull();
     expect(await findIdentity("imessage", handle)).toBeNull();
   });
 });
@@ -310,7 +314,7 @@ describe("revoking", () => {
     expect(await revokeByHandle("imessage", handle)).toBe(false);
 
     await claimLinkCode(from(handle, await newCode(userId)));
-    expect(await approveLink(userId, workspaceId)).toBe(true);
+    expect(await approveLink(userId, workspaceId)).not.toBeNull();
     const rows = await db
       .select({ revokedAt: messagingIdentity.revokedAt })
       .from(messagingIdentity)

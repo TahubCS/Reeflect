@@ -309,7 +309,7 @@ Governed by: ADR-006, ADR-007, ADR-010, ADR-012, ADR-019, ADR-025
 | `NESSIE_BASE_URL` | `features/nessie`: `https://api.nessieisreal.com` (ADR-048) | No |
 | `AGENT_SERVICE_TOKEN` | Next.js and worker (shared secret, 32+ characters). Optional in Next.js: without it `/api/agent/turn` answers 404 to everyone | Yes |
 | `AGENT_PHONE_NUMBER` | Next.js: the number shown on the Settings link card, in `+15551234567` form; optional (ADR-051) | No |
-| `AGENT_WORKER_URL` | Next.js (where to POST proactive messages); arrives with F-26 | No |
+| `AGENT_WORKER_URL` | Next.js: the worker's origin, where texts the app sends first are posted (`src/features/messaging/server/notify.ts`, ADR-032, ADR-062). Optional: without it nothing is sent | No |
 | `REEFLECT_URL` | Worker (where to POST turns) | No |
 | `PHOTON_PROJECT_ID`, `PHOTON_PROJECT_SECRET` | Worker only; needed for `AGENT_PROVIDER=imessage` | Yes (secret) |
 | `AGENT_PROVIDER` | Worker: `terminal` (default, a development chat) or `imessage` | No |
@@ -496,7 +496,8 @@ sequenceDiagram
 |---|---|---|
 | Worker loop | `agent-worker/src/index.ts`, `worker.ts` | Spectrum connection, typing indicator, forward turn, send reply. One conversation is answered in order (`queue.ts`); images arrive with F-25 |
 | Worker relay | `agent-worker/src/relay.ts`, `turn.ts`, `config.ts` | `turn.ts` picks what is forwarded: inbound text in direct chats only. `relay.ts` posts it with the service token, waits up to 20 seconds, and falls back to a fixed reply on any failure. `config.ts` validates the worker's env |
-| Worker send API | `agent-worker/src/server.ts` | `POST /send` for proactive messages; token-protected. Not built yet: arrives with F-26 |
+| Worker send API | `agent-worker/src/server.ts` | `POST /send`: the app asks the worker to text a conversation. 404 without the service token, 400 for a body that does not match the protocol, 502 when the send fails. Used by the link confirmation (ADR-062); proactive messages arrive with F-26 |
+| Texts the app sends first | `src/features/messaging/server/notify.ts` | `sendToPhone` posts to the worker's `/send`, waits up to 5 seconds and never throws. `approveLinkAction` uses it to tell a phone it is linked (ADR-062) |
 | Protocol types | `packages/agent-protocol/` | Zod schemas shared by worker and brain, and the list of platforms. `terminal` is refused by a deployed app (`src/features/agent/server/platform.ts`) |
 | Turn endpoint | `src/app/api/agent/turn/route.ts` | Token check (`src/features/agent/server/service-token.ts`, 404 without it), zod parse, call `runAgentTurn` |
 | Identity | `src/features/messaging/server/link.ts`, `actions.ts` | Link codes, the request a user approves, `messaging_identity`, STOP and Disconnect (ADR-051). The Settings card is `src/features/messaging/ui/` |
@@ -507,7 +508,7 @@ sequenceDiagram
 | Demo mode | `src/features/messaging/server/demo.ts`, `scripts/demo-judges.ts`, `scripts/demo-reset.ts` | Judge workspaces, TRY linking, expiry, reset (ADR-034) |
 | Week-ahead image | `src/app/api/agent/week.png/route.ts` | Renders the next 7 days of the calendar to PNG (Proposed, ADR-042); URL signed and valid for 10 minutes |
 | Job tick | `src/app/api/jobs/tick/route.ts` | Called by the worker every 5 minutes (ADR-041): stale Nessie syncs, subscription alerts, quiet-hours releases, bill reminders, weekly recap → `outbound_message` → worker `/send` |
-| Keep-awake | `agent-worker/src/health.ts` | `GET`/`HEAD /health`; self-ping every 10 minutes (ADR-041) |
+| Keep-awake | `agent-worker/src/server.ts` | `GET`/`HEAD /health`; self-ping every 10 minutes (ADR-041) |
 
 Handling inside `runAgentTurn` (ADR-040):
 1. **Code-only commands (security and correctness):** LINK codes, TRY

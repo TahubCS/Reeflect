@@ -88,6 +88,7 @@ Rules:
 | ADR-059 | Agent replies: one request with labels, and a chain of models (refines ADR-019, ADR-040) | Proposed |
 | ADR-060 | Monthly budget interactions and recorded actual spending (refines ADR-015) | Accepted |
 | ADR-061 | Paydays found in deposits, confirmed like recurring payments (refines ADR-058) | Proposed |
+| ADR-062 | A text that confirms what the user just did is not a proactive message (refines ADR-038) | Proposed |
 | ADR-082 | Sample years in the developers' own accounts (exception to ADR-049) | Accepted |
 | ADR-083 | Ask the user to categorize large uncategorized payments (refines ADR-055, ADR-057) | Proposed |
 | ADR-084 | Reserved ADR and handoff numbers for each developer | Accepted |
@@ -1749,6 +1750,40 @@ Rules:
   20 HO numbers, listed in AGENTS.md section 9 ("Reserved numbers"), and
   numbers new entries from it. Numbers up to ADR-061 and HO-054 stay as
   they are. Gaps inside a block are allowed. A full block gets the next 20
+### ADR-062: A text that confirms what the user just did is not a proactive message (refines ADR-038)
+
+- **Status:** Proposed (2026-10-11)
+- **Owner to confirm:** Muhammad Tahub Khatri
+- **Context:** A phone that texts `LINK` is told to press Approve on the
+  website. When the user pressed it, the website said "Connected" and the
+  phone heard nothing, so the person could not tell whether it had worked.
+  The worker could only reply to a text, and approval happens on the
+  website. ADR-038 covers texts Reeflect sends first, but it was written for
+  alerts and reminders: opt-in, quiet hours and three a day.
+- **Decision:**
+  - When the user does something on the website that changes what their
+    phone can do, the phone is told once, straight away. The first case is
+    approving a link: "You're linked to Reeflect. Text me "how am I doing?"
+    any time. Text STOP to unlink."
+  - Such a text is **not** a proactive message under ADR-038: no opt-in is
+    needed, and quiet hours and the daily cap do not apply. The user asked
+    for it by acting, seconds earlier, with the phone in their hand.
+  - It goes only to the conversation the action is about, and holds no
+    amounts and no financial data.
+  - It is sent through the worker's `POST /send` (ADR-032), built here.
+    The app waits up to 5 seconds. If it cannot be sent, what the user did
+    still holds, and the website says what to do instead ("Text Reeflect
+    anything to start").
+  - Alerts, reminders and recaps stay under ADR-038.
+- **Alternatives considered:** saying nothing (the problem); telling the
+  phone on its next text (the person has no reason to send one); treating
+  it as proactive (a user who did not opt in to alerts would never learn
+  the link worked).
+- **Consequences:** The app needs `AGENT_WORKER_URL`. The worker's `/send`
+  exists before F-26, which will reuse it. Refusing a request ("Not me")
+  and Disconnect from the website still tell the phone nothing; they can
+  use the same path.
+
   numbers after the highest block, added to the table in their own commit.
   ARCH and TEST numbers stay shared. `pnpm docs:check` reads the table:
   it allows the unused numbers in a block and fails on an ADR or HO number

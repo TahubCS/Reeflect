@@ -7,11 +7,26 @@ import {
 } from "@playwright/test";
 import { hydrated, signUpVerified } from "./support";
 
-// F-24 phone linking (ADR-034, ADR-051). There is no worker in these tests:
-// the phone's texts are posted to /api/agent/turn as the worker would send
-// them, with the service token from playwright.config.ts.
+// F-24 phone linking (ADR-034, ADR-051). There is no real worker in these
+// tests: the phone's texts are posted to /api/agent/turn as the worker would
+// send them, with the service token from playwright.config.ts, and texts the
+// app sends first go to a stand-in (tests/support/stand-in-worker.ts).
 
 const SERVICE_TOKEN = "e2e-only-agent-service-token-0123456789";
+const WORKER_URL = `http://localhost:${process.env.STAND_IN_WORKER_PORT ?? "8799"}`;
+
+/** The texts the app has sent this phone first, oldest first. */
+async function textsSentTo(
+  request: APIRequestContext,
+  handle: string,
+): Promise<string[]> {
+  const response = await request.get(`${WORKER_URL}/sent`, {
+    headers: { authorization: `Bearer ${SERVICE_TOKEN}` },
+    params: { spaceId: `any;-;${handle}` },
+  });
+  expect(response.status()).toBe(200);
+  return (await response.json()) as string[];
+}
 
 /** Signs a new user up and verifies them, then opens their Settings page. */
 async function openSettings(
@@ -98,11 +113,20 @@ test("a phone links only after the website approves it", async ({
   await expect(
     page.getByText(`Link request from phone ending ${handle.slice(-4)}`),
   ).toBeVisible();
+  // Nothing is sent to the phone before the website approves it.
+  expect(await textsSentTo(request, handle)).toEqual([]);
   await page.getByRole("button", { name: "Approve" }).click();
 
   await expect(
     page.getByText(`Connected: phone ending ${handle.slice(-4)}`),
   ).toBeVisible();
+  // Both sides are told it worked: the page, and the phone by one text.
+  await expect(page.getByRole("status")).toHaveText(
+    "Linked. We sent a text to your phone to confirm.",
+  );
+  const sent = await textsSentTo(request, handle);
+  expect(sent).toHaveLength(1);
+  expect(sent[0]).toContain("You're linked");
   expect(await text(request, handle, "how am I doing?")).toContain(
     "no accounts for you yet",
   );
@@ -124,6 +148,7 @@ test("Not me refuses the phone", async ({ browser, baseURL, request }) => {
   expect(await text(request, handle, "hello")).toContain(
     "sign in on the website",
   );
+  expect(await textsSentTo(request, handle)).toEqual([]);
 });
 
 test("a wrong code links nothing", async ({ browser, baseURL, request }) => {
