@@ -12,6 +12,7 @@ import {
   parseBalance,
   parseDecimalString,
   parseDollars,
+  parseExportAmount,
   parseStatementAmount,
   positivePart,
   ratio,
@@ -209,6 +210,28 @@ describe("parseStatementAmount", () => {
   it("never returns negative zero", () => {
     expect(Object.is(parseStatementAmount("-$0.00"), -0)).toBe(false);
   });
+});
+
+describe("parseExportAmount", () => {
+  it.each([
+    ["1234", 123400],
+    ["1234.5", 123450],
+    ["1234.56", 123456],
+    ["-12.00", -1200],
+    ["0", 0],
+    ["-0.00", 0],
+    ["0.05", 5],
+    [" 7.10 ", 710],
+  ])("reads %s as %i cents", (text, value) => {
+    expect(parseExportAmount(text)).toBe(value);
+  });
+
+  it.each(["", "-", "1.234", "$12.00", "1,234.00", "12.", ".50", "1e3", "--1"])(
+    "rejects %j",
+    (text) => {
+      expect(parseExportAmount(text)).toBeNull();
+    },
+  );
 });
 
 describe("toDecimalString and parseDecimalString", () => {

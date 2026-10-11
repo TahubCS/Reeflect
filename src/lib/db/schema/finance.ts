@@ -107,8 +107,9 @@ export const importBatch = pgTable(
     productName: text("product_name").notNull(),
     periodStart: date("period_start", { mode: "string" }).notNull(),
     periodEnd: date("period_end", { mode: "string" }).notNull(),
-    openingBalanceCents: money("opening_balance_cents").notNull(),
-    closingBalanceCents: money("closing_balance_cents").notNull(),
+    // Null when the file has no balances, like a card's CSV export (ADR-054).
+    openingBalanceCents: money("opening_balance_cents"),
+    closingBalanceCents: money("closing_balance_cents"),
     reconciliation: text("reconciliation", {
       enum: ["passed", "failed", "not_applicable"],
     }).notNull(),

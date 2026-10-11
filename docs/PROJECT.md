@@ -85,7 +85,7 @@ Priorities follow ADR-043. Lanes: A = Data, B = Web, C = Agent.
 | F-02 | Workspaces | P0 (personal), Later (household) | B | Every user gets a Personal workspace. Household workspaces with invite links and owner / editor / viewer roles come later. | ADR-007 |
 | F-03 | Financial accounts | P0 | A | Checking, savings, credit-card and loan accounts: institution, type, nickname, last 4 digits. | ADR-009 |
 | F-04 | Manual transactions | P0 | A | Add, edit and delete a transaction on an account. | ADR-008 |
-| F-05 | CSV import | P0 | A | Upload a CSV to a chosen account, map columns once per institution, preview, pass guardrails, commit. | ADR-009, ADR-010 |
+| F-05 | CSV import | P0 | A | Upload a CSV to a chosen account, preview, pass guardrails, commit. Capital One's 360 and credit-card exports are read with built-in formats; mapping columns once per institution comes later. | ADR-009, ADR-010, ADR-054 |
 | F-06 | PDF statement import | P0 | A | Text-based PDF statements parsed by code with a per-institution template (Capital One first), with identity check and reconciliation. No AI in parsing. | ADR-010, ADR-044 |
 | F-07 | Bank linking (Plaid) | Later | A | Link accounts through Plaid Link (Sandbox) and sync transactions. | ADR-012 |
 | F-08 | Categorization | P0 | A | Keyword rules on the normalized merchant name, with a manual override that can be saved as a rule. | ADR-013 |

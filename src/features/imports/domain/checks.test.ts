@@ -14,7 +14,7 @@ import type { ParsedStatement } from "./statement";
 const statement: ParsedStatement = {
   institution: "Capital One",
   productName: "360 Checking",
-  accountType: "checking",
+  accountTypes: ["checking"],
   accountLast4: "1234",
   currency: "USD",
   periodStart: "2026-09-01",
@@ -151,7 +151,7 @@ describe("runChecks", () => {
     expect(
       find(
         {
-          statement: { ...statement, accountType: null, productName: "360 CD" },
+          statement: { ...statement, accountTypes: [], productName: "360 CD" },
         },
         "account-type",
       )!.outcome,
@@ -322,6 +322,90 @@ describe("runChecks", () => {
           "period",
         )!.detail,
       ).toBe("September 1, 2026 to September 30, 2026.");
+    });
+  });
+
+  describe("a CSV export", () => {
+    const deposit: ParsedStatement = {
+      ...statement,
+      productName: "360 account",
+      accountTypes: ["checking", "savings"],
+    };
+    const card: ParsedStatement = {
+      ...statement,
+      productName: "Credit card",
+      accountTypes: ["credit_card"],
+      openingBalanceCents: null,
+      closingBalanceCents: null,
+      rows: statement.rows.map((row) => ({
+        ...row,
+        runningBalanceCents: null,
+      })),
+    };
+    const cardAccount = {
+      institutionName: "Capital One",
+      maskLast4: "1234",
+      type: "credit_card" as const,
+    };
+
+    it("accepts any of the account types the export can belong to", () => {
+      for (const type of ["checking", "savings"] as const) {
+        expect(
+          find(
+            { statement: deposit, account: { ...cardAccount, type } },
+            "account-type",
+          )!.outcome,
+        ).toBe("pass");
+      }
+      expect(
+        find({ statement: deposit, account: cardAccount }, "account-type")!
+          .detail,
+      ).toBe(
+        "This is a checking or savings statement, and the chosen account is a credit card account.",
+      );
+    });
+
+    it("skips the balance checks when the file has no balances", () => {
+      const checks = runChecks(
+        context({
+          statement: card,
+          account: cardAccount,
+          previousImports: [
+            {
+              periodStart: "2026-08-01",
+              periodEnd: "2026-08-31",
+              closingBalanceCents: cents(5000),
+            },
+          ],
+        }),
+      );
+      expect(checks.map((check) => check.id)).toEqual([
+        "identity",
+        "account-type",
+        "currency",
+        "csv",
+        "duplicate-file",
+        "duplicate-rows",
+        "period",
+      ]);
+      expect(isBlocked(checks)).toBe(false);
+    });
+
+    it("skips continuity after an import that had no balances", () => {
+      expect(
+        find(
+          {
+            previousImports: [
+              {
+                periodStart: "2026-08-01",
+                periodEnd: "2026-08-31",
+                closingBalanceCents: null,
+              },
+            ],
+          },
+          "continuity",
+        ),
+      ).toBeUndefined();
     });
   });
 });

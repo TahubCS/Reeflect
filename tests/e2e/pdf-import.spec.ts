@@ -37,7 +37,9 @@ async function addAccount(page: Page, last4: string) {
 async function upload(page: Page, file: string) {
   await page.goto("/import");
   await hydrated(page, "form select");
-  await page.getByLabel("Statement (PDF)").setInputFiles(`${FIXTURES}/${file}`);
+  await page
+    .getByLabel("Statement (PDF or CSV)")
+    .setInputFiles(`${FIXTURES}/${file}`);
   await page.getByRole("button", { name: "Read statement" }).click();
 }
 
@@ -141,7 +143,7 @@ test("keeps a preview waiting until it is discarded", async ({
 
   await page.goto("/import");
   const waiting = page.getByRole("region", { name: "Waiting for you" });
-  await expect(waiting).toContainText("Everyday ••1234 (360 Checking)");
+  await expect(waiting).toContainText("Everyday ••1234 (360 Checking, PDF)");
   await waiting.getByRole("link", { name: "Review" }).click();
   await hydrated(page, "form button");
   await page.getByRole("button", { name: "Discard" }).click();

@@ -60,7 +60,7 @@ describe("parseCapitalOne", () => {
       ok: true,
       statement: {
         productName: "360 Savings",
-        accountType: "savings",
+        accountTypes: ["savings"],
         accountLast4: "5678",
         periodStart: "2013-01-01",
         periodEnd: "2013-03-31",
@@ -96,11 +96,11 @@ describe("parseCapitalOne", () => {
           CLOSE,
         ),
       );
-      return result.ok ? result.statement.accountType : "failed";
+      return result.ok ? result.statement.accountTypes : "failed";
     };
-    expect(named("360 Checking")).toBe("checking");
-    expect(named("360 Money Market")).toBe("savings");
-    expect(named("360 CD")).toBeNull();
+    expect(named("360 Checking")).toEqual(["checking"]);
+    expect(named("360 Money Market")).toEqual(["savings"]);
+    expect(named("360 CD")).toEqual([]);
   });
 
   it("keeps a long description that reaches toward the date column", () => {

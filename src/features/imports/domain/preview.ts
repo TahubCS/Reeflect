@@ -12,8 +12,9 @@ export type StatementSummary = {
   productName: string;
   periodStart: string;
   periodEnd: string;
-  openingBalanceCents: Cents;
-  closingBalanceCents: Cents;
+  /** Null when the file has no balances, like a card's CSV export. */
+  openingBalanceCents: Cents | null;
+  closingBalanceCents: Cents | null;
   moneyInCents: Cents;
   moneyOutCents: Cents;
   rowCount: number;

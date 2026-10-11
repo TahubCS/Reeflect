@@ -1,0 +1,8 @@
+Account Number,Transaction Description,Transaction Date,Transaction Type,Transaction Amount,Balance
+1234,Monthly Interest Paid,09/30/26,Credit,0.81,1734.10
+1234,RENT PAYMENT,09/12/26,Debit,1200.00,1733.29
+9876,Monthly Interest Paid,09/30/26,Credit,0.42,800.42
+1234,"COFFEE, TEA & MORE",09/05/26,Debit,12.5,2933.29
+1234,GROCERY MART #12,09/05/26,Debit,54.21,2945.79
+1234,PAYROLL ACME CO,09/02/26,Credit,2000.00,3000.00
+9876,TRANSFER FROM CHECKING,09/03/26,Credit,500.00,800.00

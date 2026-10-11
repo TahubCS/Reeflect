@@ -7,10 +7,15 @@ import { requireWorkspaceAccess } from "@/lib/auth/authz";
 import { getSession } from "@/lib/auth/session";
 import { statementStore } from "@/lib/storage";
 import type { CommitFormState, PreviewFormState } from "../domain/preview";
-import { FILE_PROBLEM_TEXT, MAX_PDF_BYTES } from "../domain/validate-file";
+import {
+  FILE_PROBLEM_TEXT,
+  MAX_CSV_BYTES,
+  MAX_PDF_BYTES,
+  statementFormat,
+} from "../domain/validate-file";
 import { commitStatement, discardPreview, previewStatement } from "./pipeline";
 
-// Server actions for F-06, in ARCH-04 order: session, then workspace access
+// Server actions for F-05 and F-06, in ARCH-04 order: session, then workspace access
 // at the editor role, then validated input, then the pipeline with the
 // verified workspace id. Ids bound by the page come back from the browser,
 // so they are validated here like any other input.
@@ -26,7 +31,7 @@ async function editorAccess(workspaceId: unknown) {
   return { workspaceId: access.workspaceId, userId: session!.user.id };
 }
 
-export async function previewPdfImportAction(
+export async function previewImportAction(
   workspaceId: unknown,
   _previous: PreviewFormState,
   formData: FormData,
@@ -39,6 +44,11 @@ export async function previewPdfImportAction(
   if (!(file instanceof File) || file.size === 0) {
     return { problem: FILE_PROBLEM_TEXT.missing, accountId };
   }
+  // Refuse an oversized file before reading it. The name and type only
+  // pick the limit here; the pipeline decides the format from the bytes.
+  const named = statementFormat(new Uint8Array(), file.name, file.type);
+  if (named === "csv" && file.size > MAX_CSV_BYTES)
+    return { problem: FILE_PROBLEM_TEXT["csv-too-large"], accountId };
   if (file.size > MAX_PDF_BYTES)
     return { problem: FILE_PROBLEM_TEXT["too-large"], accountId };
   const store = statementStore();
@@ -49,6 +59,8 @@ export async function previewPdfImportAction(
     accountId,
     userId: verified.userId,
     bytes: new Uint8Array(await file.arrayBuffer()),
+    fileName: file.name,
+    contentType: file.type,
     store,
   });
   if (outcome.kind === "problem")
@@ -62,7 +74,7 @@ export async function previewPdfImportAction(
   redirect(`/w/${verified.workspaceId}/import?batch=${outcome.batchId}`);
 }
 
-export async function commitPdfImportAction(
+export async function commitImportAction(
   workspaceId: unknown,
   batchId: unknown,
   _previous: CommitFormState,

@@ -13,13 +13,15 @@ export type BatchSummary = {
   id: string;
   accountId: string;
   status: "previewed" | "committed" | "rejected";
+  kind: "csv" | "pdf" | "plaid" | "nessie";
   statementInstitution: string;
   statementLast4: string;
   productName: string;
   periodStart: string;
   periodEnd: string;
-  openingBalanceCents: Cents;
-  closingBalanceCents: Cents;
+  /** Null when the file had no balances (ADR-054). */
+  openingBalanceCents: Cents | null;
+  closingBalanceCents: Cents | null;
   rowsParsed: number;
   rowsImported: number;
   rowsSkippedDuplicate: number;
@@ -32,6 +34,7 @@ const columns = {
   id: importBatch.id,
   accountId: importBatch.financialAccountId,
   status: importBatch.status,
+  kind: importBatch.kind,
   statementInstitution: importBatch.statementInstitution,
   statementLast4: importBatch.statementLast4,
   productName: importBatch.productName,
@@ -47,13 +50,20 @@ const columns = {
   csvSha256: importBatch.csvSha256,
 };
 
-type Row = { [K in keyof typeof columns]: (typeof columns)[K]["_"]["data"] };
+type Row = {
+  [K in keyof typeof columns]: (typeof columns)[K]["_"]["notNull"] extends true
+    ? (typeof columns)[K]["_"]["data"]
+    : (typeof columns)[K]["_"]["data"] | null;
+};
+
+const nullableCents = (value: number | null) =>
+  value === null ? null : cents(value);
 
 function toSummary(row: Row): BatchSummary {
   return {
     ...row,
-    openingBalanceCents: cents(row.openingBalanceCents),
-    closingBalanceCents: cents(row.closingBalanceCents),
+    openingBalanceCents: nullableCents(row.openingBalanceCents),
+    closingBalanceCents: nullableCents(row.closingBalanceCents),
     checks: row.checks as Check[],
   };
 }
@@ -115,7 +125,7 @@ export async function importHistory(
     previous: rows.map(({ periodStart, periodEnd, closingBalanceCents }) => ({
       periodStart,
       periodEnd,
-      closingBalanceCents: cents(closingBalanceCents),
+      closingBalanceCents: nullableCents(closingBalanceCents),
     })),
   };
 }
@@ -161,6 +171,7 @@ export async function existingFingerprints(
 
 export type NewPreview = {
   id: string;
+  kind: "csv" | "pdf";
   accountId: string;
   createdBy: string;
   fileSha256: string;
@@ -169,8 +180,8 @@ export type NewPreview = {
   productName: string;
   periodStart: string;
   periodEnd: string;
-  openingBalanceCents: Cents;
-  closingBalanceCents: Cents;
+  openingBalanceCents: Cents | null;
+  closingBalanceCents: Cents | null;
   rowsParsed: number;
   rowsSkippedDuplicate: number;
   checks: Check[];
@@ -213,7 +224,7 @@ export async function savePreview(
       id: preview.id,
       workspaceId,
       financialAccountId: preview.accountId,
-      kind: "pdf",
+      kind: preview.kind,
       createdBy: preview.createdBy,
       fileSha256: preview.fileSha256,
       statementInstitution: preview.statementInstitution,
@@ -223,7 +234,10 @@ export async function savePreview(
       periodEnd: preview.periodEnd,
       openingBalanceCents: preview.openingBalanceCents,
       closingBalanceCents: preview.closingBalanceCents,
-      reconciliation: "passed",
+      // A preview is only saved when no check blocks, so balances that
+      // exist have reconciled; a file without balances has nothing to add up.
+      reconciliation:
+        preview.closingBalanceCents === null ? "not_applicable" : "passed",
       rowsParsed: preview.rowsParsed,
       rowsSkippedDuplicate: preview.rowsSkippedDuplicate,
       checks: preview.checks,
@@ -246,7 +260,7 @@ export type CommitResult =
  * example committed a moment ago in another tab) is left alone. Imported
  * rows never move the stored balance; the statement's closing balance
  * replaces a typed one only when the statement ends on or after the date
- * that balance was typed (ADR-053).
+ * that balance was typed (ADR-053), and only when the file has balances.
  */
 export async function commitBatch(
   workspaceId: string,
@@ -258,6 +272,7 @@ export async function commitBatch(
     const [batch] = await tx
       .select({
         accountId: importBatch.financialAccountId,
+        kind: importBatch.kind,
         periodEnd: importBatch.periodEnd,
         closingBalanceCents: importBatch.closingBalanceCents,
       })
@@ -278,7 +293,7 @@ export async function commitBatch(
       amountCents: row.amountCents,
       descriptionRaw: row.description,
       status: "posted" as const,
-      source: "pdf" as const,
+      source: batch.kind,
       fingerprint: rowFingerprints[index]!,
       importBatchId: batchId,
     }));
@@ -295,23 +310,26 @@ export async function commitBatch(
       imported += inserted.length;
     }
 
-    await tx
-      .update(financialAccount)
-      .set({
-        currentBalanceCents: batch.closingBalanceCents,
-        balanceAsOf: batch.periodEnd,
-      })
-      .where(
-        and(
-          eq(financialAccount.workspaceId, workspaceId),
-          eq(financialAccount.id, batch.accountId),
-          eq(financialAccount.source, "manual"),
-          or(
-            isNull(financialAccount.balanceAsOf),
-            lte(financialAccount.balanceAsOf, batch.periodEnd),
+    // A file without balances (a card's CSV export) leaves the balance alone.
+    if (batch.closingBalanceCents !== null) {
+      await tx
+        .update(financialAccount)
+        .set({
+          currentBalanceCents: batch.closingBalanceCents,
+          balanceAsOf: batch.periodEnd,
+        })
+        .where(
+          and(
+            eq(financialAccount.workspaceId, workspaceId),
+            eq(financialAccount.id, batch.accountId),
+            eq(financialAccount.source, "manual"),
+            or(
+              isNull(financialAccount.balanceAsOf),
+              lte(financialAccount.balanceAsOf, batch.periodEnd),
+            ),
           ),
-        ),
-      );
+        );
+    }
 
     const skipped = rows.length - imported;
     await tx
