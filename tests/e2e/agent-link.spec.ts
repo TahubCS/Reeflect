@@ -140,7 +140,7 @@ test("Not me refuses the phone", async ({ browser, baseURL, request }) => {
   await page.getByRole("button", { name: "Not me" }).click();
 
   await expect(page.getByRole("status")).toHaveText(
-    "Request refused. Nothing was linked.",
+    "Request refused. Nothing was linked, and we texted that phone to say so.",
   );
   await expect(
     page.getByRole("button", { name: "Connect iMessage" }),
@@ -148,7 +148,10 @@ test("Not me refuses the phone", async ({ browser, baseURL, request }) => {
   expect(await text(request, handle, "hello")).toContain(
     "sign in on the website",
   );
-  expect(await textsSentTo(request, handle)).toEqual([]);
+  // The waiting phone is told, once, and nothing else.
+  const sent = await textsSentTo(request, handle);
+  expect(sent).toHaveLength(1);
+  expect(sent[0]).toContain("declined");
 });
 
 test("a wrong code links nothing", async ({ browser, baseURL, request }) => {
@@ -188,6 +191,14 @@ test("the opt-in is off until chosen, and Disconnect unlinks", async ({
   await expect(
     page.getByRole("button", { name: "Connect iMessage" }),
   ).toBeVisible();
+  // Both sides are told: the page, and the phone by one more text.
+  await expect(page.getByRole("status")).toHaveText(
+    "Phone disconnected. We sent it a text to confirm.",
+  );
+  const sent = await textsSentTo(request, handle);
+  expect(sent).toHaveLength(2);
+  expect(sent[0]).toContain("You're linked");
+  expect(sent[1]).toContain("disconnected");
   expect(await text(request, handle, "hello")).toContain(
     "sign in on the website",
   );
@@ -202,6 +213,8 @@ test("STOP from the phone unlinks it", async ({
   const handle = await linkPhone(page, request);
 
   expect(await text(request, handle, "STOP")).toContain("unlinked");
+  // STOP is answered in the conversation; the app sends nothing more.
+  expect(await textsSentTo(request, handle)).toHaveLength(1);
 
   await page.reload();
   await expect(

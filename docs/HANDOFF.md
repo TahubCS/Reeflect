@@ -3237,7 +3237,45 @@ recommendation, not a decision.
   (EDT) on session lookups (Vercel runtime logs). Not the agent; check
   Neon.
 
-## HO-063: Review the remaining navbar scope and propose complete Bills work
+## HO-063: The phone is told when it is disconnected or declined; the worker restarts if it goes deaf
+
+- **Date:** 2026-10-11 06:20 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `fix/agent-disconnect-notice` (uncommitted) / not opened
+
+### What changed
+- PR #32 is merged and deployed, and the agent answers again: the typing
+  indicator was what Photon refused (HO-062).
+- **Disconnect** on the website now texts the phone: "This phone was
+  disconnected from Reeflect on the website, so I won't answer here any
+  more. You can link it again from Settings." The card says "Phone
+  disconnected. We sent it a text to confirm."
+- **"Not me"** now texts the phone that was waiting on the code: "That
+  link request was declined on the Reeflect website. Nothing was linked."
+  Not asked for by name; added because it was the same silence. Easy to
+  take out: `REFUSED_TEXT` in `src/features/messaging/server/actions.ts`.
+- `revokeForUser` and `rejectLink` return the phone's conversation (or
+  null); `disconnectAction` and `rejectLinkAction` return `{ texted }`.
+  Neither depends on the text going out. ADR-062 updated.
+- **Worker:** if Photon's message stream ends without a shutdown signal,
+  `agent-worker/src/index.ts` now exits with an error so Render starts a
+  fresh worker. Before, the HTTP server kept the process alive and
+  `/health` kept answering while no text was heard.
+
+### What's next
+- After deploy: Disconnect on the website with a real phone and watch for
+  the text. `AGENT_WORKER_URL` must be set on Vercel for any of these.
+- Next agent plan: F-27, log spending by text.
+
+### Open problems
+- The worker's exit on a dead stream is not covered by an automated test
+  (it lives in the entry file) and has not been seen to happen for real.
+- A real link-confirmation text has still not been confirmed as arriving.
+- The typing indicator is refused by Photon on every text, so no
+  indicator shows and each text logs one `typing indicator refused` line.
+  Read its `code` in Render's log to find out why.
+
+## HO-068: Review the remaining navbar scope and propose complete Bills work
 
 - **Date:** 2026-10-11 04:19 (EDT)
 - **Author:** Muhammad Tahub Khatri with Codex
@@ -3285,7 +3323,7 @@ recommendation, not a decision.
 
 - User explicitly narrowed the requested plan to the complete Bills web page
   and assigned all iMessage work to Claude. This scope supersedes the broader
-  reminder-delivery proposal recorded in HO-063.
+  reminder-delivery proposal recorded in HO-068.
 - Rechecked main at `516a5b6` and the recurring public APIs/schema. Rewrote
   [BILLS_PLAN.md](BILLS_PLAN.md) around current-cycle invoices, payment evidence,
   partial/manual settlement, history, due-soon web notices and account-specific
@@ -3320,7 +3358,7 @@ recommendation, not a decision.
 ### What changed
 
 - Main advanced during the review to `ed5e195` (merged PR #29). Fast-forwarded
-  the planning worktree while preserving HO-063 and HO-064, then checked the
+  the planning worktree while preserving HO-068 and HO-064, then checked the
   new planned-transactions schema, governing decisions and handoff entry.
 - Updated [BILLS_PLAN.md](BILLS_PLAN.md) to keep Simon's one-off plans outside
   Bills, use only posted ledger evidence and generate new migrations after
@@ -3362,7 +3400,7 @@ recommendation, not a decision.
   Atomic schedule/invoice saves share the workspace lock, and stale revisions
   cannot overwrite newer values. Reads use one repeatable snapshot.
 - Updated to main `66552da` (PR #32). Kept Claude's agent changes unchanged.
-  Renumbered the unpublished planning handoffs to HO-063/064/065 around main's
+  Renumbered the unpublished planning handoffs to HO-068/064/065 around main's
   HO-061/062. ADR-063 records only the approved web invoice semantics. No agent,
   messaging, worker, protocol, jobs, Dashboard or Insights changes in this patch.
 - Added domain/forms, real PostgreSQL, action/load and ownership-matrix tests,
@@ -3443,3 +3481,32 @@ recommendation, not a decision.
 - Runtime revision 38 still omits Neon HTTPS hosts and has no TCP grants.
   Production migration and remote storage verification remain pending; local
   migration success is not production verification. Agent code is unchanged.
+
+## HO-069: Resolve the Bills PR's handoff conflict with main
+
+- **Date:** 2026-10-11 09:51 (UTC)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `feat/bills` / [PR #34](https://github.com/TahubCS/Reeflect/pull/34)
+
+### What changed
+
+- Merged main `dcd7cfd` (PR #33). Preserved main's agent handoff and all its
+  implementation files without additional edits.
+- Main and Bills had both appended HO-063. Kept main's entry number and moved
+  the Bills planning entry to HO-068, updating its Bills-side references.
+  Preserved every other handoff entry; this resolves the append conflict and
+  the duplicate number that would otherwise fail `pnpm docs:check`.
+- Bills' schema and application implementation are unchanged by the resolution.
+- Docs checks, all 27 docs-check tests, app/worker typechecks and formatting
+  pass after the merge. Main's handoff is preserved verbatim and the PR diff
+  contains no authored agent or messaging changes.
+
+### What's next
+
+- Review PR #34 and its CI results. Production rollout and storage verification
+  prerequisites remain as recorded in HO-066 and HO-067.
+
+### Open problems
+
+- Production migration and Neon storage-dependent checks remain pending network
+  access. This handoff repair does not change those verification limits.

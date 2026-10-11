@@ -103,7 +103,38 @@ describe("phone link actions", () => {
       proactiveOptIn: true,
     });
 
-    await disconnectAction(me.workspaceId);
+    // Disconnecting tells that phone, once, with no figure in the text.
+    worker.sendToPhone.mockClear();
+    expect(await disconnectAction(me.workspaceId)).toEqual({ texted: true });
+    expect(await findIdentity("imessage", handle)).toBeNull();
+    expect(worker.sendToPhone).toHaveBeenCalledTimes(1);
+    const [, gone, goodbye] = worker.sendToPhone.mock.calls[0]!;
+    expect(gone).toBe("space");
+    expect(goodbye).toMatch(/disconnected/i);
+    expect(goodbye).not.toMatch(/\d/);
+
+    // Nothing is linked any more, so there is no one to tell.
+    worker.sendToPhone.mockClear();
+    expect(await disconnectAction(me.workspaceId)).toEqual({ texted: false });
+    expect(worker.sendToPhone).not.toHaveBeenCalled();
+  });
+
+  it("still disconnects when the text cannot be sent", async () => {
+    const me = await newUser();
+    const handle = newPhone();
+    signedIn.session = { user: { id: me.userId } };
+    const created = await createLinkCodeAction(me.workspaceId);
+    if (!created.ok) throw new Error("expected a code");
+    await claimLinkCode({
+      platform: "imessage",
+      handle,
+      spaceId: "space",
+      code: created.code,
+    });
+    await approveLinkAction(me.workspaceId);
+    worker.sendToPhone.mockResolvedValue(false);
+
+    expect(await disconnectAction(me.workspaceId)).toEqual({ texted: false });
     expect(await findIdentity("imessage", handle)).toBeNull();
   });
 
@@ -120,13 +151,30 @@ describe("phone link actions", () => {
       code: created.code,
     });
 
-    await rejectLinkAction(me.workspaceId);
+    // The waiting phone is told it was declined, once.
+    expect(await rejectLinkAction(me.workspaceId)).toEqual({ texted: true });
+    expect(worker.sendToPhone).toHaveBeenCalledTimes(1);
+    const [platform, spaceId, text] = worker.sendToPhone.mock.calls[0]!;
+    expect([platform, spaceId]).toEqual(["imessage", "space"]);
+    expect(text).toMatch(/declined/i);
+    expect(text).not.toMatch(/\d/);
 
+    worker.sendToPhone.mockClear();
     expect(await approveLinkAction(me.workspaceId)).toEqual({
       linked: false,
       texted: false,
     });
     expect(await findIdentity("imessage", handle)).toBeNull();
+    expect(worker.sendToPhone).not.toHaveBeenCalled();
+  });
+
+  it("texts no one when a code no phone has used is thrown away", async () => {
+    const me = await newUser();
+    signedIn.session = { user: { id: me.userId } };
+    const created = await createLinkCodeAction(me.workspaceId);
+    if (!created.ok) throw new Error("expected a code");
+
+    expect(await rejectLinkAction(me.workspaceId)).toEqual({ texted: false });
     expect(worker.sendToPhone).not.toHaveBeenCalled();
   });
 

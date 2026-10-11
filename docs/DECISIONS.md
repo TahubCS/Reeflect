@@ -1776,15 +1776,22 @@ Rules:
     The app waits up to 5 seconds. If it cannot be sent, what the user did
     still holds, and the website says what to do instead ("Text Reeflect
     anything to start").
+  - **Disconnect and "Not me" (added 2026-10-11).** The same rule
+    covers the other two things the website can do to a phone.
+    Disconnect texts the phone that it was disconnected and will not
+    be answered any more. "Not me" texts the phone that was waiting
+    on a code that the request was declined. Each is one last text
+    to a phone that is no longer, or never was, linked: it holds no
+    financial data, so ADR-034 is kept. STOP from the phone is
+    already answered in the conversation, so the app sends nothing
+    more for it.
   - Alerts, reminders and recaps stay under ADR-038.
 - **Alternatives considered:** saying nothing (the problem); telling the
   phone on its next text (the person has no reason to send one); treating
   it as proactive (a user who did not opt in to alerts would never learn
   the link worked).
 - **Consequences:** The app needs `AGENT_WORKER_URL`. The worker's `/send`
-  exists before F-26, which will reuse it. Refusing a request ("Not me")
-  and Disconnect from the website still tell the phone nothing; they can
-  use the same path.
+  exists before F-26, which will reuse it.
 
 ### ADR-084: Reserved ADR and handoff numbers for each developer
 

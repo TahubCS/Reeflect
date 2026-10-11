@@ -275,15 +275,30 @@ export async function approveLink(
   });
 }
 
-/** The user refused the request, or wants the code gone: spend it. */
+/**
+ * The user refused the request, or wants the code gone: spend it. Returns
+ * the conversation of the phone that was waiting on it, so it can be told,
+ * or null when no phone had texted the code or the code had expired.
+ */
 export async function rejectLink(
   userId: string,
   now: Date = new Date(),
-): Promise<void> {
-  await db
+): Promise<LinkedPhone | null> {
+  const spent = await db
     .update(agentLinkCode)
     .set({ usedAt: now })
-    .where(and(eq(agentLinkCode.userId, userId), isNull(agentLinkCode.usedAt)));
+    .where(and(eq(agentLinkCode.userId, userId), isNull(agentLinkCode.usedAt)))
+    .returning({
+      platform: agentLinkCode.platform,
+      spaceId: agentLinkCode.spaceId,
+      expiresAt: agentLinkCode.expiresAt,
+    });
+  for (const { platform, spaceId, expiresAt } of spent) {
+    if (platform !== null && spaceId !== null && expiresAt > now) {
+      return { platform, spaceId };
+    }
+  }
+  return null;
 }
 
 /** STOP from a phone. True when a link existed and is now revoked. */
@@ -300,17 +315,23 @@ export async function revokeByHandle(
   return revoked.length > 0;
 }
 
-/** Disconnect from the website. */
+/**
+ * Disconnect from the website. Returns the conversation of the phone that
+ * was linked, so it can be told, or null when none was.
+ */
 export async function revokeForUser(
   userId: string,
   now: Date = new Date(),
-): Promise<boolean> {
-  const revoked = await db
+): Promise<LinkedPhone | null> {
+  const [revoked] = await db
     .update(messagingIdentity)
     .set({ revokedAt: now })
     .where(activeIdentityOf(userId))
-    .returning({ id: messagingIdentity.id });
-  return revoked.length > 0;
+    .returning({
+      platform: messagingIdentity.platform,
+      spaceId: messagingIdentity.spaceId,
+    });
+  return revoked ?? null;
 }
 
 /** Opt in to, or out of, texts the agent sends first (ADR-038). */
