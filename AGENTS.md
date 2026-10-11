@@ -159,6 +159,10 @@ Do not build, suggest, or scaffold any of the following:
   Until the paid key exists, only sandbox or synthetic data goes to Gemini.
   Every Gemini call needs an error fallback.
 - The agent declines non-finance topics.
+- A receipt photo is sent to Gemini only when `AGENT_RECEIPT_PHOTOS` is
+  `on`, and is never stored or logged. What the model reads is a proposal:
+  code checks it and nothing is saved until the person confirms (ADR-067).
+  Only generated receipts go in `tests/fixtures`.
 
 ### Nessie
 - Convert Nessie dollar amounts with `fromDollarNumber` from `src/lib/money`
@@ -209,7 +213,7 @@ fails if this table and `package.json` differ.
 | `pnpm db:migrate` | Apply migrations (uses `DATABASE_URL_UNPOOLED` when set) |
 | `pnpm db:migrate:to` | Apply migrations to a named database: `local`, `branch` or `production` (ADR-049) |
 | `pnpm db:whoami` | Show which database a target is and which migrations it has; no secrets printed |
-| `pnpm ai:check` | Ask each test model one question with the real `GEMINI_API_KEY` from `.env.local`; prints which answer. `pnpm ai:check users` asks the models that answer users, which spends their small daily allowance (ADR-059) |
+| `pnpm ai:check` | Ask each test model one question with the real `GEMINI_API_KEY` from `.env.local`; prints which answer. `pnpm ai:check users` asks the models that answer users, which spends their small daily allowance (ADR-059). `pnpm ai:check receipt` sends each test model a made-up receipt photo and says whether it read the total (ADR-067) |
 | `pnpm batch` | Synthetic batches: `load`, `list`, `report`, `delete`, `promote`, `rollup`; `give` and `take-back` for developer accounts (`docs/SYNTHETIC.md`) |
 | `pnpm nessie` | Nessie demo customers: `seed` a synthetic year into Nessie, `link` it to a user, `status`, and live `demo` changes (`docs/NESSIE_PLAN.md`) |
 
@@ -346,6 +350,7 @@ after the highest block to this table, in their own commit.
 | Muhammad Tahub Khatri | 062–081 | 055–074 |
 | Jacob Heminway | 082–101 | 075–094 |
 | Simon Ormond | 102–121 | 095–114 |
+| Muhammad Tahub Khatri (second block) | 122–141 | 115–134 |
 
 ARCH and TEST sections are rarely added and stay shared: take the next
 number after the highest one on `main`.

@@ -13,7 +13,12 @@ import { parseQuietHoursCommand } from "../domain/quiet-hours-command";
 import { REPLIES } from "../domain/replies";
 import { answer } from "./answer";
 import { clearPending } from "./pending";
-import { answerPending, logSpending } from "./tools/logSpending";
+import {
+  type ReceiptContext,
+  answerOpenQuestion,
+  receivePhoto,
+} from "./tools/logReceipt";
+import { logSpending } from "./tools/logSpending";
 import { quietHoursTurn, undoQuietHoursIfLatest } from "./tools/quietHours";
 
 // The brain's entry point for one inbound message (ARCH-13). Linking and
@@ -27,7 +32,15 @@ const CLAIM_REPLIES: Record<ClaimResult, string> = {
   already_linked: REPLIES.alreadyLinked,
 };
 
-export async function runAgentTurn(turn: TurnRequest): Promise<string> {
+/** Replaced in tests: the receipt switch and the model that reads a photo. */
+export type TurnOptions = Pick<ReceiptContext, "receiptPhotos" | "readImage">;
+
+export async function runAgentTurn(
+  turn: TurnRequest,
+  options: TurnOptions = {},
+): Promise<string> {
+  // LINK and STOP are read from a photo's caption too; nothing else in a
+  // caption is (ADR-067).
   const command = parseCommand(turn.text);
 
   if (command.type === "link") {
@@ -46,11 +59,23 @@ export async function runAgentTurn(turn: TurnRequest): Promise<string> {
   }
 
   // The workspace comes from the verified link and nowhere else (ADR-034).
+  // A photo from a phone that is not linked is never looked at.
   const identity = await findIdentity(turn.platform, turn.handle);
   if (!identity) return REPLIES.signUp;
 
-  // Quiet hours come first: their times would otherwise be read as
-  // amounts, or as an account number (F-33, ADR-038).
+  const context = {
+    workspaceId: identity.workspaceId,
+    identityId: identity.identityId,
+    messageId: turn.messageId,
+    ...options,
+  };
+
+  // A photo is read as a receipt, or declined (F-29, ADR-067).
+  if (turn.photo !== undefined) return receivePhoto(turn.photo, context);
+
+  // Quiet hours come before the open question and logging: their times
+  // would otherwise be read as amounts, or as an account number (F-33,
+  // ADR-038).
   const quiet = parseQuietHoursCommand(turn.text);
   if (quiet.type !== "none") return quietHoursTurn(quiet, identity.userId);
 
@@ -59,14 +84,9 @@ export async function runAgentTurn(turn: TurnRequest): Promise<string> {
   const alertReply = await alertReplyTurn(turn.text, identity);
   if (alertReply !== null) return alertReply;
 
-  const context = {
-    workspaceId: identity.workspaceId,
-    identityId: identity.identityId,
-    messageId: turn.messageId,
-  };
-
-  // Then an open "which account?" (ADR-065): "2", "checking".
-  const answered = await answerPending(turn.text, context);
+  // The open question is answered next: "2" or "checking" for an account
+  // (ADR-065), "yes" or "no" for a receipt (ADR-067).
+  const answered = await answerOpenQuestion(turn.text, context);
   if (answered !== null) return answered;
 
   // Logging and UNDO are read and carried out by code (F-27, ADR-064).

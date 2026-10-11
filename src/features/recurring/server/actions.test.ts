@@ -18,6 +18,7 @@ import {
   paymentIntentAction,
   refreshPaymentsAction,
   savePaymentAction,
+  suggestionCountAction,
   updatePaymentAction,
 } from "./actions";
 import * as repository from "./repository";
@@ -291,5 +292,36 @@ describe("recurring entry points", () => {
     expect(log).toHaveBeenCalledWith("recurring: write failed", {
       workspaceId: workspace,
     });
+  });
+});
+
+describe("suggestionCountAction", () => {
+  it("gives a member the number of suggestions waiting", async () => {
+    session.mockResolvedValue({ user: { id: viewer } });
+    const list = vi
+      .spyOn(repository, "listRecurringPayments")
+      .mockResolvedValue({
+        summary: { candidates: 3 },
+      } as Awaited<ReturnType<typeof repository.listRecurringPayments>>);
+    expect(await suggestionCountAction(workspace)).toBe(3);
+    expect(list).toHaveBeenCalledWith(workspace);
+  });
+
+  it("shows no number to a stranger or for a bad id, and reads nothing", async () => {
+    const list = vi.spyOn(repository, "listRecurringPayments");
+    session.mockResolvedValue({ user: { id: stranger } });
+    expect(await suggestionCountAction(workspace)).toBe(0);
+    session.mockResolvedValue({ user: { id: editor } });
+    expect(await suggestionCountAction("../x")).toBe(0);
+    session.mockResolvedValue(null);
+    expect(await suggestionCountAction(workspace)).toBe(0);
+    expect(list).not.toHaveBeenCalled();
+  });
+
+  it("counts real suggestions from the ledger", async () => {
+    session.mockResolvedValue({ user: { id: viewer } });
+    expect(await suggestionCountAction(workspace)).toBe(
+      (await repository.listRecurringPayments(workspace)).summary.candidates,
+    );
   });
 });

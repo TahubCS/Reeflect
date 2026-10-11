@@ -2,7 +2,10 @@
 // Pure: rows are matched by external id.
 import type { SyncedRow } from "./map";
 
-export type StoredRow = Omit<SyncedRow, "fingerprint" | "categoryKey"> & {
+export type StoredRow = Omit<
+  SyncedRow,
+  "fingerprint" | "categoryKey" | "refundOf"
+> & {
   id: string;
 };
 

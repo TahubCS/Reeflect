@@ -21,6 +21,13 @@ export type SyncedRow = {
   transferPairId: string | null;
   /** A preset category key from a `[cat:…]` tag, applied after sync. */
   categoryKey: string | null;
+  /**
+   * The Nessie purchase this deposit gives money back for, from a
+   * `[refund:…]` tag. Both rows stay; after sync the refund takes the
+   * purchase's category, so it nets against that spending instead of
+   * counting as pay.
+   */
+  refundOf: string | null;
 };
 
 export type OurAccountType = "checking" | "savings" | "credit_card";
@@ -36,22 +43,26 @@ export const ACCOUNT_TYPE_FROM_NESSIE: Record<
 
 const TAG = /\s*\[(xfer|refund|cat):([^\]\s]+)\]\s*/g;
 
-/** The description without tags, with the transfer pair and category. */
+/** The description without tags, with the transfer pair, category and refund. */
 export function readTags(description: string): {
   text: string;
   transferPair: string | null;
   category: string | null;
+  refundOf: string | null;
 } {
   let transferPair: string | null = null;
   let category: string | null = null;
+  let refundOf: string | null = null;
   for (const match of description.matchAll(TAG)) {
     if (match[1] === "xfer") transferPair = match[2]!;
     if (match[1] === "cat") category = match[2]!;
+    if (match[1] === "refund") refundOf = match[2]!;
   }
   return {
     text: description.replace(TAG, " ").replace(/\s+/g, " ").trim(),
     transferPair,
     category,
+    refundOf,
   };
 }
 
@@ -71,7 +82,7 @@ function row(
   const status = rowStatus(record.status);
   if (!status) return null;
   const magnitude = fromDollarNumber(Math.abs(record.amount));
-  const { text, transferPair, category } = readTags(description);
+  const { text, transferPair, category, refundOf } = readTags(description);
   const externalId = `${kind}:${record._id}`;
   return {
     externalId,
@@ -83,6 +94,8 @@ function row(
     isTransfer: transferPair !== null,
     transferPairId: transferPair ? `nessie:${transferPair}` : null,
     categoryKey: category,
+    // Only money coming back is a refund; a tag on anything else is ignored.
+    refundOf: sign === 1 ? refundOf : null,
   };
 }
 
@@ -138,5 +151,17 @@ export function computedBalance(
   return add(
     signedOpening,
     sum(rows.filter((r) => r.status === "posted").map((r) => r.amountCents)),
+  );
+}
+
+/**
+ * Refund rows to give their purchase's category: refund fingerprint →
+ * the purchase's external id. A refund with its own `[cat:…]` tag keeps it.
+ */
+export function refundTargets(rows: readonly SyncedRow[]): Map<string, string> {
+  return new Map(
+    rows
+      .filter((r) => r.refundOf !== null && r.categoryKey === null)
+      .map((r) => [r.fingerprint, `purchase:${r.refundOf}`]),
   );
 }

@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  ATTEMPT_TIMEOUT_MS,
   AiUnavailableError,
   FAILURE_COOL_OFF_MS,
+  IMAGE_ATTEMPT_TIMEOUT_MS,
+  TOTAL_BUDGET_MS,
   type Transport,
   UNKNOWN_MODEL_COOL_OFF_MS,
   createChain,
@@ -9,6 +12,53 @@ import {
 import { MAX_MODELS, TEST_MODELS, USER_MODELS, parseModels } from "./models";
 
 const request = { system: "be brief", user: "hello" };
+
+describe("a request with a picture (ADR-067)", () => {
+  const image = { mimeType: "image/png", data: "aGVsbG8=" };
+  const schema = { type: "object" };
+  const overloaded = () => Object.assign(new Error("busy"), { status: 503 });
+
+  it("hands the picture and the shape to each model it tries", async () => {
+    const transport = vi.fn<Transport>(async ({ model }) => {
+      if (model === "a") throw overloaded();
+      return "{}";
+    });
+    const generate = createChain({ transport, models: ["a", "b"] });
+
+    await generate({ ...request, image, schema });
+
+    expect(transport).toHaveBeenCalledTimes(2);
+    for (const [sent] of transport.mock.calls) {
+      expect(sent).toMatchObject({ ...request, image, schema });
+    }
+  });
+
+  it("gives each model longer, inside the same total", async () => {
+    expect(IMAGE_ATTEMPT_TIMEOUT_MS).toBeGreaterThan(ATTEMPT_TIMEOUT_MS);
+    expect(IMAGE_ATTEMPT_TIMEOUT_MS).toBeLessThanOrEqual(TOTAL_BUDGET_MS);
+    let clock = 0;
+    const transport = vi.fn<Transport>(async ({ timeoutMs }) => {
+      clock += timeoutMs;
+      throw overloaded();
+    });
+    const generate = createChain({
+      transport,
+      models: ["a", "b", "c"],
+      attemptTimeoutMs: IMAGE_ATTEMPT_TIMEOUT_MS,
+      now: () => clock,
+    });
+
+    await expect(generate({ ...request, image })).rejects.toBeInstanceOf(
+      AiUnavailableError,
+    );
+
+    // 8 seconds, then what is left of 14; the third model is not waited on.
+    expect(transport.mock.calls.map(([sent]) => sent.timeoutMs)).toEqual([
+      IMAGE_ATTEMPT_TIMEOUT_MS,
+      TOTAL_BUDGET_MS - IMAGE_ATTEMPT_TIMEOUT_MS,
+    ]);
+  });
+});
 
 /** An API error as Google's SDK throws it: an Error with a status. */
 function apiError(status: number): Error {

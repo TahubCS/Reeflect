@@ -4,7 +4,8 @@ import type { Transport } from "@/lib/ai/chain";
 // The script's `main` only runs when it is the entry point, and Google's
 // SDK is replaced, so importing it here calls nothing.
 vi.mock("@google/genai", () => ({ GoogleGenAI: class {} }));
-const { checkModel, formatChecks } = await import("./ai-check");
+const { checkModel, checkReceiptModel, formatChecks } =
+  await import("./ai-check");
 
 const answering =
   (draft: string): Transport =>
@@ -45,6 +46,66 @@ describe("checkModel", () => {
     ];
     for (const [transport, result] of cases) {
       expect(await checkModel(transport, "m")).toEqual({
+        model: "m",
+        result,
+        ok: false,
+      });
+    }
+  });
+});
+
+describe("checkReceiptModel", () => {
+  const image = { mimeType: "image/png", data: "aGVsbG8=" };
+  const read = (changes: Record<string, string> = {}) =>
+    JSON.stringify({
+      kind: "receipt",
+      merchant: "Corner Market",
+      total: "23.40",
+      currency: "USD",
+      category: "Groceries",
+      ...changes,
+    });
+  // A clock that moves 250 ms each time it is read.
+  const clock = () => {
+    let now = 0;
+    return () => (now += 250);
+  };
+
+  it("says a model read the printed total, and how long it took", async () => {
+    const transport = vi.fn<Transport>(async () => read());
+
+    expect(await checkReceiptModel(transport, "m", image, clock())).toEqual({
+      model: "m",
+      result: "read the total, category Groceries (250 ms)",
+      ok: true,
+    });
+    // The picture and the shape asked for go with the request.
+    expect(transport.mock.calls[0]![0]).toMatchObject({
+      model: "m",
+      image,
+      schema: { type: "object" },
+    });
+  });
+
+  it("fails a model that reads another total, declines, or errors", async () => {
+    const cases: [Transport, string][] = [
+      [
+        answering(read({ total: "22.00", category: "none" })),
+        "read a WRONG total, category none (250 ms)",
+      ],
+      [
+        answering(read({ kind: "not_receipt" })),
+        "answered, but not as a receipt: not_receipt (250 ms)",
+      ],
+      [
+        answering("The total is 23.40"),
+        "answered, but not as a receipt: unreadable (250 ms)",
+      ],
+      [failing(status(400)), "failed (400)"],
+      [failing(status(429)), "out of quota or rate-limited (429)"],
+    ];
+    for (const [transport, result] of cases) {
+      expect(await checkReceiptModel(transport, "m", image, clock())).toEqual({
         model: "m",
         result,
         ok: false,

@@ -306,3 +306,58 @@ export function groupByDay<T extends { postedOn: string }>(
   }
   return groups;
 }
+
+/** Rows the transactions list shows before "Show more". */
+export const PREVIEW_ROWS = 15;
+
+/**
+ * Splits a newest-first list into the rows shown at once and the rest, so
+ * the list does not push the rest of the page out of reach. The cut moves
+ * to the end of a day when that day ends within `slack` rows, and nothing
+ * is held back when fewer than `slack` rows would be.
+ */
+export function splitPreview<T extends { postedOn: string }>(
+  items: readonly T[],
+  preview = PREVIEW_ROWS,
+  slack = 5,
+): { shown: T[]; hidden: T[] } {
+  if (items.length - preview < slack) return { shown: [...items], hidden: [] };
+  let end = preview;
+  while (
+    end < items.length &&
+    items[end]!.postedOn === items[preview - 1]!.postedOn
+  )
+    end += 1;
+  const cut = end - preview <= slack ? end : preview;
+  if (items.length - cut < slack) return { shown: [...items], hidden: [] };
+  return { shown: items.slice(0, cut), hidden: items.slice(cut) };
+}
+
+/** The most rows the view-only list shows, newest first. */
+export const VIEW_ROWS = 1000;
+
+/** Rows each "Show more" adds after the first PREVIEW_ROWS. */
+export const MORE_ROWS = 20;
+
+/**
+ * Splits a newest-first list into the rows shown at once, then batches that
+ * "Show more" reveals one at a time. Every cut follows splitPreview, so a
+ * batch ends with its day when it can.
+ */
+export function splitBatches<T extends { postedOn: string }>(
+  items: readonly T[],
+  first = PREVIEW_ROWS,
+  more = MORE_ROWS,
+  slack = 5,
+): T[][] {
+  const batches: T[][] = [];
+  let rest: readonly T[] = items;
+  let size = first;
+  for (;;) {
+    const { shown, hidden } = splitPreview(rest, size, slack);
+    batches.push(shown);
+    if (hidden.length === 0) return batches;
+    rest = hidden;
+    size = more;
+  }
+}

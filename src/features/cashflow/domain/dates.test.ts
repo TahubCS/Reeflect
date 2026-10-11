@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   addMonths,
+  dayBounds,
+  dayWithin,
   daysBetween,
   daysInMonth,
   formatLong,
@@ -104,5 +106,35 @@ describe("labels", () => {
     [31, "31st"],
   ])("writes %i as %s", (day, expected) => {
     expect(ordinal(day)).toBe(expected);
+  });
+});
+
+describe("Go to a day", () => {
+  const may = { year: 2026, month: 5 };
+  const january = { year: 2027, month: 1 };
+
+  it("spans the first day of the first month to the last of the last", () => {
+    expect(dayBounds(may, january)).toEqual({
+      min: "2026-05-01",
+      max: "2027-01-31",
+    });
+  });
+
+  it("accepts a day inside the range, including both ends", () => {
+    expect(dayWithin("2026-10-11", may, january)).toBe("2026-10-11");
+    expect(dayWithin("2026-05-01", may, january)).toBe("2026-05-01");
+    expect(dayWithin("2027-01-31", may, january)).toBe("2027-01-31");
+  });
+
+  it("refuses a day outside the range", () => {
+    expect(dayWithin("2026-04-30", may, january)).toBeNull();
+    expect(dayWithin("2027-02-01", may, january)).toBeNull();
+  });
+
+  it("refuses an empty, partial or impossible date", () => {
+    expect(dayWithin("", may, january)).toBeNull();
+    expect(dayWithin("2026-10", may, january)).toBeNull();
+    expect(dayWithin("2026-02-30", may, january)).toBeNull();
+    expect(dayWithin("2026-13-01", may, january)).toBeNull();
   });
 });

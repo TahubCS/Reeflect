@@ -12,6 +12,7 @@ export {
   isIsoDate,
   parseTransactionForm,
   transactionIdSchema,
+  VIEW_ROWS,
 } from "./domain/transaction-input";
 export {
   createTransactionAction,
@@ -33,3 +34,4 @@ export { DeleteTransaction } from "./ui/delete-transaction";
 export { TransactionForm } from "./ui/transaction-form";
 export { TransactionList } from "./ui/transaction-list";
 export { TransactionPage } from "./ui/transaction-page";
+export { TransactionView } from "./ui/transaction-view";

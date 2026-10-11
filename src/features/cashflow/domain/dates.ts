@@ -73,6 +73,29 @@ export const monthsApart = (from: YearMonth, to: YearMonth) =>
 
 export const monthName = ({ month }: YearMonth) => MONTHS[month - 1];
 
+/** The first and last day a calendar from `first` through `last` shows. */
+export const dayBounds = (first: YearMonth, last: YearMonth) => ({
+  min: toIso(first.year, first.month, 1),
+  max: toIso(last.year, last.month, daysInMonth(last)),
+});
+
+/**
+ * A day typed into "Go to a day": the date itself when it is a real
+ * "YYYY-MM-DD" day from `first` through `last`, otherwise null.
+ */
+export function dayWithin(
+  value: string,
+  first: YearMonth,
+  last: YearMonth,
+): IsoDate | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const { year, month, day } = parseIso(value);
+  if (month < 1 || month > 12 || day < 1 || day > daysInMonth({ year, month }))
+    return null;
+  const { min, max } = dayBounds(first, last);
+  return value >= min && value <= max ? value : null;
+}
+
 export const monthTitle = (ym: YearMonth) => `${monthName(ym)} ${ym.year}`;
 
 /** "Wednesday, October 7" */
