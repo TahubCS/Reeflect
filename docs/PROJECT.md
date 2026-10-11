@@ -102,7 +102,7 @@ Priorities follow ADR-043. Lanes: A = Data, B = Web, C = Agent.
 | F-19 | Delete data | P0 | B | Delete a workspace or an account and all its data. | ADR-025 |
 | F-20 | Audit log | Later | A | Security-relevant events, including phone linking and unlinking. | ADR-025 |
 | F-21 | Demo seed | P0 | A | `pnpm db:seed` builds the demo workspace, including its Nessie customer and history, from the synthetic generator. | ADR-033, ADR-049 |
-| F-22 | Bill due-date reminders | P1 | A + C | Remind 7 days before car payments, mortgage, rent, loans and card minimums are due; low-balance warning; no reminder if already paid. In-app and by iMessage. | ADR-030, ADR-038 |
+| F-22 | Bill due-date reminders | P1 | A + C | Remind 7 days before car payments, mortgage, rent, loans and card minimums are due; low-balance warning; no reminder if already paid. Web invoice tracking/due-soon notices are built (ADR-063); scheduled delivery and dashboard integration remain separate. In-app and by iMessage. | ADR-030, ADR-038, ADR-063 |
 | F-23 | Nessie import and sync | P0 | A | "Connect Capital One sandbox" creates a Nessie customer and accounts; sync maps purchases, deposits, withdrawals, transfers, bills and loans. | ADR-033 |
 | F-24 | Phone linking | P0 | C | Link an iPhone by texting a one-time code; unlink on the website or by texting STOP; opt in to proactive messages. | ADR-034, ADR-038 |
 | F-25 | "How am I doing?" | P0 | C | The agent replies with balance, what is owed before payday, the per-day amount, and an image of the week ahead (reply contents and image are Proposed). | ADR-031, ADR-035, ADR-042 |

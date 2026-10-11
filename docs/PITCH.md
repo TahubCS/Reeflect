@@ -105,6 +105,13 @@ annual savings. Actual spending comes from posted charges minus matching
 credits. This website flow is built; iMessage alerts, scheduled reminders
 and a live-data calendar integration remain separate features.
 
+Optional web Bills demo after migration 0014: open **Bills**, enter the current
+electricity invoice as $184, and explicitly link a posted $100 payment. Show
+$84 remaining, then undo a manual paid mark or inspect saved invoice history.
+Say: “A typical payment is an estimate. This invoice has its own amount and
+payment evidence.” Account balances and recorded spending stay unchanged.
+This web flow is independent of scheduled reminders and iMessage delivery.
+
 ## 6. Judge questions to prepare for
 
 | Likely question | Answer |

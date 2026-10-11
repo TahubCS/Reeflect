@@ -136,8 +136,11 @@ have `updated_at`.
 | `category` | id, workspace_id, name, color_token, sort_order, is_preset, preset_key | Built in migration 0005. Eighteen presets (ADR-057) initialized on the first authorized editor visit, and by the batch loader for sample workspaces; unique (workspace_id, preset_key) preserves renames |
 | `budget` | id, workspace_id, category_id, month (`YYYY-MM`), amount_cents, created_at, updated_at | Built in 0010 (ADR-060). Unique (workspace_id, month, category_id); composite workspace/category FK and workspace FK cascade; month and nonnegative amount checks. Writes change allocation metadata only |
 | `category_rule` | id, workspace_id, pattern, match_type, category_id, priority, origin (`user`/`ai_confirmed`) | Built in migration 0005. Composite workspace/category FK; current rules are user-created |
-| `recurring_series` | id, workspace_id, financial_account_id, merchant_normalized, name, decision (`candidate`/`confirmed`/`dismissed`), kind (`subscription`/`bill`/`income`), amount_mode (`fixed`/`variable`), schedule_unit (`days`/`months`), schedule_every, amount_cents (nullable override), baseline_amount_cents, next_on (nullable user date), manual, user_intent (`none`/`keep`/`cancel`), last_charged_on, observed_amount_cents | Built in 0009 (ADR-058); `income` added in 0011 (ADR-061). Unique (workspace_id, account, payee); composite workspace/account FK cascades. Recurring metadata never changes ledger rows or balances. Lender dates/autopay remain F-22/F-23 additions |
+| `recurring_series` | id, workspace_id, financial_account_id, merchant_normalized, name, decision (`candidate`/`confirmed`/`dismissed`), kind (`subscription`/`bill`/`income`), amount_mode (`fixed`/`variable`), schedule_unit (`days`/`months`), schedule_every, amount_cents (nullable override), baseline_amount_cents, next_on (nullable user date), manual, user_intent (`none`/`keep`/`cancel`), last_charged_on, observed_amount_cents | Built in 0009 (ADR-058); `income` added in 0011 (ADR-061). Unique (workspace_id, account, payee); composite workspace/account FK cascades. Recurring metadata never changes ledger rows or balances. Web invoice dates/autopay are separate bill details (ADR-063); lender integration remains future work |
 | `planned_transaction` | id, workspace_id, financial_account_id, planned_on, amount_cents (signed), description, category_id (nullable), created_at, updated_at | Built in 0013 (ADR-102). Workspace and account FKs cascade; composite workspace/category FK. Read only by the calendar; never moves a balance and is never a transaction until the person confirms it |
+| `bill_details` | id, workspace_id, financial_account_id, merchant_normalized, anchor_on, date_source, autopay, liability_account_id, revision | Built in 0014 (ADR-063). Unique owned schedule; composite recurring/account/liability ownership FKs. Original schedule anchor preserves month ends |
+| `bill_cycle` | id, workspace_id, bill_id, scheduled_on, due_on, date_source, invoice_cents (nullable), estimate_cents, marked_paid, revision | Built in 0014. Stable unique workspace/bill/scheduled date; invoice corrections do not create a duplicate. Unknown invoice differs from zero |
+| `bill_payment` | id, workspace_id, cycle_id, evidence_workspace_id (nullable), transaction_id (nullable), original_transaction_id, financial_account_id, amount_cents, posted_on, description, is_transfer | Built in 0014. One whole transaction per invoice, ownership FKs, snapshot verified on read. Nullable evidence FK retains a review record after transaction deletion |
 | `reminder` | id, workspace_id, recurring_series_id, due_on, remind_on, status (`scheduled`/`sent`/`cancelled_paid`/`dismissed`), channel (`in_app`/`imessage`), low_balance_warning (bool), sent_at | Unique (recurring_series_id, due_on) so each cycle reminds once |
 | `savings_goal` | id, workspace_id, name, target_cents, saved_cents, target_date, active | One active goal in MVP |
 | `import_batch` | id, workspace_id, financial_account_id, kind (`csv`/`pdf`/`plaid`/`nessie`), file_sha256 (nullable), statement_institution, statement_last4, product_name, period_start, period_end, opening_balance_cents (nullable), closing_balance_cents (nullable), reconciliation (`passed`/`failed`/`not_applicable`), rows_parsed, rows_imported, rows_skipped_duplicate, checks (jsonb), csv_object_key, csv_sha256, status (`previewed`/`committed`/`rejected`), created_by, committed_at | Unique (financial_account_id, file_sha256). Built (migration 0006) for PDF imports, used by CSV imports too; balances are null when the file has none, like a card's CSV export (migration 0007, ADR-054); `csv_object_key` and `csv_sha256` locate and verify the stored CSV (ADR-053). Blocked previews write no row, so `rejected` is unused so far |
@@ -439,7 +442,22 @@ timing pattern. Users can correct kind, fixed/variable mode, cadence, date
 and amount source, or track a payment without history. See the
 [recurring README](../src/features/recurring/README.md) for guardrails and APIs.
 The existing `/subscriptions` route is labelled **Recurring payments**;
-the Bills route remains the future reminder screen.
+the Bills route now provides the web invoice experience below.
+
+### Web Bills (built, ADR-063)
+
+The Bills page reads recurring bills through their public API and presents
+current invoices, estimates, due-soon notices, history and recorded cash versus
+bills. Manual bill/first-invoice creation is atomic with its recurring schedule.
+Explicit posted evidence, partial payments, manual marks and reversible tracking
+never change ledger rows or balances. Viewers read; editors write. All entries
+join TEST-06's ownership matrix. History and candidate pages are bounded, and
+failures retain navigation with a retry boundary instead of showing zero totals.
+See the [Bills README](../src/features/bills/README.md) for persistence, matching,
+revision, cash-coverage and resource bounds. Dashboard invoice synchronization
+and all automated reminder/agent delivery remain independently owned future work.
+
+### Existing recurring and future reminder delivery
 
 Reads derive current suggestions without writing. Editors can materialize
 suggestions through `refreshRecurringSeries(verifiedWorkspaceId, accountIds?)`.

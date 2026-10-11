@@ -1,14 +1,25 @@
 import type { Metadata } from "next";
-import { PagePlaceholder } from "@/components/ui/page-placeholder";
+import { Suspense } from "react";
+import { PageLoading } from "@/components/ui/page-loading";
+import { BillsPage, loadBills } from "@/features/bills";
 
 export const metadata: Metadata = { title: "Bills" };
 
-export default function BillsPage() {
+type Props = PageProps<"/w/[workspaceId]/bills">;
+async function WorkspaceBills({ params, searchParams }: Props) {
+  const { workspaceId } = await params;
+  const data = await loadBills(workspaceId, await searchParams);
   return (
-    <PagePlaceholder
-      title="Bills"
-      purpose="The bills coming up, when each is due, and whether your balance covers it."
-      features="F-22"
+    <BillsPage
+      key={`${data.workspaceId}:${data.query.accountId ?? "list"}:${data.query.merchant ?? ""}:${data.query.cycle ?? ""}`}
+      data={data}
     />
+  );
+}
+export default function BillsRoute(props: Props) {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <WorkspaceBills {...props} />
+    </Suspense>
   );
 }

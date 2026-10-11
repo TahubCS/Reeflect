@@ -6,6 +6,7 @@ export {
   refreshRecurringSeries,
   confirmPattern,
   savePayment,
+  savePaymentInTransaction,
   setPaymentDisposition,
   setPaymentIntent,
 } from "./server/repository";
