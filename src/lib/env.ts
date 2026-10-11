@@ -25,6 +25,10 @@ const envSchema = z
   .object({
     /** Runtime connection. On Neon, the pooled string (host contains "-pooler"). */
     DATABASE_URL: postgresUrl,
+    /** Optional Neon WebSocket transport for environments without TCP access. */
+    DATABASE_TRANSPORT: optionalText.pipe(
+      z.enum(["tcp", "websocket"]).optional(),
+    ),
     /** Direct connection, used only by Drizzle Kit migrations. */
     DATABASE_URL_UNPOOLED: postgresUrl.optional(),
     /** Signs sessions and cookies (ADR-006). 32+ random characters. */

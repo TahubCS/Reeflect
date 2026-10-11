@@ -296,6 +296,7 @@ Governed by: ADR-006, ADR-007, ADR-010, ADR-012, ADR-019, ADR-025
 | Variable | Used by | Secret |
 |---|---|---|
 | `DATABASE_URL` | Drizzle at runtime, through `pg` (Neon's pooled connection string in production) | Yes |
+| `DATABASE_TRANSPORT` | Optional: `websocket` uses Neon's serverless Pool and Drizzle's matching driver where TCP is unavailable. Empty or `tcp` keeps `pg`. Test runners always use `tcp` with local PostgreSQL | No |
 | `DATABASE_URL_UNPOOLED` | Drizzle Kit migrations only (Neon's direct connection string); optional, falls back to `DATABASE_URL` | Yes |
 | `BETTER_AUTH_SECRET` | Better Auth | Yes |
 | `BETTER_AUTH_URL` | Better Auth | No |
@@ -372,6 +373,12 @@ deletes or rewrites data needs its own ADR.
 - **`pnpm db:whoami [--target app|local|branch|production]`** prints the
   endpoint id, the database it recognises, the migrations applied and
   pending, and the synthetic batch count. It never prints a password.
+- **`pnpm db:verify --target app|local|branch|production`** checks the
+  financial-page schema contract and zero-row SELECT access independently
+  of journal timestamps. CI runs it against its disposable service after
+  migrations. The [release procedure](DATABASE_READINESS.md) also requires
+  the intended runtime role and real-page smoke tests; the CLI does not gate
+  an independent auto-deployment or repair schema.
 
 **Drizzle's rule:** it applies every migration newer than the newest one
 recorded. If a migration is regenerated after it was applied somewhere, that

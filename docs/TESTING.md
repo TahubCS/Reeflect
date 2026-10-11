@@ -189,14 +189,16 @@ must match the required checks in `.github/rulesets/main.json`.
 | CI job | Runs |
 |---|---|
 | `lint-typecheck` | `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm docs:check` |
-| `unit` | `pnpm db:migrate` on a fresh database, then `pnpm test:unit` with coverage thresholds |
-| `e2e` | `pnpm db:migrate`, `pnpm build`, `pnpm scan:bundle`, `pnpm test:e2e --grep-invert @external` |
+| `unit` | `pnpm db:migrate` on a fresh database, `pnpm db:verify --target app`, then `pnpm test:unit` with coverage thresholds |
+| `e2e` | `pnpm db:migrate`, `pnpm db:verify --target app`, `pnpm build`, `pnpm scan:bundle`, `pnpm test:e2e --grep-invert @external` |
 | `security` | `pnpm audit --prod --audit-level high` |
 | `codeql` (separate workflow) | Static analysis for JavaScript/TypeScript |
 
 `unit` and `e2e` each start a PostgreSQL service and apply every migration
 to it first. Locally the same database comes from `docker compose up -d`.
-Tests never connect to Neon.
+Database tests never connect to Neon; storage tests use the dedicated test
+bucket. [Database readiness](DATABASE_READINESS.md) explains the verifier's
+isolated fault fixtures, permission checks and release limitations.
 
 The workspace isolation matrix (TEST-06) includes `/api/agent/turn`: a
 linked handle for user A can never cause a tool call against user B's

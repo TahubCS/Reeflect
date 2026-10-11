@@ -1,4 +1,5 @@
 import "server-only";
+import { Agent } from "node:https";
 import { Files, FilesError } from "files-sdk";
 import { neon } from "files-sdk/neon";
 import { env } from "@/lib/env";
@@ -33,15 +34,28 @@ export type NeonStorageConfig = {
 export function createObjectStore(config: NeonStorageConfig): ObjectStore {
   // Credentials are passed in, never taken from a machine-wide default, so
   // only the validated Neon branch values are ever used.
-  const files = new Files({
-    adapter: neon({
-      bucket: config.bucket,
-      endpoint: config.endpoint,
-      region: config.region,
-      accessKeyId: config.accessKeyId,
-      secretAccessKey: config.secretAccessKey,
-    }),
+  const adapter = neon({
+    bucket: config.bucket,
+    endpoint: config.endpoint,
+    region: config.region,
+    accessKeyId: config.accessKeyId,
+    secretAccessKey: config.secretAccessKey,
   });
+  // The SDK creates its own agent, so Node's global proxy flag alone does
+  // not route storage requests through a managed workspace's HTTPS proxy.
+  if (process.env.HTTPS_PROXY || process.env.https_proxy) {
+    const handler = adapter.raw.config.requestHandler;
+    if (
+      "updateHttpClientConfig" in handler &&
+      typeof handler.updateHttpClientConfig === "function"
+    ) {
+      handler.updateHttpClientConfig(
+        "httpsAgent",
+        new Agent({ keepAlive: true, proxyEnv: process.env }),
+      );
+    }
+  }
+  const files = new Files({ adapter });
   async function listKeys(prefix: string): Promise<string[]> {
     const keys: string[] = [];
     let cursor: string | undefined;

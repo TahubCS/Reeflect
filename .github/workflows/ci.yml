@@ -87,6 +87,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:migrate
+      - run: pnpm db:verify --target app
       - run: pnpm test:unit
       - uses: actions/upload-artifact@v7
         if: always()
@@ -129,6 +130,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm db:migrate
+      - run: pnpm db:verify --target app
       - run: pnpm build
       - name: Scan client bundle for secrets
         run: pnpm scan:bundle

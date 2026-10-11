@@ -3611,3 +3611,51 @@ recommendation, not a decision.
   (ADR-050), so "how am I doing?" will not drop after a log there.
 - A text delivered again after its log was undone would be logged again.
 - Not tried with a real iMessage yet.
+
+## HO-115: Database readiness preflight and verified cloud Neon access
+
+- **Date:** 2026-10-11 07:43 (EDT)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `chore/database-readiness` (local commits) / not opened
+
+### What changed
+- Based this isolated checkout on main `1cdb016`, including Bills and F-27.
+  Preserved the earlier user-approved optional Neon WebSocket runtime,
+  proxy-aware statement storage and test-database guards. Credentials remain
+  ignored; tests use local PostgreSQL and the dedicated storage-tests bucket.
+- Added `pnpm db:verify --target app|local|branch|production`. Its bounded
+  financial-page contract checks actual column types/nullability, valid
+  unconditional uniqueness, validated ownership/reference semantics and
+  zero-row SELECT access in a read-only snapshot. Equivalent constraint names
+  and compatible extras pass. Journal mismatches are independent warnings.
+- Added the preflight after migrations in both existing CI PostgreSQL jobs,
+  retaining their required job names. Documented release sequencing, app-role
+  verification and limits in DATABASE_READINESS, TESTING and ARCHITECTURE.
+- All 2,008 unit/integration tests and 115 browser tests passed, including
+  real Neon test storage. Commands used pnpm 12.9.1, a 30-second test timeout
+  for proxy/storage latency, and four browser workers with a 60-second timeout.
+  Lint, formatting, typecheck, docs, build, bundle scan and diff checks passed.
+  Final focused verifier/unchanged-health rerun passed 24 tests. Generated
+  browser screenshots were restored rather than included as feature changes.
+- Actual Neon app and named production preflights both report schema READY.
+  They warn about the unrecorded 0010 budget checkpoint and one extra journal
+  timestamp; the recovered budget and Bills schema pass. No production writes
+  or migrations ran. Local app_test was explicitly identified and migrated
+  through 0014; its app-role preflight passes. Direct TCP remains unavailable
+  in this cloud workspace; migrations still use TCP.
+
+### What's next
+- Implement the supplied transfer-review plan separately. The user has now
+  authorized local commits and merging main into both branches; no push, PR
+  or deployment has been requested.
+- The user reports no teammate overlap in Transactions, Bills linkage or CI
+  and approved the focused historical/daily cashflow balance correction. That
+  correction and its consumer regressions belong to the transfer branch.
+
+### Open problems
+- Readiness checks no write privileges, RLS policies, defaults, arbitrary check
+  expressions or financial-row correctness. They do not gate Vercel auto-deploy.
+- Main now uses all earlier handoff slots in Muhammad's block. The next
+  reserved block is added separately, and this entry uses its first slot. It
+  preserves main's independently numbered Bills and agent history;
+  the earlier Neon-only entry remains in the original `work` checkout.

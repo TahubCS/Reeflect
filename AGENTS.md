@@ -209,6 +209,7 @@ fails if this table and `package.json` differ.
 | `pnpm db:migrate` | Apply migrations (uses `DATABASE_URL_UNPOOLED` when set) |
 | `pnpm db:migrate:to` | Apply migrations to a named database: `local`, `branch` or `production` (ADR-049) |
 | `pnpm db:whoami` | Show which database a target is and which migrations it has; no secrets printed |
+| `pnpm db:verify` | Read-only financial schema and SELECT-access preflight for a named target; no repairs |
 | `pnpm ai:check` | Ask each test model one question with the real `GEMINI_API_KEY` from `.env.local`; prints which answer. `pnpm ai:check users` asks the models that answer users, which spends their small daily allowance (ADR-059) |
 | `pnpm batch` | Synthetic batches: `load`, `list`, `report`, `delete`, `promote`, `rollup`; `give` and `take-back` for developer accounts (`docs/SYNTHETIC.md`) |
 
