@@ -57,8 +57,8 @@ Update this table when work is assigned or finished. Features are listed in
 | F-19 Delete data | B | Unassigned | — | Not started |
 | F-21 Demo seed (incl. Nessie) | A | Jacob Heminway | — | Synthetic generator and batch scripts merged (HO-026, PR #7); Nessie seeding and `pnpm db:seed` not started |
 | F-23 Nessie import and sync | A | Unassigned | — | Not started |
-| F-24 Phone linking | C | Muhammad Tahub Khatri | `feat/photon-agent` | Built (HO-032); real texts need the worker (F-32) |
-| F-25 "How am I doing?" + week-ahead image | C | Muhammad Tahub Khatri | `feat/agent-answers` | Answers built (HO-050): balances and the last 30 days. Owed before payday, the per-day figure and the image wait for bills and paydays |
+| F-24 Phone linking | C | Muhammad Tahub Khatri | `feat/photon-agent` | Built (HO-032); the phone is texted when the link is approved (HO-061, ADR-062) |
+| F-25 "How am I doing?" + week-ahead image | C | Muhammad Tahub Khatri | `feat/agent-payday-answer` | Answers built (HO-050, HO-061): balances, the last 30 days, and what is owed before payday with the calendar's per-day figure. The image is not built |
 | F-26 Subscription alerts | C | Unassigned | — | Not started |
 | F-27 Log spending by text | C | Unassigned | — | Not started |
 | F-28 Category and balance questions | C | Unassigned | — | Not started |
@@ -3079,3 +3079,70 @@ recommendation, not a decision.
 
 - None beyond the failing documentation gate described in HO-059.
 
+## HO-061: The phone is told it is linked; "how am I doing?" matches the calendar
+
+- **Date:** 2026-10-11 04:35 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `feat/agent-payday-answer` (uncommitted) / not opened
+
+### What changed
+
+**Part 1: link confirmation (fix, ADR-062, Proposed)**
+- Problem: after texting `LINK` and pressing Approve on the website, the
+  phone heard nothing, so the person could not tell whether it had worked.
+  The worker could only reply to a text.
+- The worker now has `POST /send` (decided in ADR-032, not built until
+  now): `agent-worker/src/server.ts` (was `health.ts`). 404 without the
+  service token, 400 for a bad body, 502 when the send fails. The request
+  shape is `sendRequestSchema` in `packages/agent-protocol`.
+- The app has `sendToPhone` (`src/features/messaging/server/notify.ts`):
+  5-second limit, never throws. `approveLink` returns the phone's
+  conversation; `approveLinkAction` texts it "You're linked to Reeflect…"
+  and returns `{ linked, texted }`. The Settings card says "We sent a text
+  to your phone to confirm", or "Text Reeflect anything to start" when the
+  text could not be sent. The link never depends on the text.
+- New app setting `AGENT_WORKER_URL` (optional). Playwright runs a
+  stand-in worker (`tests/support/stand-in-worker.ts`, port 8799) and
+  checks it received exactly one confirmation.
+
+**Part 2: the calendar's figures in the agent's answer (F-25, ADR-059 updated)**
+- `loadCashflowData(workspaceId, now)` is split out of `loadDashboard`
+  (`src/features/cashflow/server/load.ts`); the dashboard calls it, so its
+  behaviour is unchanged. The cashflow index also exports `summarize`,
+  `Summary` and `formatLong`.
+- `getSummary` calls both and adds exact labels: `payday_date`,
+  `days_until_payday`, `due_before_payday`, `due_count`, `free_to_spend`,
+  `per_day`, and `suggestions_waiting` when no payday is confirmed.
+  `Facts.payday` says which headline the website shows (`per_day`,
+  `all_used`, `none`). The prompt and the code-built reply lead with these.
+- `cash_total` keeps its name (the plan called it `balance_today`): it is
+  the same stored checking-and-savings balance the calendar shows, and a
+  database test holds the two equal.
+
+**Verified**
+- `pnpm lint`, `format:check`, `typecheck`, `docs:check`, `build`: pass.
+- `pnpm test:unit`: 1548 pass; the 8 that fail are the storage tests that
+  need `.env.storage-tests`. `pnpm scan:bundle` passes. `pnpm test:e2e`:
+  all 104 pass, including a text whose per-day figure equals the dashboard
+  headline's.
+- The real worker, with the terminal provider, sent texts through `/send`.
+- The real prompt on `gemini-3.1-flash-lite` with made-up figures: eight of
+  nine replies read well and passed the checks; one request got a 503 from
+  Google (the code-built reply covers that).
+
+### What's next
+- After merge: set `AGENT_WORKER_URL` on Vercel to the Render service's URL
+  and redeploy; Render redeploys the worker by itself. Then relink a real
+  phone and watch for the confirmation.
+- Next agent plan: F-27, log spending by text.
+
+### Open problems
+- `/send` has not sent a real iMessage yet, only terminal texts. On
+  Photon's shared plan the phone is already an allowed user, having just
+  texted in, but this is unproven until deployed.
+- "Not me" and Disconnect on the website still tell the phone nothing.
+- `src/features/recurring/server/repository.test.ts` ("materializes
+  suggestions idempotently") fails now and then locally, on unmodified
+  `main` too; it passed in the last full run. The eight storage tests fail
+  locally without `.env.storage-tests`, as before.
+- Production was missing migrations `0010` and `0012` when last checked.

@@ -1371,6 +1371,16 @@ Rules:
     balances). The model is given only label names such as `{cash_total}`
     and plain-word notes, never an amount, count, date or account name. It
     writes the sentences; code fills the labels in.
+  - **The days until payday come from the calendar (added 2026-10-11).**
+    When a payday is confirmed (ADR-061), the agent also has the
+    figures in the calendar's headline (ADR-042): what is due before
+    that payday, what is left after it, and the per-day amount. They
+    are worked out by the calendar's own `summarize` on the same data
+    the dashboard loads (`loadCashflowData`), so a reply and the
+    website cannot disagree. These are exact, not monthly averages.
+    For "how am I doing?" the reply leads with them. With no payday
+    confirmed, the reply says where to confirm one, as the website
+    does.
   - **Two checks on every draft, the same for every model:** no digit
     outside a label, and only labels that have a value. A draft that fails,
     or is too long for a text, is dropped and the reply is built by code
@@ -1403,7 +1413,8 @@ Rules:
   the model the figures (breaks ADR-019).
 - **Consequences:**
   - The agent's figures match the Insights page, since both use
-    `workspaceMeasures`.
+    `workspaceMeasures`, and the calendar's headline, since both use
+    `summarize`.
   - Follow-up questions ("and last month?") do not work yet.
   - **The activity figures are monthly averages, not totals:** the last 30
     days scaled to an average month, so a reply can be a few dollars away
@@ -1739,17 +1750,6 @@ Rules:
   - Tests: which payments qualify (threshold, transfers excluded, the 90
     days), each answer, and that an answered question stays answered.
 
-### ADR-084: Reserved ADR and handoff numbers for each developer
-
-- **Status:** Accepted (2026-10-11)
-- **Context:** All three developers took "the next number" for ADRs and
-  handoff entries. With several branches open at once, two branches took
-  the same numbers, and every merge of main meant renumbering and resolving
-  conflicts in DECISIONS.md and HANDOFF.md.
-- **Decision:** Each developer gets their own block of 20 ADR numbers and
-  20 HO numbers, listed in AGENTS.md section 9 ("Reserved numbers"), and
-  numbers new entries from it. Numbers up to ADR-061 and HO-054 stay as
-  they are. Gaps inside a block are allowed. A full block gets the next 20
 ### ADR-062: A text that confirms what the user just did is not a proactive message (refines ADR-038)
 
 - **Status:** Proposed (2026-10-11)
@@ -1784,6 +1784,17 @@ Rules:
   and Disconnect from the website still tell the phone nothing; they can
   use the same path.
 
+### ADR-084: Reserved ADR and handoff numbers for each developer
+
+- **Status:** Accepted (2026-10-11)
+- **Context:** All three developers took "the next number" for ADRs and
+  handoff entries. With several branches open at once, two branches took
+  the same numbers, and every merge of main meant renumbering and resolving
+  conflicts in DECISIONS.md and HANDOFF.md.
+- **Decision:** Each developer gets their own block of 20 ADR numbers and
+  20 HO numbers, listed in AGENTS.md section 9 ("Reserved numbers"), and
+  numbers new entries from it. Numbers up to ADR-061 and HO-054 stay as
+  they are. Gaps inside a block are allowed. A full block gets the next 20
   numbers after the highest block, added to the table in their own commit.
   ARCH and TEST numbers stay shared. `pnpm docs:check` reads the table:
   it allows the unused numbers in a block and fails on an ADR or HO number

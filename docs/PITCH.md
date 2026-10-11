@@ -76,7 +76,7 @@ screen. Fill in the bracketed values from the seed before rehearsing.
 | Time | Presenter does | Presenter says |
 |---|---|---|
 | 0:00 | Show a phone home screen full of finance apps (slide) | "How many of these do you actually open? Reeflect doesn't need you to open anything." |
-| 0:15 | Text "how am I doing?" on the presenter's phone, mirrored on screen | "I just text it." The reply arrives: balance, what's owed before payday, the per-day amount, and the week-ahead image. |
+| 0:15 | Text "how am I doing?" on the presenter's phone, mirrored on screen | "I just text it." The reply arrives: balance, what's owed before payday, and the per-day amount, the same figure as the calendar's headline. |
 | 0:40 | Show the "Try it" QR code | "Try it yourself: scan this and hit send." The QR opens Messages with `TRY` already typed. The judge's phone is linked for two hours to its own sandbox workspace with Capital One Nessie data, and Reeflect replies with a welcome and that workspace's summary. Mention: "Normally you link your phone with a one-time code from our website; this shortcut only exists in demo mode." |
 | 1:00 | Switch to the website calendar | "The same numbers, as a month. Paydays, bills and subscriptions are already on their days, and the line shows where your balance is heading." |
 | 1:20 | In the demo control, create a $90 dining purchase in Capital One's Nessie sandbox; tap "Sync now" | "This is Capital One's Nessie API. Watch today." The purchase appears on today's square and the per-day number drops. |

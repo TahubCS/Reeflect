@@ -27,6 +27,12 @@ export type Facts = {
    * activity.
    */
   gap: "kept" | "overspent" | "even" | null;
+  /**
+   * What the calendar's headline says (ADR-042), so the reply says the
+   * same: a per-day amount until payday, bills that use all of today's
+   * balance, or no confirmed payday yet. Null without accounts.
+   */
+  payday: "per_day" | "all_used" | "none" | null;
 };
 
 /** Every label the agent can fill, with what it stands for. */
@@ -46,6 +52,20 @@ export const LABELS = {
     "about what their subscriptions cost a month (a monthly average)",
   subscription_count:
     "how many different subscriptions they paid; the value already includes the word, so write the label alone, as in 'you pay for {subscription_count}'",
+  payday_date:
+    "the date of their next confirmed payday, written out; use it as 'your next payday on {payday_date}'",
+  days_until_payday:
+    "how long until that payday; the value already includes the word, so write the label alone, as in 'that is {days_until_payday} away'",
+  due_before_payday:
+    "the exact total of the bills and subscriptions due before that payday",
+  due_count:
+    "how many payments are due before that payday; the value already includes the word, so write the label alone, as in '{due_count} before then'",
+  free_to_spend:
+    "exactly what is left of today's balance after what is due before that payday",
+  per_day:
+    "exactly what they can spend a day until that payday, as on the website's calendar; use it as '{per_day} a day until payday'",
+  suggestions_waiting:
+    "how many recurring payments the website found and is waiting for them to confirm; the value already includes the words, so write the label alone, as in '{suggestions_waiting} to review'",
   top_category_1_name: "the category they spent the most on",
   top_category_1_amount:
     "about what they spend in that category a month (a monthly average)",
@@ -76,8 +96,24 @@ export const MONTHLY_LABELS: ReadonlySet<Label> = new Set<Label>([
   "top_category_3_amount",
 ]);
 
+/**
+ * The calendar's own figures for today (`summarize` in the cashflow
+ * feature), so a reply and the website's headline cannot disagree.
+ */
+export type CalendarFigures = {
+  /** The next confirmed payday, or null when none is confirmed. */
+  payday: { writtenOut: string; daysAway: number } | null;
+  dueTotal: Cents;
+  dueCount: number;
+  freeToSpend: Cents;
+  perDay: Cents;
+  /** Recurring payments found and not yet confirmed (ADR-058). */
+  suggestions: number;
+};
+
 export type FactsInput = {
   accounts: readonly { type: AccountKind; balance: Cents }[];
+  calendar: CalendarFigures;
   /** The last 30 days' measures, or null when there is nothing to measure. */
   measures: Measures | null;
   /** Category preset key → the name the person sees. */
@@ -114,10 +150,50 @@ function topCategories(
     }));
 }
 
+/** A count with its noun, so the model cannot get the plural wrong. */
+const counted = (count: number, one: string, many: string) =>
+  count === 1 ? `1 ${one}` : `${count} ${many}`;
+
+/** Adds the calendar's labels and says which headline the website shows. */
+function paydayFacts(
+  calendar: CalendarFigures,
+  values: Facts["values"],
+): NonNullable<Facts["payday"]> {
+  const { payday } = calendar;
+  if (payday === null) {
+    if (calendar.suggestions > 0) {
+      values.suggestions_waiting = counted(
+        calendar.suggestions,
+        "recurring payment",
+        "recurring payments",
+      );
+    }
+    return "none";
+  }
+
+  values.payday_date = payday.writtenOut;
+  values.days_until_payday = counted(payday.daysAway, "day", "days");
+  if (calendar.dueTotal > 0) {
+    values.due_before_payday = formatCents(calendar.dueTotal);
+    values.due_count = counted(calendar.dueCount, "payment", "payments");
+  }
+  // The same test the calendar's headline uses.
+  if (calendar.freeToSpend <= 0) return "all_used";
+  values.free_to_spend = formatCents(calendar.freeToSpend);
+  values.per_day = formatCents(calendar.perDay);
+  return "per_day";
+}
+
 export function buildFacts(input: FactsInput): Facts {
   const { accounts, measures } = input;
   if (accounts.length === 0) {
-    return { state: "no_accounts", values: {}, owes: false, gap: null };
+    return {
+      state: "no_accounts",
+      values: {},
+      owes: false,
+      gap: null,
+      payday: null,
+    };
   }
 
   const values: Facts["values"] = {};
@@ -125,9 +201,10 @@ export function buildFacts(input: FactsInput): Facts {
   const owes = owed > 0;
   values.cash_total = formatCents(cash);
   if (owes) values.owed_total = formatCents(owed);
+  const payday = paydayFacts(input.calendar, values);
 
   if (measures === null) {
-    return { state: "no_activity", values, owes, gap: null };
+    return { state: "no_activity", values, owes, gap: null, payday };
   }
 
   values.days_covered = String(measures.coveredDays);
@@ -140,11 +217,11 @@ export function buildFacts(input: FactsInput): Facts {
   if (measures.bills > 0) values.bills = formatCents(measures.bills);
   if (measures.subscriptionCount > 0) {
     values.subscription_cost = formatCents(measures.subscriptionCost);
-    // The noun goes in with the count, so the model cannot get the plural wrong.
-    values.subscription_count =
-      measures.subscriptionCount === 1
-        ? "1 subscription"
-        : `${measures.subscriptionCount} subscriptions`;
+    values.subscription_count = counted(
+      measures.subscriptionCount,
+      "subscription",
+      "subscriptions",
+    );
   }
   topCategories(measures, input.categoryNames).forEach((category, index) => {
     const rank = (index + 1) as 1 | 2 | 3;
@@ -152,5 +229,5 @@ export function buildFacts(input: FactsInput): Facts {
     values[`top_category_${rank}_amount`] = formatCents(category.amount);
   });
 
-  return { state: "ready", values, owes, gap };
+  return { state: "ready", values, owes, gap, payday };
 }
