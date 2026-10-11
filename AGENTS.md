@@ -250,6 +250,8 @@ src/
     db/                     Drizzle schema, client, migrations, uuidv7 ids
     auth/                   Better Auth config, roles, session, authz.ts,
                             Personal workspace on sign-up
+    email/                  Resend sender and email templates; local outbox
+                            without a key (ADR-051)
     env.ts                  zod validation of the app's environment variables
     security/               encryption, rate limiting, redaction (planned)
     ai/                     model client, placeholder filling, digit scan (planned)

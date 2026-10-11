@@ -81,7 +81,7 @@ Planned features (each a folder in `src/features/`):
 batch generator, ADR-049).
 
 Built so far: `accounts` (F-03: add, edit and delete accounts; HO-030),
-`auth` (sign-in and sign-up forms), `cashflow` (the calendar, on sample
+`auth` (sign-in, sign-up, email verification and password reset, ADR-051), `cashflow` (the calendar, on sample
 data), `landing` (the home page) and `synthetic`. `accounts` and
 `synthetic` have an `index.ts`; `accounts` is the first feature with a
 `server/` folder, and its server actions are the pattern to copy.

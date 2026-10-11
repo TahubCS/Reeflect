@@ -17,7 +17,8 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   projects: [
-    // Signs up one shared user and saves its session (tests/e2e/support.ts).
+    // Signs up and verifies one shared user and saves its session
+    // (tests/e2e/support.ts).
     { name: "setup", testMatch: /.*.setup.ts/ },
     {
       name: "chromium",
@@ -39,6 +40,10 @@ export default defineConfig({
       // Test sign-ups never reach the Better Auth dashboard (ADR-047). An
       // empty value wins over the key in .env.local.
       BETTER_AUTH_API_KEY: "",
+      // No Resend key, so emails go to .email-outbox/ and tests follow the
+      // links there (ADR-051). Empty values win over .env.local.
+      RESEND_API_KEY: "",
+      EMAIL_FROM: "",
     },
   },
 });

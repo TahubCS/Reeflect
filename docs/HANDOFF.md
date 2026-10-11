@@ -13,6 +13,55 @@ bottom.
 - Keep each entry short and factual. Link PRs, issues, and ADRs instead of
   repeating them.
 
+## HO-032: Email verification and password reset through Resend (ADR-051)
+
+- **Date:** 2026-10-10 20:30 (EDT)
+- **Author:** Simon Ormond with Claude (Claude Code)
+- **Branch / PR:** `feat/email-verification-resend` / not opened
+
+### What changed
+- **ADR-051 (Proposed):** Resend for email; new users must confirm their
+  email before they can sign in. **The team should confirm it.**
+- **Migration `0003_verify_existing_users`** (custom SQL, no schema change)
+  marks every user present when it runs as verified.
+- **`src/lib/email/`:** templates (greeting and link only; names are
+  HTML-escaped), `deliver` (Resend, or `.email-outbox/` JSON files without
+  a key; logs user id and message id only, never throws) and
+  `sendAfterResponse` (Next's `after()`, so response time doesn't reveal
+  whether an address has an account).
+- **Env:** `RESEND_API_KEY`, `EMAIL_FROM`; both required when `VERCEL` is
+  set, optional elsewhere; a key without `EMAIL_FROM` is refused.
+  Playwright sets both empty.
+- **Better Auth:** `requireEmailVerification`, `sendOnSignUp`,
+  `sendOnSignIn`, `autoSignInAfterVerification`, one-hour links,
+  `sendResetPassword`, `revokeSessionsOnPasswordReset`.
+- **UI:** sign-up ends on "Check your inbox" (with "Send the link again");
+  sign-in explains an unverified account and links to "Forgot your
+  password?"; new pages `/forgot-password`, `/reset-password`,
+  `/email-verified` (redirects to the calendar, or explains a bad link).
+  `Field` moved to `src/features/auth/ui/field.tsx`.
+- **Tests:** Vitest for templates, sender, env, auth config, the migration
+  and the new form parsing. E2E: every API sign-up goes through
+  `signUpVerified` in `tests/e2e/support.ts`, which follows the link from
+  the outbox; new specs for unverified sign-in, resend, reset, unknown
+  address and bad links. `pnpm test:unit` (535) and `pnpm test:e2e` (54)
+  pass.
+
+### What's next
+- **Deploy order:** set `RESEND_API_KEY` and `EMAIL_FROM` on Vercel
+  (Production and Preview), merge, run `pnpm db:migrate:to production`,
+  **then** deploy. Deploying first would lock out existing users until the
+  migration runs.
+- Send one real email from a preview deployment to check Resend's DNS and
+  the sender name.
+
+### Open problems
+- ADR-051 is Proposed, not Accepted.
+- `.email-outbox/` is never cleaned up; delete it by hand when it grows.
+- Signing up with an address that already has an account shows "Check your
+  inbox" and sends nothing (Better Auth's enumeration protection). An
+  "already have an account" email would need `onExistingUserSignUp`.
+
 ## Template
 
 ```markdown
@@ -40,7 +89,7 @@ Update this table when work is assigned or finished. Features are listed in
 | Feature / bug | Lane | Assigned to | Branch | Status |
 |---|---|---|---|---|
 | Scaffold (Next.js, pnpm workspace, Drizzle, Better Auth, CI, lefthook) | All | Unassigned | — | Next.js, CI, Drizzle and Better Auth done (HO-017, HO-018). Not done: lefthook, the `agent-worker/` and `packages/` workspace packages |
-| F-01 Sign up / sign in | B | Unassigned | — | Done (HO-018, HO-020, HO-021, HO-027) |
+| F-01 Sign up / sign in | B | Simon Ormond | `feat/email-verification-resend` | Done (HO-018, HO-020, HO-021, HO-027); email verification and password reset through Resend (HO-032, ADR-051 Proposed) |
 | F-02 Personal workspace | B | Simon Ormond | `feat/personal-workspace` | Personal workspace and `/w/[workspaceId]` done (HO-027); household later |
 | F-03 Financial accounts | A | Simon Ormond | `feat/financial-accounts` | Done: manual accounts, list, edit, delete (HO-030) |
 | F-04 Manual transactions | A | Simon Ormond | `feat/manual-transactions` | Built: add, edit, delete, list by day, account filter (HO-031); ADR-050 Proposed |

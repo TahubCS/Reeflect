@@ -118,7 +118,7 @@ when coverage is already met.
 
 | Suite | Flow |
 |---|---|
-| `auth.spec.ts` | Sign up, sign in, sign out, wrong password |
+| `auth.spec.ts` | Sign up, confirm the email from the outbox (ADR-051), sign in, sign out, wrong password, unverified sign-in, password reset, bad links |
 | `workspaces.spec.ts` | Personal workspace exists after sign-up; create household; invite link; second user joins with correct role; switching workspaces changes the calendar |
 | `accounts.spec.ts` | Add each account type; edit; delete with confirmation |
 | `csv-import.spec.ts` | Upload, map columns, preview, commit; duplicate upload blocked; wrong account blocked |

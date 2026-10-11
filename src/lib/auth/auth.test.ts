@@ -83,6 +83,64 @@ describe("auth", () => {
     vi.doUnmock("./personal-workspace");
   });
 
+  it("requires a verified email and sends verification and reset links (ADR-051)", async () => {
+    const send = vi.fn();
+    vi.doMock("@/lib/email", async (importOriginal) => ({
+      ...(await importOriginal<typeof import("@/lib/email")>()),
+      sendAfterResponse: send,
+    }));
+    const { auth } = await import("./auth");
+    const { emailAndPassword, emailVerification } = auth.options;
+    const user = {
+      id: "user-1",
+      name: "Sam",
+      email: "sam@example.test",
+      emailVerified: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    expect(emailAndPassword?.requireEmailVerification).toBe(true);
+    expect(emailAndPassword?.revokeSessionsOnPasswordReset).toBe(true);
+    expect(emailVerification).toMatchObject({
+      sendOnSignUp: true,
+      sendOnSignIn: true,
+      autoSignInAfterVerification: true,
+      expiresIn: 3600,
+    });
+
+    await emailVerification?.sendVerificationEmail?.({
+      user,
+      url: "http://localhost:3000/api/auth/verify-email?token=t",
+      token: "t",
+    });
+    await emailAndPassword?.sendResetPassword?.({
+      user,
+      url: "http://localhost:3000/api/auth/reset-password/t",
+      token: "t",
+    });
+
+    expect(send).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        to: "sam@example.test",
+        subject: expect.stringMatching(/^Confirm your email/),
+        text: expect.stringContaining("verify-email?token=t"),
+      }),
+      "user-1",
+    );
+    expect(send).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        to: "sam@example.test",
+        subject: expect.stringMatching(/^Reset your/),
+        text: expect.stringContaining("reset-password/t"),
+      }),
+      "user-1",
+    );
+    vi.doUnmock("@/lib/email");
+  });
+
   it("refuses to load without its environment", async () => {
     vi.stubEnv("BETTER_AUTH_SECRET", "");
 

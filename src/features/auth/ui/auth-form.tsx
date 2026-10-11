@@ -7,12 +7,14 @@ import { authClient } from "@/lib/auth/client";
 import {
   type AuthFailure,
   type FieldErrors,
-  type SignUpInput,
   authFailureMessage,
   parseSignIn,
   parseSignUp,
 } from "../domain/credentials";
+import { AFTER_AUTH_PATH, EMAIL_VERIFIED_PATH } from "../domain/paths";
 import styles from "./auth.module.css";
+import { CheckInbox } from "./check-inbox";
+import { Field } from "./field";
 
 type Mode = "sign-in" | "sign-up";
 
@@ -34,63 +36,12 @@ const COPY: Record<
   },
 };
 
-/** Where a signed-in person lands. */
-const AFTER_AUTH = "/dashboard";
-
-type FieldProps = {
-  name: keyof SignUpInput;
-  label: string;
-  type: string;
-  autoComplete: string;
-  error: string | undefined;
-  hint?: string;
-  /** What the field starts with; the person can still change it. */
-  defaultValue?: string;
-};
-
-function Field({
-  name,
-  label,
-  type,
-  autoComplete,
-  error,
-  hint,
-  defaultValue,
-}: FieldProps) {
-  const describedBy = error
-    ? `${name}-error`
-    : hint
-      ? `${name}-hint`
-      : undefined;
-  return (
-    <label className={styles.field}>
-      <span>{label}</span>
-      <input
-        name={name}
-        type={type}
-        autoComplete={autoComplete}
-        defaultValue={defaultValue}
-        aria-invalid={error !== undefined}
-        aria-describedby={describedBy}
-      />
-      {error !== undefined && (
-        <span id={`${name}-error`} className={styles.fieldError}>
-          {error}
-        </span>
-      )}
-      {error === undefined && hint !== undefined && (
-        <span id={`${name}-hint`} className={styles.hint}>
-          {hint}
-        </span>
-      )}
-    </label>
-  );
-}
-
 type Outcome =
   | { kind: "invalid"; errors: FieldErrors }
   | { kind: "failed"; failure: AuthFailure }
-  | { kind: "signed-in" };
+  | { kind: "signed-in" }
+  /** Signed up; the account opens from the link we emailed (ADR-051). */
+  | { kind: "check-inbox"; email: string };
 
 /** Validates the form, then asks Better Auth. `onSend` runs once input is valid. */
 async function authenticate(
@@ -102,13 +53,22 @@ async function authenticate(
     const parsed = parseSignUp(raw);
     if (!parsed.ok) return { kind: "invalid", errors: parsed.errors };
     onSend();
-    const { error } = await authClient.signUp.email(parsed.value);
-    return error ? { kind: "failed", failure: error } : { kind: "signed-in" };
+    const { error } = await authClient.signUp.email({
+      ...parsed.value,
+      callbackURL: EMAIL_VERIFIED_PATH,
+    });
+    return error
+      ? { kind: "failed", failure: error }
+      : { kind: "check-inbox", email: parsed.value.email };
   }
   const parsed = parseSignIn(raw);
   if (!parsed.ok) return { kind: "invalid", errors: parsed.errors };
   onSend();
-  const { error } = await authClient.signIn.email(parsed.value);
+  // An unverified user is refused and sent a fresh link that lands here.
+  const { error } = await authClient.signIn.email({
+    ...parsed.value,
+    callbackURL: EMAIL_VERIFIED_PATH,
+  });
   return error ? { kind: "failed", failure: error } : { kind: "signed-in" };
 }
 
@@ -124,6 +84,7 @@ export function AuthForm({
   const [errors, setErrors] = useState<FieldErrors>({});
   const [failure, setFailure] = useState("");
   const [pending, setPending] = useState(false);
+  const [checkInbox, setCheckInbox] = useState<string | null>(null);
   const copy = COPY[mode];
   const isSignUp = mode === "sign-up";
 
@@ -148,8 +109,14 @@ export function AuthForm({
       setFailure(authFailureMessage(outcome.failure));
       return;
     }
-    router.push(AFTER_AUTH);
+    if (outcome.kind === "check-inbox") {
+      setCheckInbox(outcome.email);
+      return;
+    }
+    router.push(AFTER_AUTH_PATH);
   };
+
+  if (checkInbox !== null) return <CheckInbox email={checkInbox} />;
 
   return (
     <form className={styles.card} onSubmit={submit} noValidate>
@@ -183,6 +150,12 @@ export function AuthForm({
           hint={isSignUp ? "At least 8 characters." : undefined}
         />
       </div>
+
+      {!isSignUp && (
+        <p className={styles.aside}>
+          <Link href="/forgot-password">Forgot your password?</Link>
+        </p>
+      )}
 
       {failure && (
         <p className={styles.failure} role="alert">

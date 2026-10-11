@@ -327,7 +327,8 @@ Rules:
   - **Variables:** `RESEND_API_KEY` (secret) and `EMAIL_FROM` (a sender on
     the verified domain, e.g. `Reeflect <no-reply@…>`; the name comes from
     `APP_NAME`). Both are required when `VERCEL` is set (production and
-    previews). Elsewhere both are optional.
+    previews). Elsewhere both are optional, but a key without a sender is
+    refused.
   - **Without a key** (local, CI, Playwright), emails are not sent. Each
     one is written as a JSON file to a gitignored outbox folder
     (`.email-outbox/`), so Playwright can follow the link inside it. The

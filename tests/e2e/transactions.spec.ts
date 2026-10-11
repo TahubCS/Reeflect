@@ -1,5 +1,5 @@
 import { type Browser, type Page, expect, test } from "@playwright/test";
-import { hydrated, ownClientAddress } from "./support";
+import { hydrated, signUpVerified } from "./support";
 
 // F-04 (TEST-07): add, edit and delete a transaction by hand, and see the
 // account balance follow (ADR-050). Each test signs up its own user, so its
@@ -10,15 +10,10 @@ async function newUserPage(
   baseURL: string | undefined,
 ): Promise<Page> {
   const context = await browser.newContext();
-  const response = await context.request.post("/api/auth/sign-up/email", {
-    headers: { origin: baseURL ?? "", ...ownClientAddress() },
-    data: {
-      name: "Transactions Tester",
-      email: `e2e-transactions-${crypto.randomUUID()}@example.test`,
-      password: "correct-horse-battery-staple",
-    },
+  await signUpVerified(context.request, baseURL, {
+    name: "Transactions Tester",
+    email: `e2e-transactions-${crypto.randomUUID()}@example.test`,
   });
-  expect(response.status()).toBe(200);
   return context.newPage();
 }
 
