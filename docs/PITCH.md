@@ -16,10 +16,11 @@ Agent Track, Best Use of Nessie with Capital One, MLH Best Use of Gemini API
 > by code) is now one of the four main features. The demo script in section 5
 > does not show a statement upload yet; add a step once the import works.
 
-> **Updated 2026-10-11 (HO-045):** the website calendar now runs on the
+> **Updated 2026-10-11 (HO-048):** the website calendar now runs on the
 > workspace's own accounts and transactions; the sample data and the chat
-> simulator are gone. Paydays, bills and subscriptions still to come need
-> recurring series (F-10, ADR-014), which are not built yet. Until then the
+> simulator are gone. The calendar does not read recurring payments (F-10,
+> ADR-058) yet, so paydays, bills and subscriptions still to come are not
+> on it. Until then the
 > headline shows today's balance, not the per-day amount, and the 1:00 step
 > must not say that upcoming paydays and bills are on the calendar.
 
@@ -87,6 +88,17 @@ open Transactions in a seeded workspace, change a merchant to Groceries and
 select “Also save a rule”. Show another matching transaction becoming Groceries
 automatically. Say: “Correct it once and remember the merchant next time.”
 This does not depend on an AI call or change transaction amounts.
+
+Optional F-10 website demo after migration 0009: open **Recurring payments**
+with three monthly electricity charges of $95, $130 and $110. Show the
+supporting charges and confirm the suggestion: it becomes a variable bill
+with a $110 typical payment and a $95–$130 recent range. Say: “We look for
+patterns in payment dates, even when the amount changes. You confirm the
+pattern; future amounts and dates are estimates.” Add rent manually, or
+mark a confirmed streaming subscription planning to cancel and show potential
+annual savings. Actual spending comes from posted charges minus matching
+credits. This website flow is built; iMessage alerts, scheduled reminders
+and a live-data calendar integration remain separate features.
 
 ## 6. Judge questions to prepare for
 

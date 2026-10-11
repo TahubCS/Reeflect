@@ -42,7 +42,7 @@ Rules:
 | ADR-011 | PDF statement parsing pipeline | Superseded by ADR-044 |
 | ADR-012 | Bank linking through Plaid; no raw credentials | Accepted |
 | ADR-013 | Categorization by keyword rules with manual override | Accepted |
-| ADR-014 | Recurring charge detection | Accepted |
+| ADR-014 | Recurring charge detection | Superseded by ADR-058 |
 | ADR-015 | Calendar-month budgets; preset editable categories | Accepted |
 | ADR-018 | Themes, accessibility, responsive design | Accepted |
 | ADR-019 | AI features; AI never produces numbers | Accepted |
@@ -83,6 +83,7 @@ Rules:
 | ADR-055 | Retirement and investing count as saving, not spending (refines ADR-020) | Proposed |
 | ADR-056 | Insights: compare with sample people (refines ADR-049) | Proposed |
 | ADR-057 | More preset categories; sample people arrive categorized (refines ADR-015) | Proposed |
+| ADR-058 | Recurring payment patterns, confirmation and variable bills | Accepted |
 
 ---
 
@@ -587,7 +588,7 @@ Rules:
 
 ### ADR-014: Recurring charge detection
 
-- **Status:** Accepted (2026-10-06)
+- **Status:** Superseded by ADR-058
 - **Context:** "Same merchant seen more than twice" alone would turn regular
   grocery or coffee visits into subscriptions.
 - **Decision:** A merchant becomes a recurring series when all of these hold:
@@ -1541,6 +1542,51 @@ Rules:
     or organizers say otherwise, follow them.
 - **Consequences:** The scaffold, ruleset import and first green CI run happen
   in the first hour of hacking (HANDOFF.md kickoff runbook).
+
+---
+
+### ADR-058: Recurring payments from observed patterns, with user confirmation
+
+- **Status:** Accepted (2026-10-11), explicitly requested by Muhammad in the
+  implementation approval. Supersedes ADR-014's fixed timing/amount detector.
+- **Context:** Electricity bills can change substantially each month, rent
+  is a recurring obligation, and recurring payments need not be weekly or
+  monthly. The user asked to find patterns instead of applying fixed
+  subscription constructs.
+- **Decision:**
+  - Present **Recurring payments**, with bill/subscription kind and
+    fixed/variable amount mode as independent, user-correctable properties.
+  - Group posted outflows by account and conservatively normalized payee.
+    Inspect up to three years of history. Infer an interval or calendar-month
+    cadence from observed dates and measure dispersion relative to that
+    cadence. The documented minimum evidence and dispersion limits are
+    confidence guardrails, not preset 6–8/25–35 day or ±15% amount windows.
+  - Require at least three supporting charges for a suggestion. Irregular or
+    ambiguous histories remain undetected. All suggestions require user
+    confirmation before contributing to estimated recurring costs.
+  - Amount variation does not reject a date pattern. Describe the observed
+    amounts as fixed or variable, show actual supporting charges and a typical
+    amount/range, and let the user correct both classification and estimate.
+    Only an established user-confirmed fixed amount gets a price-change flag;
+    normal variable-bill fluctuations are not labelled price increases.
+  - Manual entries can start tracking before enough history exists, including
+    a user-entered schedule/date and amount estimate. Dismissals, corrections
+    and subscription keep/planning-to-cancel decisions survive refresh/import.
+  - Actual posted spending and estimated future costs are separate. Future
+    dates say "Expected" unless explicitly entered by the user. Estimates do
+    not create transactions or change account balances. Cancellation plans do
+    not remove current costs; cancellation controls apply to subscriptions.
+  - Reuse ADR-030's bill classification and due-date precedence; predicted
+    obligations are never treated as proof that a bill has been paid. Exclude
+    identified transfers, pending rows, refunds, zero amounts and future rows
+    from recurring-charge evidence (ADR-020). Scheduled reminder delivery and
+    proactive iMessage alerts remain F-22/F-26.
+- **Consequences:** F-10's complete website scope now includes recurring bill
+  tracking. Explain evidence and confidence on screen; document algorithm
+  guardrails and limitations in the feature README. Test variable utilities,
+  quarterly/fortnightly patterns, false positives, preserved user choices,
+  account isolation and actual-versus-estimated totals. Use a new additive
+  recurring-series migration and a public post-import refresh API.
 
 ---
 

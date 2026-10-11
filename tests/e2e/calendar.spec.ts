@@ -110,6 +110,11 @@ test("opens on today with the account's balance, and adding and removing spendin
   await expect(dayPanel(page).getByRole("heading", { level: 2 })).toHaveText(
     todayLong,
   );
+  await expect(
+    page
+      .getByRole("region", { name: "Subscriptions" })
+      .getByRole("link", { name: "Recurring payments" }),
+  ).toBeVisible();
 
   await spend(page, "16", "Bus pass");
 

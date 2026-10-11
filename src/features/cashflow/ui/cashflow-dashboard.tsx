@@ -361,8 +361,11 @@ export function CashflowDashboard({
               <h2 id="subscription-heading">Subscriptions</h2>
               {subscriptions.count === 0 ? (
                 <p className="lede">
-                  Subscriptions show up here once we&rsquo;ve seen the same
-                  charge come round three times.
+                  Your subscriptions and regular bills are on the{" "}
+                  <Link href={`/w/${workspaceId}/subscriptions`}>
+                    Recurring payments
+                  </Link>{" "}
+                  page for now.
                 </p>
               ) : (
                 <>

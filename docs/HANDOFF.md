@@ -46,11 +46,11 @@ Update this table when work is assigned or finished. Features are listed in
 | F-04 Manual transactions | A | Simon Ormond | `feat/manual-transactions` | Built: add, edit, delete, list by day, account filter (HO-031); ADR-050 Proposed |
 | F-05 CSV import | A | Simon Ormond | `feat/csv-statement-import` | Built for Capital One 360 and credit-card CSV exports (HO-040, ADR-054 Proposed); no mapping screen yet |
 | F-06 PDF statement import (P0, ADR-044) | A | Simon Ormond | `feat/pdf-statement-import` | Built for Capital One 360 checking and savings (HO-038); CSV kept in Neon object storage (ADR-053 Proposed); needs `neon deploy` and Vercel vars |
-| F-08 Categorization | A | Codex | `feat/transaction-categorization` | Full feature implemented and verified (HO-037); PR #12 awaits merge |
+| F-08 Categorization | A | Codex | `feat/transaction-categorization` | Full feature merged in PR #12 (HO-037) |
 | F-09 Monthly budgets (P1) | A | Unassigned | — | Not started |
-| F-10 Subscriptions (detection P0, marks P1) | A | Unassigned | — | Not started |
-| F-12 Calendar home screen | B | Simon Ormond | `feat/real-cashflow-dashboard` | On real accounts and transactions (HO-045); paydays, bills and subscriptions wait for recurring series |
-| F-13 Drill-down | B | Simon Ormond | `feat/real-cashflow-dashboard` | Day panel adds and removes real typed transactions (HO-045) |
+| F-10 Recurring payments (detection P0, marks P1) | A | Codex | `feat/subscriptions` | Full website built (HO-045, ADR-058); local checks pass; external Neon storage regressions pending |
+| F-12 Calendar home screen | B | Simon Ormond | `feat/real-cashflow-dashboard` | On real accounts and transactions (HO-048); paydays, bills and subscriptions not yet read from recurring payments (F-10) |
+| F-13 Drill-down | B | Simon Ormond | `feat/real-cashflow-dashboard` | Day panel adds and removes real typed transactions (HO-048) |
 | F-18 Themes and accessibility | B | Unassigned | — | Not started |
 | F-19 Delete data | B | Unassigned | — | Not started |
 | F-21 Demo seed (incl. Nessie) | A | Jacob Heminway | — | Synthetic generator and batch scripts merged (HO-026, PR #7); Nessie seeding and `pnpm db:seed` not started |
@@ -2127,7 +2127,160 @@ recommendation, not a decision.
 ### Open problems
 - Simon's storage tests (8) need `.env.storage-tests` to run locally.
 
-## HO-045: The calendar runs on the workspace's own accounts (F-12, F-13)
+## HO-045: Recurring payments website (F-10), from observed patterns
+
+- **Date:** 2026-10-11 04:45 (UTC)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `feat/subscriptions` / not opened; implementation uncommitted
+
+### What changed
+- **ADR-058 (Accepted):** the user approved broadening subscriptions into
+  recurring payments and finding patterns instead of fixed constructs.
+  ADR-014 is superseded; its original decision is preserved. Main's
+  ADR-055–057 and migration 0008 retain their numbers.
+- Full website at `/w/[workspaceId]/subscriptions`: date-pattern suggestions,
+  variable bills and fixed subscriptions, confirmation before estimates,
+  evidence/range, actual spending net of matching credits, expected/user dates,
+  monthly/yearly estimates, bill/subscription breakdown and potential savings.
+  Manual tracking, corrections, dismissal/restoration and subscription
+  keep/planning-to-cancel persist. Filters and pagination retain workspace totals.
+- `src/features/recurring/` contains the domain, repository, six editor-only
+  actions, read-only viewer page and public integration APIs. Reads derive
+  current evidence without writing; serialized metadata writes preserve user
+  choices and never alter transactions or balances. Failures retain form input
+  or show the page's retry boundary while navigation stays available.
+- **Migration `0009_recurring_payments`:** recurring metadata, a unique
+  workspace/account/payee key and composite account ownership with cascades.
+  The account ownership index precedes the dependent FK in generated SQL.
+- Integrated main through **`c75ec7d`** (PDF/CSV, worker and Insights). Resolved
+  documentation/authorization overlaps while retaining both features. No
+  importer, Insights, money or generator code is changed by this branch.
+  The longer navigation label required a minimum width for the signed-in
+  identity; existing navigation/auth browser tests verify it remains visible.
+- Updated PROJECT, ARCHITECTURE, DECISIONS, TESTING and PITCH. The
+  [feature README](../src/features/recurring/README.md) explains the algorithm's
+  evidence/resource guardrails, false positives, amount/date sources and API
+  contract. Reminder delivery, proactive texts and live calendar integration
+  remain F-22/F-26 or their owning features.
+
+### Verification
+- Strict app/worker types, lint, format, docs checks, production build and
+  client bundle scan pass. `git diff --check` passes; final main fetch matched
+  `c75ec7d`, with no unresolved merges.
+- **1,264 unit/database tests passed in 84 files**, with coverage thresholds
+  passing (95.51% overall lines, 91.52% branches). Recurring domain: 100% lines,
+  97.83% branches; recurring server: 99.35% lines, 97.02% branches. One existing
+  account storage test was excluded by CLI name filtering, plus the three
+  external-storage test files listed below; no test/config was changed to skip
+  them. Authorization includes all six recurring actions and Insights.
+- Real PDF and CSV public preview/commit actions, parsers, reconciliation and
+  PostgreSQL writes pass in the recurring integration tests. Only session and
+  external object transport are faked in that feature-owned test file. Patterns
+  appear immediately after commits; confirmation/refresh preserves financial
+  facts. This does not replace Neon's storage integration checks.
+- **88 browser tests passed**, covering auth, navigation, accounts, transactions,
+  categorization, Insights, calendar, messaging and all ten recurring flows.
+  Recurring tests assert no unexpected browser errors; injected failure recovers.
+  Light/dark screenshots at desktop and 360px, with reduced motion, are in
+  [screenshots/recurring](screenshots/recurring/desktop-light.png).
+- Dedicated local PostgreSQL databases only: blank application of all ten
+  migrations and main's nine-migration database upgrading to ten both pass.
+  Existing balances, imported transactions, manual categories, rules, import
+  records, synthetic metadata and Insights sample figures remain unchanged;
+  a second application is idempotent. Production was not migrated.
+
+### What's next
+- Run the full unit suite and `pdf-import.spec.ts` / `csv-import.spec.ts` when
+  the running workspace can reach the existing Neon `storage-tests` endpoint.
+  The excluded unit files are `src/lib/storage/index.test.ts`,
+  `src/features/imports/server/pipeline.test.ts` and
+  `src/features/imports/server/actions.test.ts`; also rerun the account's
+  stored-statement deletion test.
+- Obtain specific commit/push/PR authorization under AGENTS.md section 7.
+  Suggested commit: `feat(recurring): track payments from observed patterns`.
+- Before deployment, verify the target's migration history (HO-038/ADR-049)
+  and apply 0009 after main's 0008. Consumers authorize first and use the
+  public APIs; post-import refresh failures must not undo successful imports.
+
+### Open problems
+- Neon is connected and the user reported saving the storage allowlist change.
+  The running environment's enforced network policy at revision 18 still lists
+  only Playwright/font/Google-storage hosts and package-manager presets.
+  `br-polished-hall-b439q9bu.storage.c-6.us-east-2.aws.neon.tech` returns HTTP 403
+  from the workspace proxy; there is no networking-settings edit tool. Real
+  Neon object-storage/import regression results remain pending. The temporary
+  storage-only test credential was revoked and its gitignored file removed.
+- Main's imports do not yet categorize or pair transfers (HO-040); only rows
+  marked as transfers can be excluded. Recurring analysis never rewrites them.
+  The README documents missing cycles, ambiguous payees and false positives.
+
+## HO-046: Recurring payments authorized for commit, push and PR
+
+- **Date:** 2026-10-11 00:52 (America/New_York, EDT)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `feat/subscriptions` / PR creation follows this commit
+
+### What changed
+- The user explicitly requested pulling main, resolving conflicts and opening
+  the PR for the complete feature. This authorizes the commit and branch push.
+- Fetched main again: both the branch base and `origin/main` are `c75ec7d`.
+  The branch is already current; no new conflicts or code changes were needed.
+  All feature files, tests, migration 0009, ADR-058 and screenshots are included.
+- HO-045's final verification still applies to this unchanged implementation:
+  1,264 unit/database tests, 88 browser tests, strict types, lint, production
+  build, bundle scan and blank/existing-main migration checks passed.
+  Documentation, formatting and staged-diff checks are rerun for publication.
+
+### What's next
+- Open the PR into `main` and verify GitHub reports no merge conflicts.
+- Required CI and review still gate merging (ADR-021). Apply migration 0009
+  after main's 0008 before deployment; production has not been changed.
+
+### Open problems
+- The running environment's network policy at revision 19 still omits the Neon
+  storage host. HO-045 lists the local storage regressions that remain blocked.
+  The PR discloses these exclusions; GitHub CI uses the existing repository
+  test-storage credentials to run the full suite. No tests are disabled in code.
+
+## HO-047: Fix the recurring PR's CI isolation snapshot failure
+
+- **Date:** 2026-10-11 01:05 (America/New_York, EDT)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `feat/subscriptions` / [PR #20](https://github.com/TahubCS/Reeflect/pull/20)
+
+### What changed
+- CI run `38113112063` passed 1,307 unit tests and failed one workspace
+  isolation assertion. The category rows and values were unchanged, but an
+  unordered SQL query returned them in a different order. Browser, lint/types
+  and dependency audit jobs passed, including the real Neon import tests.
+- Order every directly queried isolation snapshot table by its primary key.
+  The test still compares all rows and columns, including recurring metadata;
+  unauthorized inserts, updates or deletes still fail the comparison.
+- Add a real PostgreSQL regression that switches between sequential and
+  index scans with transaction-local planner settings and no data changes.
+  It fails before the fix and passes afterwards. Documented in TEST-06.
+- This follow-up changes tests and documentation only. Main is still `c75ec7d`;
+  no application code, schema, CI configuration or storage credentials change.
+
+### Verification
+- All 106 workspace isolation tests pass locally, including the new regression.
+  Strict app/worker types, lint and formatting pass.
+- The broader local suite passes 1,265 tests in 84 files with coverage
+  thresholds passing (95.51% lines, 91.52% branches), using HO-045's disclosed
+  storage exclusions. Two timeouts during concurrent lint/type checks pass
+  when rerun with two workers and those checks complete; no deadlines changed.
+  The full suite and real storage checks run in GitHub CI after pushing the fix.
+
+### What's next
+- Push the fix to PR #20 under the user's existing publication authorization,
+  then verify the full unit job passes on that commit. No tests are disabled.
+- CI and teammate review still gate merging; production has not been migrated.
+
+### Open problems
+- HO-045's local Neon storage network restriction remains. CI can reach the
+  test bucket and passed its storage/import tests in the initial PR run.
+
+## HO-048: The calendar runs on the workspace's own accounts (F-12, F-13)
 
 - **Date:** 2026-10-11 (EDT)
 - **Author:** Simon Ormond with Claude (Claude Code)
@@ -2190,9 +2343,10 @@ recommendation, not a decision.
   - Playwright: `calendar.spec.ts` rewritten for real users. `auth`,
     `workspaces` and `app-nav` no longer expect the sample headline.
   - Results:
-    - `pnpm test:unit`: 1206 passed. One run failed once, in the isolation
-      matrix's `addDayEntryAction` cross-workspace case; it passed in the
-      four full runs and three single-file runs since.
+    - `pnpm test:unit`: 1206 passed before the merge with main. One run
+      failed once, in the isolation matrix's `addDayEntryAction`
+      cross-workspace case. That is likely the unordered snapshot HO-047
+      fixed on main, which this branch now includes.
     - `pnpm test:e2e`: 83 passed.
     - `lint`, `typecheck`, `format:check`, `build`, `scan:bundle` and
       `docs:check` pass.
@@ -2202,21 +2356,19 @@ recommendation, not a decision.
   - Assignments table: F-12 and F-13 are Simon's.
 
 ### What's next
-- **PR 2, recurring series:**
-  - a new ADR for detecting recurring income (ADR-042 needs it; ADR-014
-    covers charges only)
-  - the `recurring_series` table and its migration
-  - detection plus a manual "add a payday, bill or subscription" form
-  - keep and cancel marks
-  - feeding `CashflowData.recurring`
-
-  That turns on the per-day headline, the dotted line and the subscriptions
-  list without changing the calendar UI.
-- Bring the demo script's 1:00 step back to "paydays and bills on their
-  days" once PR 2 lands.
+- **Feed the calendar from recurring payments:** F-10's recurring payments
+  (`src/features/recurring`, ADR-058) merged into main while this branch
+  was open. Map confirmed series into `CashflowData.recurring` (income,
+  bills, subscriptions), and keep the cancel marks in that feature's state
+  instead of the dashboard's local state. That turns on the per-day
+  headline, the dotted line and the subscriptions list without changing
+  the calendar UI.
+- **Detect paydays:** check whether ADR-058 covers recurring income. The
+  headline needs the next payday (ADR-042). If it doesn't, write the ADR.
+- **Demo script:** bring the 1:00 step back to "paydays and bills on their
+  days" once that lands.
 
 ### Open problems
-- **The intermittent isolation failure above:** watch for it in CI.
 - **Imported rows without a balance:** the opening balance assumes the
   stored balance is today's. A statement import that leaves the balance
   older than its rows (a card export, ADR-054) can be off; card rows don't
@@ -2225,4 +2377,4 @@ recommendation, not a decision.
   unpaired card payment shows as money in on the card, and the checking side
   as spending.
 - **The Subscriptions category** reads as spending, not as a subscription,
-  until recurring series exist.
+  until the calendar reads recurring payments.

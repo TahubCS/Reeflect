@@ -1,0 +1,188 @@
+.page {
+  max-width: 86rem;
+  margin-inline: auto;
+}
+.heading,
+.cardHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.heading {
+  margin-block: 1rem 1.5rem;
+}
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 1rem;
+}
+.summary > div,
+.card,
+.add {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 0.65rem;
+  padding: 1rem;
+}
+.summary h2 {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  margin-bottom: 0.5rem;
+}
+.amount {
+  font-size: 1.6rem;
+  font-weight: 600;
+  margin-block: 0.5rem;
+}
+.amount span {
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+.note {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  margin-block: 0.65rem;
+}
+.add {
+  margin-block: 1rem;
+}
+.filters {
+  display: flex;
+  align-items: end;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-block: 1.5rem;
+}
+.filters label,
+.field {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+.filters label {
+  flex: 1 1 10rem;
+}
+.filters select,
+.field select,
+.field input {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 0.3rem;
+  padding: 0.5rem;
+  width: 100%;
+  min-width: 0;
+}
+.page button {
+  background: var(--tint);
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  padding: 0.45rem 0.7rem;
+  cursor: pointer;
+}
+.page button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+.list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 27rem), 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+.card {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.card h2 {
+  font-size: 1.15rem;
+}
+.badge {
+  background: var(--tint);
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.35rem;
+  font-size: 0.75rem;
+}
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-block: 1rem;
+}
+.metrics dt {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+.metrics dd {
+  margin: 0;
+}
+.charges {
+  list-style: none;
+  padding: 0;
+}
+.charges li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--line);
+  padding-block: 0.45rem;
+}
+.card details {
+  margin-block: 0.6rem;
+}
+.page summary {
+  cursor: pointer;
+}
+.controls {
+  margin-top: 1rem;
+}
+.form {
+  margin-block: 1rem;
+  max-width: 32rem;
+}
+.form fieldset,
+.actionForm fieldset {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.form fieldset {
+  display: grid;
+  gap: 0.7rem;
+}
+.actionForm fieldset {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.actionForm {
+  margin-block: 0.5rem;
+}
+.checkbox {
+  display: flex;
+  align-items: start;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+.checkbox input {
+  margin-top: 0.25rem;
+}
+.field [aria-invalid="true"] {
+  border-color: var(--bill);
+}
+.change {
+  border-left: 3px solid var(--bill);
+  padding-left: 0.6rem;
+}
+.pagination {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+@media (max-width: 420px) {
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+}
