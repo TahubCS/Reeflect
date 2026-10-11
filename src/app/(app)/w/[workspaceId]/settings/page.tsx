@@ -1,14 +1,33 @@
 import type { Metadata } from "next";
-import { PagePlaceholder } from "@/components/ui/page-placeholder";
+import { Suspense } from "react";
+import { MessagesSection } from "@/features/messaging/ui/messages-section";
+import styles from "./page.module.css";
 
 export const metadata: Metadata = { title: "Settings" };
 
-export default function SettingsPage() {
+type Params = PageProps<"/w/[workspaceId]/settings">["params"];
+
+/** Reads the URL and the session, so it renders inside the boundary below. */
+async function Messages({ params }: { params: Params }) {
+  const { workspaceId } = await params;
+  return <MessagesSection workspaceId={workspaceId} />;
+}
+
+// The heading shows at once on a click from another page; the card streams
+// in behind its own Suspense boundary.
+export default function SettingsPage({
+  params,
+}: PageProps<"/w/[workspaceId]/settings">) {
   return (
-    <PagePlaceholder
-      title="Settings"
-      purpose="Link your phone, set quiet hours for messages, and delete your data."
-      features="F-24, F-33 and F-19"
-    />
+    <main className={styles.page}>
+      <h1>Settings</h1>
+      <Suspense fallback={<p className={styles.note}>Loading…</p>}>
+        <Messages params={params} />
+      </Suspense>
+      <p className={styles.note}>
+        Not built yet: quiet hours for messages and deleting your data (F-33 and
+        F-19).
+      </p>
+    </main>
   );
 }

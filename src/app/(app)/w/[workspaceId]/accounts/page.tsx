@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { PageLoading } from "@/components/ui/page-loading";
 import { AccountList, listAccounts } from "@/features/accounts";
 import { requireWorkspaceAccess } from "@/lib/auth/authz";
 import { roleAtLeast } from "@/lib/auth/roles";
@@ -6,9 +8,11 @@ import { getSession } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Accounts" };
 
-export default async function AccountsPage({
-  params,
-}: PageProps<"/w/[workspaceId]/accounts">) {
+type Props = PageProps<"/w/[workspaceId]/accounts">;
+
+// Reads the URL, the session and the accounts, so the page renders this
+// inside a Suspense boundary.
+async function Accounts({ params }: Pick<Props, "params">) {
   const { workspaceId } = await params;
   const access = await requireWorkspaceAccess(
     await getSession(),
@@ -23,5 +27,13 @@ export default async function AccountsPage({
       accounts={accounts}
       canEdit={roleAtLeast(access.role, "editor")}
     />
+  );
+}
+
+export default function AccountsPage({ params }: Props) {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <Accounts params={params} />
+    </Suspense>
   );
 }

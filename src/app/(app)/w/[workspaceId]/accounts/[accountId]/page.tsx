@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import {
   AccountForm,
   AccountPage,
@@ -10,14 +11,17 @@ import {
   getAccount,
   updateAccountAction,
 } from "@/features/accounts";
+import { PageLoading } from "@/components/ui/page-loading";
 import { requireWorkspaceAccess } from "@/lib/auth/authz";
 import { getSession } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Edit account" };
 
-export default async function EditAccountPage({
-  params,
-}: PageProps<"/w/[workspaceId]/accounts/[accountId]">) {
+type Props = PageProps<"/w/[workspaceId]/accounts/[accountId]">;
+
+// Reads the URL, the session and the account, so the page renders this
+// inside a Suspense boundary.
+async function EditAccount({ params }: Pick<Props, "params">) {
   const { workspaceId, accountId } = await params;
   const access = await requireWorkspaceAccess(
     await getSession(),
@@ -50,5 +54,13 @@ export default async function EditAccountPage({
         action={deleteAccountAction.bind(null, access.workspaceId, account.id)}
       />
     </AccountPage>
+  );
+}
+
+export default function EditAccountPage({ params }: Props) {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <EditAccount params={params} />
+    </Suspense>
   );
 }

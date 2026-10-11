@@ -85,7 +85,7 @@ reminders at 2:05) are cut if unfinished (ADR-043).
 | (Gemini) "How do you use Gemini?" | "Gemini handles the open-ended questions and picks which of our tools to call; our code supplies every number. Simple commands never touch the model, which keeps the agent fast and within limits." |
 | (Photon) "What does Spectrum do for you?" | "It handles the iMessage connection, typing indicators, and sending images; our worker just relays, and the brain stays in our Next.js app with the same auth and tests as the website." |
 | (Capital One) "How did you use Nessie?" | "Nessie is our live data source: accounts, purchases, deposits, transfers, bills and loans all land on the calendar, and Nessie bills drive the due-date reminders." |
-| "How do you stop someone else texting and seeing my data?" | "Your phone has to be linked by texting a one-time code from it. Unlinked numbers get nothing but a sign-up link." |
+| "How do you stop someone else texting and seeing my data?" | "Your phone has to be linked by texting a one-time code from it, and then you approve that phone on the website. Unlinked numbers get nothing but a sign-up message." |
 | "What if the AI gets a number wrong?" | "It can't: the AI chooses which question to ask the database; our code puts the numbers in the reply, and a check blocks any digit the AI made up." |
 | "What about privacy on the lock screen?" | "Our alerts never put amounts in the text. The lock screen says your car payment is coming up; the numbers are inside the conversation once you open it." |
 | "Can I change when it messages me?" | "Yes: set quiet hours on the website, or just text it, like 'Reeflect, register new quiet hours 11PM to 7 AM'." |
