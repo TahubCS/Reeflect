@@ -1717,9 +1717,18 @@ recommendation, not a decision.
 - **F-25** makes a linked phone get real answers.
 
 ### Open problems
-- **Not yet tried with a real phone.** Open questions for that test: whether
-  the agent can reply to a phone that is not registered in Photon, and which
-  number a phone on the shared pool sees (for `AGENT_PHONE_NUMBER`).
+- **Tried with a real phone on 2026-10-10:** worker run locally with
+  `AGENT_PROVIDER=imessage` against the local app. Sign-up reply, LINK,
+  Approve on the website and the linked reply all worked over iMessage.
+- **Photon's free plan allows 10 people, each added by hand.** Photon
+  dashboard > Spectrum > Users > Add user. Each person's row shows a "Texts
+  on" number: that is the number that person texts, and it can differ from
+  person to person (shared pool). So there is no open sign-up on this plan,
+  and `AGENT_PHONE_NUMBER` should stay unset: one number shown to everyone
+  would be wrong for some of them. For the demo, add each judge's phone
+  first (ADR-034's "Try it" flow assumes one number for all judges).
+- Not tried: a text from a phone that is not in the Users list, and the
+  worker on Render.
 - A burst of texts gets one reply each. Photon's debounce pipeline is left
   until Gemini answers (F-25).
 - The worker does not retry a failed send, and the app does not yet ignore
