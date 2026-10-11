@@ -4422,7 +4422,7 @@ rows", transactions 2 "show more" in steps of 20, plus a view-only list.
 - Playwright was not run (Muhammad runs it).
 
 ### What's next
-- PITCH: if the demo removes a calendar entry, it is now two presses.
+- One shared button style for every feature (still per feature).
 
 ### Open problems
 - None.
