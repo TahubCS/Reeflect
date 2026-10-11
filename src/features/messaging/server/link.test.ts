@@ -295,11 +295,30 @@ describe("rejectLink", () => {
     const handle = newPhone();
     await claimLinkCode(from(handle, await newCode(userId)));
 
-    await rejectLink(userId);
+    // The waiting phone's conversation comes back, so it can be told.
+    expect(await rejectLink(userId)).toEqual({
+      platform: "imessage",
+      spaceId: `any;-;${handle}`,
+    });
 
     expect(await getLinkState(userId)).toEqual({ status: "none" });
     expect(await approveLink(userId, workspaceId)).toBeNull();
     expect(await findIdentity("imessage", handle)).toBeNull();
+    expect(await rejectLink(userId)).toBeNull();
+  });
+
+  it("has no phone to tell when none texted the code, or it had expired", async () => {
+    const unclaimed = await newUser();
+    await newCode(unclaimed.userId);
+    expect(await rejectLink(unclaimed.userId)).toBeNull();
+
+    const late = await newUser();
+    const now = new Date();
+    await claimLinkCode(from(newPhone(), await newCode(late.userId, now)), now);
+    const afterExpiry = new Date(now.getTime() + 60 * 60 * 1000);
+    expect(await rejectLink(late.userId, afterExpiry)).toBeNull();
+
+    expect(await rejectLink((await newUser()).userId)).toBeNull();
   });
 });
 
@@ -327,11 +346,15 @@ describe("revoking", () => {
     const mine = await linkedUser();
     const theirs = await linkedUser();
 
-    expect(await revokeForUser(mine.userId)).toBe(true);
+    // The phone's own conversation comes back, so it can be told.
+    expect(await revokeForUser(mine.userId)).toEqual({
+      platform: "imessage",
+      spaceId: `any;-;${mine.handle}`,
+    });
 
     expect(await findIdentity("imessage", mine.handle)).toBeNull();
     expect(await findIdentity("imessage", theirs.handle)).not.toBeNull();
-    expect(await revokeForUser(mine.userId)).toBe(false);
+    expect(await revokeForUser(mine.userId)).toBeNull();
   });
 });
 

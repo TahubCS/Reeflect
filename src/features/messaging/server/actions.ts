@@ -6,6 +6,7 @@ import { z } from "zod";
 import { APP_NAME } from "@/config/app";
 import { ownPersonalWorkspace } from "./access";
 import {
+  type LinkedPhone,
   type NewLinkCode,
   approveLink,
   createLinkCode,
@@ -35,10 +36,21 @@ export async function createLinkCodeAction(
 }
 
 /**
- * What the phone is told once it is linked. It confirms what the user just
- * did, so it is not a proactive message (ADR-062); it carries no amounts.
+ * What the phone is told when the website changes what it can do. Each
+ * confirms what the user just did, so it is not a proactive message
+ * (ADR-062); none carries an amount or any financial data.
  */
 const LINKED_TEXT = `You're linked to ${APP_NAME}. Text me "how am I doing?" any time. Text STOP to unlink.`;
+const DISCONNECTED_TEXT = `This phone was disconnected from ${APP_NAME} on the website, so I won't answer here any more. You can link it again from Settings.`;
+const REFUSED_TEXT = `That link request was declined on the ${APP_NAME} website. Nothing was linked.`;
+
+/** Tells a phone, when there is one to tell. True when the text went out. */
+async function tell(phone: LinkedPhone | null, text: string): Promise<boolean> {
+  // Awaited: a serverless function stops once the action returns.
+  return (
+    phone !== null && (await sendToPhone(phone.platform, phone.spaceId, text))
+  );
+}
 
 export type ApproveResult = {
   /** False when the request had expired or the phone was linked elsewhere. */
@@ -52,24 +64,26 @@ export async function approveLinkAction(
 ): Promise<ApproveResult> {
   const own = await requireOwnPersonalWorkspace(workspaceId);
   const phone = await approveLink(own.userId, own.workspaceId);
-  // Awaited: a serverless function stops once the action returns.
-  const texted =
-    phone !== null &&
-    (await sendToPhone(phone.platform, phone.spaceId, LINKED_TEXT));
+  const texted = await tell(phone, LINKED_TEXT);
   refresh();
   return { linked: phone !== null, texted };
 }
 
-export async function rejectLinkAction(workspaceId: string): Promise<void> {
+/** Whether the phone was sent a text saying so. It holds either way. */
+export type Told = { texted: boolean };
+
+export async function rejectLinkAction(workspaceId: string): Promise<Told> {
   const { userId } = await requireOwnPersonalWorkspace(workspaceId);
-  await rejectLink(userId);
+  const texted = await tell(await rejectLink(userId), REFUSED_TEXT);
   refresh();
+  return { texted };
 }
 
-export async function disconnectAction(workspaceId: string): Promise<void> {
+export async function disconnectAction(workspaceId: string): Promise<Told> {
   const { userId } = await requireOwnPersonalWorkspace(workspaceId);
-  await revokeForUser(userId);
+  const texted = await tell(await revokeForUser(userId), DISCONNECTED_TEXT);
   refresh();
+  return { texted };
 }
 
 export async function setProactiveOptInAction(

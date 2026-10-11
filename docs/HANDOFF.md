@@ -3236,3 +3236,41 @@ recommendation, not a decision.
 - The live site logged database connection timeouts between 5:03 and 5:11
   (EDT) on session lookups (Vercel runtime logs). Not the agent; check
   Neon.
+
+## HO-063: The phone is told when it is disconnected or declined; the worker restarts if it goes deaf
+
+- **Date:** 2026-10-11 06:20 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `fix/agent-disconnect-notice` (uncommitted) / not opened
+
+### What changed
+- PR #32 is merged and deployed, and the agent answers again: the typing
+  indicator was what Photon refused (HO-062).
+- **Disconnect** on the website now texts the phone: "This phone was
+  disconnected from Reeflect on the website, so I won't answer here any
+  more. You can link it again from Settings." The card says "Phone
+  disconnected. We sent it a text to confirm."
+- **"Not me"** now texts the phone that was waiting on the code: "That
+  link request was declined on the Reeflect website. Nothing was linked."
+  Not asked for by name; added because it was the same silence. Easy to
+  take out: `REFUSED_TEXT` in `src/features/messaging/server/actions.ts`.
+- `revokeForUser` and `rejectLink` return the phone's conversation (or
+  null); `disconnectAction` and `rejectLinkAction` return `{ texted }`.
+  Neither depends on the text going out. ADR-062 updated.
+- **Worker:** if Photon's message stream ends without a shutdown signal,
+  `agent-worker/src/index.ts` now exits with an error so Render starts a
+  fresh worker. Before, the HTTP server kept the process alive and
+  `/health` kept answering while no text was heard.
+
+### What's next
+- After deploy: Disconnect on the website with a real phone and watch for
+  the text. `AGENT_WORKER_URL` must be set on Vercel for any of these.
+- Next agent plan: F-27, log spending by text.
+
+### Open problems
+- The worker's exit on a dead stream is not covered by an automated test
+  (it lives in the entry file) and has not been seen to happen for real.
+- A real link-confirmation text has still not been confirmed as arriving.
+- The typing indicator is refused by Photon on every text, so no
+  indicator shows and each text logs one `typing indicator refused` line.
+  Read its `code` in Render's log to find out why.

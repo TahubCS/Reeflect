@@ -95,14 +95,18 @@ export function PhoneLinkCard({ workspaceId, state, agentPhone }: Props) {
   const reject = () =>
     run(async () => {
       setCode(null);
-      await rejectLinkAction(workspaceId);
-      return "Request refused. Nothing was linked.";
+      const { texted } = await rejectLinkAction(workspaceId);
+      return texted
+        ? "Request refused. Nothing was linked, and we texted that phone to say so."
+        : "Request refused. Nothing was linked.";
     });
 
   const disconnect = () =>
     run(async () => {
-      await disconnectAction(workspaceId);
-      return "Phone disconnected.";
+      const { texted } = await disconnectAction(workspaceId);
+      return texted
+        ? "Phone disconnected. We sent it a text to confirm."
+        : "Phone disconnected.";
     });
 
   const setOptIn = (optIn: boolean) =>
