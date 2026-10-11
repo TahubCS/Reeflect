@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import {
   ACCOUNT_TYPE_LABELS,
   ACCOUNT_TYPE_OPTIONS,
@@ -13,10 +14,17 @@ type Props = {
   accounts: AccountSummary[];
   /** Editors and owners see add and edit links; viewers only read. */
   canEdit: boolean;
+  /** Where synced accounts come from, with their Sync button (ADR-033). */
+  sourcePanel?: ReactNode;
 };
 
 /** The workspace's accounts, grouped by type, with exact balances. */
-export function AccountList({ workspaceId, accounts, canEdit }: Props) {
+export function AccountList({
+  workspaceId,
+  accounts,
+  canEdit,
+  sourcePanel,
+}: Props) {
   const base = `/w/${workspaceId}/accounts`;
 
   return (
@@ -29,6 +37,8 @@ export function AccountList({ workspaceId, accounts, canEdit }: Props) {
           </Link>
         )}
       </div>
+
+      {sourcePanel}
 
       {accounts.length === 0 ? (
         <p className={styles.empty}>
@@ -51,6 +61,7 @@ export function AccountList({ workspaceId, accounts, canEdit }: Props) {
                       </span>
                       <span className={styles.meta}>
                         {account.institutionName}
+                        {account.source === "nessie" && " · Synced from Nessie"}
                         {account.maskLast4 && (
                           <>
                             <span aria-hidden="true">

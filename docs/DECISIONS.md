@@ -97,6 +97,7 @@ Rules:
 | ADR-084 | Reserved ADR and handoff numbers for each developer | Accepted |
 | ADR-102 | Planned transactions are kept apart from the ledger (refines ADR-042, ADR-050) | Proposed |
 | ADR-103 | Built-in category keywords when no saved rule matches (refines ADR-013) | Proposed |
+| ADR-104 | Quiet hours per user, in Eastern time; UNDO takes back the latest text change (refines ADR-038, ADR-064) | Proposed |
 
 ---
 
@@ -1386,10 +1387,42 @@ Rules:
     For "how am I doing?" the reply leads with them. With no payday
     confirmed, the reply says where to confirm one, as the website
     does.
+  - **Categories, budgets, payments and accounts (F-28, added
+    2026-10-11).** Still one request per text: code looks everything up
+    first and the model picks from the labels. Three more groups:
+    - *This month so far*, from the Budgets page's own `readBudgetMonth`:
+      for up to twelve categories with spending or a budget, largest
+      spending first, its name, what was spent, its budget, and what is
+      left or how far over; and `{month_spent}`, the month's total. Only
+      this month is answered; for any other period the reply says so. If
+      that read fails, these labels are left out and the rest still
+      answers.
+    - *The next three payments before payday*, from the same `summarize`:
+      each one's name, amount and written-out date, soonest first.
+    - *Each account, up to six*: its nickname and its balance; for a card
+      or a loan, what is owed.
+
+    The descriptions of the category and account labels are written per
+    workspace. A category's description names the category, so the model
+    can match "food" or a misspelling to it; this is the one place a
+    name the person chose reaches the model, and a name holding a digit
+    or a brace is not sent. An account's description says only what kind
+    of account it is; its nickname and a payment's name are only ever a
+    label's value, filled in by code.
+  - **The code-built reply picks its sentences from the question (F-28,
+    added 2026-10-11).** When no model answers, code reads the text's
+    words: a category's name (one typo forgiven, and "food" for Dining
+    and Groceries) gives that category's spending and budget; "bill",
+    "due", "upcoming", "owe" or "coming up" gives the next payments; an
+    account's kind or nickname gives its balance; anything else gives
+    the general summary as before. A wrong reading costs a plain answer
+    to the wrong question, never a wrong figure.
   - **Two checks on every draft, the same for every model:** no digit
     outside a label, and only labels that have a value. A draft that fails,
     or is too long for a text, is dropped and the reply is built by code
-    from the same figures.
+    from the same figures. A draft that uses a monthly average must say
+    "a month", and one that uses a figure for this month so far must say
+    "this month" (added 2026-10-11), so neither can pass for the other.
   - **A chain of at most six models,** tried in order. The deployed app
     uses the users' chain: `gemini-3.8-flash`, `gemini-3.7-flash`,
     `gemini-3.6-flash`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`.
@@ -1403,9 +1436,10 @@ Rules:
     sent. A reply the model did not finish counts as a failure.
   - **Nothing is kept at Google** (`store: false`) and the agent has no
     conversation memory: each text is answered on its own.
-  - **Tool calling is not used yet.** With one thing to look up, code does
-    it up front, which halves the requests per text. It arrives with the
-    first feature that has a choice of lookups (F-28).
+  - **Tool calling is not used.** Code does every lookup up front, which
+    halves the requests per text. F-28 was expected to bring it in and
+    was built without it (decided by Muhammad, 2026-10-11): its lookups
+    are few and cheap enough to do for every text.
   - **The current key is used for real users' texts for now.** ADR-019's
     rule that only a billing-enabled key may see real users' data is set
     aside until billing is sorted out. What reaches the model is the
@@ -1945,7 +1979,7 @@ Rules:
     dropped, so a model never puts a number of its own in front of the
     person. The category must be one of the workspace's names; the
     person's saved rules win over the model's choice.
-  - **The proposal waits in `agent_pending_log`** (migration 0016 adds
+  - **The proposal waits in `agent_pending_log`** (migration 0017 adds
     `kind`, `category_id` and `message_id`) for 10 minutes. It is the
     phone's one open question: a newer question replaces it, and a photo
     replaces an open "which account?".
@@ -2097,6 +2131,42 @@ Rules:
   rules are next applied (any rule change or `applyCategoryRules`). A
   workspace has at most `MAX_RULES` saved rules plus the built-in ones, so
   the engine accepts up to 2,000 rules.
+
+---
+
+### ADR-104: Quiet hours per user, in Eastern time; UNDO takes back the latest text change (refines ADR-038, ADR-064)
+
+- **Status:** Proposed (2026-10-11)
+- **Context:** ADR-038 lets users set quiet hours on the website and by
+  text, and the text confirmation says "Reply UNDO to go back". ADR-064
+  already gives UNDO a meaning: remove the latest spending logged by text.
+  ADR-038 also says "the workspace time zone", but nothing stores a time
+  zone yet; every "today" in the app uses `DEFAULT_TIME_ZONE`.
+- **Decision:**
+  - Quiet hours are stored per user in `notification_setting`, not per
+    phone, so they survive unlinking and linking again. No row means the
+    default, 9 PM to 9 AM. They are minutes after midnight; a database
+    check keeps both in range and different.
+  - They are read in `DEFAULT_TIME_ZONE` (Eastern) until users or
+    workspaces have a time zone; the website and the agent say "Eastern
+    time". `nextAllowedSend` keeps the end time on the wall clock across
+    daylight saving changes.
+  - A text that mentions "quiet hours" is read by code before logging,
+    which would otherwise read its times as amounts. With no times it
+    tells the person their current hours. Without AM or PM, only the
+    24-hour form ("23:00", "07:00") is accepted; anything else gets an
+    example and changes nothing.
+  - **UNDO takes back whichever came last within 24 hours**: the latest
+    quiet-hours change made by text or the latest spending logged by text.
+    A quiet-hours change can be undone once. A change on the website clears
+    the text change's UNDO.
+- **Alternatives considered:** No UNDO for quiet hours (simpler, but
+  ADR-038's reply promises it); a separate word such as "UNDO QUIET" (one
+  more thing to remember).
+- **Consequences:** Adds migration 0016. The job tick (F-22, F-26) must call
+  `nextAllowedSend` with the user's quiet hours before sending. A user
+  outside Eastern time gets quiet hours in Eastern time until time zones
+  are stored.
 
 ---
 

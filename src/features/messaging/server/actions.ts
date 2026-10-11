@@ -4,6 +4,7 @@ import { refresh } from "next/cache";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { APP_NAME } from "@/config/app";
+import { fromTimeInput, isValidQuietHours } from "../domain/quiet-hours";
 import { ownPersonalWorkspace } from "./access";
 import {
   type LinkedPhone,
@@ -14,6 +15,7 @@ import {
   revokeForUser,
   setProactiveOptIn,
 } from "./link";
+import { setQuietHours } from "./notifications";
 import { sendToPhone } from "./notify";
 
 // Server actions for the Settings card (ARCH-04). Each one works on the
@@ -93,4 +95,28 @@ export async function setProactiveOptInAction(
   const { userId } = await requireOwnPersonalWorkspace(workspaceId);
   await setProactiveOptIn(userId, z.boolean().parse(optIn));
   refresh();
+}
+
+export type QuietHoursResult =
+  { ok: true } | { ok: false; error: "invalid" | "same" };
+
+const timeInput = z.string().max(5);
+
+/** Sets quiet hours from Settings → Notifications (F-33, ADR-038). */
+export async function setQuietHoursAction(
+  workspaceId: string,
+  start: string,
+  end: string,
+): Promise<QuietHoursResult> {
+  const { userId } = await requireOwnPersonalWorkspace(workspaceId);
+  const startMinute = fromTimeInput(timeInput.parse(start));
+  const endMinute = fromTimeInput(timeInput.parse(end));
+  if (startMinute === null || endMinute === null) {
+    return { ok: false, error: "invalid" };
+  }
+  const hours = { startMinute, endMinute };
+  if (!isValidQuietHours(hours)) return { ok: false, error: "same" };
+  await setQuietHours(userId, hours);
+  refresh();
+  return { ok: true };
 }

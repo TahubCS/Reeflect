@@ -27,6 +27,8 @@ import {
   formatShort,
   monthName,
   monthOf,
+  dayBounds,
+  dayWithin,
   monthTitle,
   monthsApart,
   parseIso,
@@ -133,6 +135,8 @@ export function CashflowDashboard({
   const day = month.days[parseIso(selected).day - 1];
 
   const offset = monthsApart(monthOf(today), view);
+  const lastMonth = addMonths(monthOf(today), MONTHS_AHEAD);
+  const bounds = dayBounds(data.start, lastMonth);
   const showMonth = (next: YearMonth) => {
     setView(next);
     setHovered(null);
@@ -240,29 +244,6 @@ export function CashflowDashboard({
           <section className="calendar" aria-labelledby="month-heading">
             <div className="calendar-head">
               <h2 id="month-heading">{monthTitle(view)}</h2>
-              <div className="month-nav">
-                <button
-                  type="button"
-                  disabled={monthsApart(data.start, view) <= 0}
-                  onClick={() => showMonth(addMonths(view, -1))}
-                >
-                  <span aria-hidden="true">‹</span> Earlier
-                </button>
-                <button
-                  type="button"
-                  disabled={offset === 0}
-                  onClick={() => showMonth(monthOf(today))}
-                >
-                  This month
-                </button>
-                <button
-                  type="button"
-                  disabled={offset >= MONTHS_AHEAD}
-                  onClick={() => showMonth(addMonths(view, 1))}
-                >
-                  Later <span aria-hidden="true">›</span>
-                </button>
-              </div>
             </div>
 
             <BalanceLine
@@ -311,6 +292,57 @@ export function CashflowDashboard({
                   List
                 </button>
               </div>
+            </div>
+
+            <div className="toolbar month-step">
+              <div className="chips" role="group" aria-label="Month">
+                <span className="stepper">
+                  <button
+                    type="button"
+                    aria-label="Earlier month"
+                    disabled={monthsApart(data.start, view) <= 0}
+                    onClick={() => showMonth(addMonths(view, -1))}
+                  >
+                    ‹
+                  </button>
+                  <span className="stepper-month">{monthTitle(view)}</span>
+                  <button
+                    type="button"
+                    aria-label="Later month"
+                    disabled={offset >= MONTHS_AHEAD}
+                    onClick={() => showMonth(addMonths(view, 1))}
+                  >
+                    ›
+                  </button>
+                </span>
+                <button
+                  type="button"
+                  disabled={offset === 0 && selected === today}
+                  onClick={() => showMonth(monthOf(today))}
+                >
+                  Today
+                </button>
+              </div>
+              <label className="go-day">
+                Go to a day
+                <input
+                  type="date"
+                  min={bounds.min}
+                  max={bounds.max}
+                  value={selected}
+                  onChange={(event) => {
+                    const date = dayWithin(
+                      event.target.value,
+                      data.start,
+                      lastMonth,
+                    );
+                    if (!date) return;
+                    setView(monthOf(date));
+                    setHovered(null);
+                    setSelected(date);
+                  }}
+                />
+              </label>
             </div>
 
             <div className="calendar-body">

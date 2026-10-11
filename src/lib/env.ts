@@ -95,6 +95,11 @@ const envSchema = z
      * refused, so a typo cannot be mistaken for either.
      */
     AGENT_RECEIPT_PHOTOS: optionalText.pipe(z.enum(["on"]).optional()),
+    /**
+     * Capital One Nessie sandbox key (ADR-033). Without it the Sync button
+     * says Nessie is not set up; the key never leaves the server.
+     */
+    NESSIE_API_KEY: optionalText,
     /** Set by Vercel on every deployment ("1"). */
     VERCEL: optionalText,
   })

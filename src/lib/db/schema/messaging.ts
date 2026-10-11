@@ -4,8 +4,10 @@ import { sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
+  check,
   index,
   pgTable,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
@@ -143,3 +145,35 @@ export const agentPendingLog = pgTable("agent_pending_log", {
   /** The photo's message id: one photo is asked about, and saved, once. */
   messageId: text("message_id"),
 });
+
+/**
+ * A user's notification settings (F-33, ADR-038, ADR-104). Kept per user,
+ * not per phone, so they survive unlinking and linking again. No row means
+ * the defaults: quiet from 9 PM to 9 AM.
+ */
+export const notificationSetting = pgTable(
+  "notification_setting",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => user.id, { onDelete: "cascade" }),
+    /** Minutes after midnight, 0 to 1439, in the workspace time zone. */
+    quietStartMinute: smallint("quiet_start_minute").notNull(),
+    quietEndMinute: smallint("quiet_end_minute").notNull(),
+    /** What a text replaced, so UNDO can put it back. */
+    previousStartMinute: smallint("previous_start_minute"),
+    previousEndMinute: smallint("previous_end_minute"),
+    /** When a text last changed the hours; UNDO reaches back 24 hours. */
+    changedByTextAt: timestamptz("changed_by_text_at"),
+    updatedAt: timestamptz("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    check(
+      "notification_setting_quiet_hours_check",
+      sql`${table.quietStartMinute} between 0 and 1439 and ${table.quietEndMinute} between 0 and 1439 and ${table.quietStartMinute} <> ${table.quietEndMinute}`,
+    ),
+  ],
+);

@@ -261,6 +261,7 @@ export type TextTransaction = {
   id: string;
   amountCents: Cents;
   description: string;
+  createdAt: Date;
 };
 
 /**
@@ -276,6 +277,7 @@ export async function latestTextTransaction(
       id: transaction.id,
       amountCents: transaction.amountCents,
       description: transaction.descriptionRaw,
+      createdAt: transaction.createdAt,
     })
     .from(transaction)
     .where(

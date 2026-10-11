@@ -1,0 +1,144 @@
+/* Capital One sandbox panel (ADR-033). Uses the tokens in
+   src/app/globals.css (ADR-046). */
+
+.panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.text {
+  display: grid;
+  gap: 0.25rem;
+  max-width: 52ch;
+}
+
+.text h2 {
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.meta,
+.status {
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+}
+
+.status:empty {
+  display: none;
+}
+
+.button {
+  min-height: 2.75rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+/* Sync in the signed-in header (NessieNavSync). */
+/* The header's status chip, on the night band (--head-* tokens). */
+.navSync {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.25rem 0.25rem 0.25rem 0.75rem;
+  border: 1px solid var(--head-line);
+  border-radius: 999px;
+  color: var(--head-soft);
+  font-size: 0.8125rem;
+}
+
+.navSyncLive {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--head-in);
+}
+
+.navSyncSource {
+  flex: none;
+  color: var(--head-ink);
+  font-weight: 600;
+}
+
+.navSyncText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.navSyncButton {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2rem;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--head-tint);
+  color: var(--head-ink);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.navSyncButton:hover {
+  background: var(--head-line);
+}
+
+.navSyncButton:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.navSyncIcon {
+  display: inline-block;
+}
+
+.navSyncButton[data-pending] .navSyncIcon {
+  animation: nav-sync-spin 0.9s linear infinite;
+}
+
+@keyframes nav-sync-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navSyncButton[data-pending] .navSyncIcon {
+    animation: none;
+  }
+}
+
+/* Phones and narrow windows: the button stays, the time steps aside. The
+   status is still read out, since the span keeps its role. */
+@media (max-width: 40rem) {
+  .navSyncSource,
+  .navSyncText {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}

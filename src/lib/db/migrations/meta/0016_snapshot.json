@@ -1,5 +1,5 @@
 {
-  "id": "cbdcae49-eacd-4851-bc4b-e51449c73a0f",
+  "id": "bf3d7140-5fd9-4031-857e-dd5aeaa4942d",
   "prevId": "4ce0b369-acf1-4241-82a1-851b8d1aface",
   "version": "7",
   "dialect": "postgresql",
@@ -2018,25 +2018,6 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'account'"
-        },
-        "category_id": {
-          "name": "category_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "message_id": {
-          "name": "message_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {},
@@ -2065,19 +2046,6 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "agent_pending_log_category_id_category_id_fk": {
-          "name": "agent_pending_log_category_id_category_id_fk",
-          "tableFrom": "agent_pending_log",
-          "tableTo": "category",
-          "columnsFrom": [
-            "category_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -2248,6 +2216,81 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.notification_setting": {
+      "name": "notification_setting",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "quiet_start_minute": {
+          "name": "quiet_start_minute",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quiet_end_minute": {
+          "name": "quiet_end_minute",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "previous_start_minute": {
+          "name": "previous_start_minute",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "previous_end_minute": {
+          "name": "previous_end_minute",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "changed_by_text_at": {
+          "name": "changed_by_text_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "notification_setting_user_id_user_id_fk": {
+          "name": "notification_setting_user_id_user_id_fk",
+          "tableFrom": "notification_setting",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "notification_setting_quiet_hours_check": {
+          "name": "notification_setting_quiet_hours_check",
+          "value": "\"notification_setting\".\"quiet_start_minute\" between 0 and 1439 and \"notification_setting\".\"quiet_end_minute\" between 0 and 1439 and \"notification_setting\".\"quiet_start_minute\" <> \"notification_setting\".\"quiet_end_minute\""
+        }
+      },
       "isRLSEnabled": false
     },
     "public.insight_sample": {

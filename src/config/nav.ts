@@ -17,6 +17,24 @@ export const NAV_ITEMS = [
 ] as const;
 
 export type NavItem = (typeof NAV_ITEMS)[number];
+export type NavSegment = NavItem["segment"];
+
+/**
+ * Sent on `window` after something changes the header's counts or sync
+ * time (a sync, a confirmed pattern), so the header reads them again.
+ */
+export const NAV_REFRESH_EVENT = "reeflect:nav-refresh";
+
+/** The number on a link: at most two digits, so the bar keeps its width. */
+export const navCountText = (count: number) =>
+  count > 99 ? "99+" : String(count);
+
+/** What a link's number means, read after the label by screen readers. */
+export function navCountLabel(segment: NavSegment, count: number): string {
+  if (segment === "subscriptions")
+    return `${count} suggested ${count === 1 ? "pattern" : "patterns"} to review`;
+  return `${count} to review`;
+}
 
 /** A nav link's URL: inside `workspaceId` when known, else the redirect. */
 export function navHref(segment: string, workspaceId?: string): string {

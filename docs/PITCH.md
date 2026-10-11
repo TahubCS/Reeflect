@@ -30,7 +30,9 @@ Agent Track, Best Use of Nessie with Capital One, MLH Best Use of Gemini API
 > allocations leaves account balances and transactions intact. This page
 > does not calculate cash available until payday. Logging by text (F-27) is
 > built: "12 lunch" is saved, shown on the calendar, and its reply says what
-> is left in that category's budget. Budget questions by text remain F-28.
+> is left in that category's budget. Questions by text (F-28) are built for
+> this month so far: "what's left in my groceries budget?" answers with the
+> Budgets page's own figures. Other periods are not answered.
 
 ## 1. One line
 
@@ -96,8 +98,10 @@ automatically. Say: “Correct it once and remember the merchant next time.”
 This does not depend on an AI call or change transaction amounts.
 
 Optional F-10 website demo after migration 0009: open **Recurring payments**
-with three monthly electricity charges of $95, $130 and $110. Show the
-supporting charges and confirm the suggestion: it becomes a variable bill
+with three monthly electricity charges of $95, $130 and $110. The header's
+Recurring payments tab shows how many suggestions wait. Point at the
+matching charges listed on the card, each with the days since the one
+before, and confirm the suggestion: the header's count drops, and it becomes a variable bill
 with a $110 typical payment and a $95–$130 recent range. Say: “We look for
 patterns in payment dates, even when the amount changes. You confirm the
 pattern; future amounts and dates are estimates.” Add rent manually, or

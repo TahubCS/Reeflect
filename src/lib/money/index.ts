@@ -85,6 +85,34 @@ export function truncateToDollars(a: Cents): Cents {
   return cents(Math.trunc(a / 100) * 100 || 0);
 }
 
+/**
+ * A dollar amount from Nessie's JSON (12.1, 0.30000000000000004) as cents
+ * (ADR-033). Floating-point noise below a thousandth of a cent is rounded
+ * away; a real fraction of a cent (19.999) is rejected, not rounded.
+ */
+export function fromDollarNumber(dollars: number): Cents {
+  if (!Number.isFinite(dollars)) {
+    throw new RangeError("A dollar amount must be a finite number");
+  }
+  const scaled = dollars * 100;
+  const rounded = Math.round(scaled);
+  if (Math.abs(scaled - rounded) > 1e-6) {
+    throw new RangeError("A dollar amount cannot have fractions of a cent");
+  }
+  return cents(rounded || 0);
+}
+
+/**
+ * An amount of whole dollars as the plain number Nessie takes. Amounts with
+ * cents are refused: cut them first with `truncateToDollars` (ADR-048).
+ */
+export function toWholeDollarNumber(a: Cents): number {
+  if (a % 100 !== 0) {
+    throw new RangeError("Nessie amounts must be whole dollars");
+  }
+  return a / 100 || 0;
+}
+
 /** "+$12.50" or "-$12.50", for lists that mix money in and money out. */
 export function formatSigned(
   a: Cents,

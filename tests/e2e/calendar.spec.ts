@@ -180,6 +180,40 @@ test("filters by kind, switches to the list and moves by arrow keys", async ({
   ).not.toHaveText(todayLong);
 });
 
+test("moves between months with the stepper above the calendar", async ({
+  browser,
+  baseURL,
+}) => {
+  const page = await newUserPage(browser, baseURL);
+  await addAccount(page, { nickname: "Everyday", balance: "500" });
+  await openDashboard(page);
+
+  const months = page.getByRole("group", { name: "Month" });
+  const todayButton = months.getByRole("button", { name: "Today" });
+  await expect(todayButton).toBeDisabled();
+
+  const next = monthTitleOf(monthStart(1));
+  await months.getByRole("button", { name: "Later month" }).click();
+  await expect(page.locator("#month-heading")).toHaveText(next);
+  await expect(months).toContainText(next);
+  await expect(cell(page, monthStart(1))).toBeVisible();
+
+  await todayButton.click();
+  await expect(page.locator("#month-heading")).toHaveText(
+    monthTitleOf(monthStart(0)),
+  );
+  await expect(dayPanel(page).getByRole("heading", { level: 2 })).toHaveText(
+    todayLong,
+  );
+
+  // Go to a day: the calendar moves to that month and opens the day.
+  await page.getByLabel("Go to a day").fill(monthStart(1));
+  await expect(page.locator("#month-heading")).toHaveText(next);
+  await expect(dayPanel(page).getByRole("heading", { level: 2 })).toHaveText(
+    longDateOf(monthStart(1)),
+  );
+});
+
 test("a card purchase shows as spending on card without moving the balance", async ({
   browser,
   baseURL,
@@ -217,6 +251,21 @@ const monthStart = (offset: number) => {
   const [y, m] = today.split("-").map(Number) as [number, number];
   return new Date(Date.UTC(y, m - 1 + offset, 1)).toISOString().slice(0, 10);
 };
+/** "Sunday, November 1" for "2026-11-01", as the day panel titles a day. */
+const longDateOf = (iso: string) =>
+  new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(Date.parse(`${iso}T00:00:00Z`));
+/** "November 2026" for "2026-11-01", as the calendar titles a month. */
+const monthTitleOf = (iso: string) =>
+  new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    month: "long",
+    year: "numeric",
+  }).format(Date.parse(`${iso}T00:00:00Z`));
 
 async function seedHistory(workspaceId: string) {
   // Its own pool, closed when the rows are in. A pool shared by the file and
