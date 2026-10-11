@@ -2,53 +2,68 @@
 
 import { useState, useTransition } from "react";
 import { APP_NAME } from "@/config/app";
-import type { PanelView } from "../domain/panel";
+import {
+  DAILY_WRITES,
+  type PanelState,
+  type PanelView,
+  type WriteResult,
+} from "../domain/panel";
 import styles from "./summary-panel.module.css";
 
 type Props = {
   workspaceId: string;
-  /** The summary built by code, which shows before anyone asks a model. */
-  initial: PanelView;
-  writeAction: (workspaceId: string) => Promise<PanelView | null>;
+  /** What the page loaded: today's written summary, or the code-built one. */
+  initial: PanelState;
+  writeAction: (workspaceId: string) => Promise<WriteResult | null>;
 };
 
-const SOURCE: Record<PanelView["source"], string> = {
-  model: `Written by Gemini, around figures ${APP_NAME} worked out.`,
-  code: `Built by ${APP_NAME} from your accounts.`,
-};
-
-const NO_ANSWER = `Gemini didn't answer just now, so this is ${APP_NAME}'s own summary. The figures are the same.`;
 const NOT_NOW = "That didn't work just now. Try again in a moment.";
+const NONE_LEFT = `You've used today's ${DAILY_WRITES} Gemini summaries. You can ask again tomorrow.`;
+
+function sourceLine(view: PanelView): string {
+  if (view.source === "code") return `Built by ${APP_NAME} from your accounts.`;
+  const at = view.writtenAt ? ` at ${view.writtenAt}` : "";
+  return `Written by Gemini${at}, around figures ${APP_NAME} worked out.`;
+}
+
+/** What to say after a click that did not produce a new summary. */
+function noteFor(result: WriteResult): string {
+  if (result.outcome !== "no_answer") return "";
+  return result.view.source === "model"
+    ? "Gemini didn't answer just now, so the earlier summary is still here."
+    : `Gemini didn't answer just now, so this is ${APP_NAME}'s own summary. The figures are the same.`;
+}
 
 /**
- * The dashboard's summary panel (F-15, ADR-045). It opens with the summary
- * code built; the button asks Gemini to write it, and every figure in the
- * result is still one code worked out and put in. Colour carries nothing
- * here: who wrote it, and whether a model answered, are said in words.
+ * The dashboard's summary panel (F-15, ADR-045, ADR-068). It opens with
+ * today's summary if Gemini wrote one, else the one code built; the button
+ * asks Gemini to write it, a few times a day at most. Every figure is one
+ * code worked out and put in. Colour carries nothing here: who wrote it,
+ * whether a model answered and how many are left are said in words.
  */
 export function SummaryPanel({ workspaceId, initial, writeAction }: Props) {
   // What a click produced, kept only while the page's figures are the ones
   // it was written from: a refresh brings a new `initial` and drops it.
   const [asked, setAsked] = useState<{
-    from: PanelView;
-    view: PanelView;
+    from: PanelState;
+    state: PanelState;
     note: string;
   }>();
   const [pending, startWriting] = useTransition();
   const current = asked?.from === initial ? asked : undefined;
-  const view = current?.view ?? initial;
+  const { view, remaining } = current?.state ?? initial;
 
   const write = () =>
     startWriting(async () => {
       try {
-        const written = await writeAction(workspaceId);
+        const result = await writeAction(workspaceId);
         setAsked({
           from: initial,
-          view: written ?? initial,
-          note: written?.source === "model" ? "" : NO_ANSWER,
+          state: result ?? initial,
+          note: result ? noteFor(result) : "",
         });
       } catch {
-        setAsked({ from: initial, view, note: NOT_NOW });
+        setAsked({ from: initial, state: { view, remaining }, note: NOT_NOW });
       }
     });
 
@@ -60,7 +75,7 @@ export function SummaryPanel({ workspaceId, initial, writeAction }: Props) {
           type="button"
           className={styles.write}
           onClick={write}
-          disabled={pending}
+          disabled={pending || remaining === 0}
         >
           {pending
             ? "Writing…"
@@ -83,7 +98,10 @@ export function SummaryPanel({ workspaceId, initial, writeAction }: Props) {
         )}
         <p className={styles.source}>
           {current?.note ? `${current.note} ` : ""}
-          {SOURCE[view.source]}
+          {sourceLine(view)}{" "}
+          {remaining === 0
+            ? NONE_LEFT
+            : `${remaining} of ${DAILY_WRITES} Gemini summaries left today.`}
         </p>
       </div>
     </section>

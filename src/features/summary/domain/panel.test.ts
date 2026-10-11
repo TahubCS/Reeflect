@@ -16,6 +16,7 @@ import {
   MAX_SUGGESTION_LENGTH,
   PANEL_SCHEMA,
   type Panel,
+  checkPanel,
   completePanel,
 } from "./panel";
 import { PANEL_INSTRUCTION, panelRequest } from "./prompt";
@@ -108,7 +109,7 @@ describe("completePanel", () => {
         }),
         facts(),
       ),
-    ).toEqual({
+    ).toMatchObject({
       ok: true,
       panel: {
         summary:
@@ -121,13 +122,42 @@ describe("completePanel", () => {
     });
   });
 
+  it("gives the draft back in label form, to be stored and filled again", () => {
+    const stored = { summary: "  Cash: {cash_total}.  ", suggestions: [] };
+    const first = completePanel(answer(stored), facts());
+    if (!first.ok) throw new Error(first.reason);
+
+    expect(first.draft).toEqual({
+      summary: "Cash: {cash_total}.",
+      suggestions: [],
+    });
+    // Later, with other figures, the same draft says the new amount.
+    const later = facts({
+      accounts: [
+        { type: "checking", nickname: "Everyday", balance: cents(99_900) },
+      ],
+    });
+    expect(checkPanel(first.draft, later)).toMatchObject({
+      ok: true,
+      panel: { summary: "Cash: $999.00.", suggestions: [] },
+    });
+    // And is refused whole once a figure it used is gone.
+    expect(
+      checkPanel({ summary: "You owe {owed_total}.", suggestions: [] }, later),
+    ).toEqual({ ok: false, reason: "unknown_label" });
+    expect(checkPanel("Cash: {cash_total}.", later)).toEqual({
+      ok: false,
+      reason: "wrong_shape",
+    });
+  });
+
   it("accepts a summary with no suggestions", () => {
     expect(
       completePanel(
         answer({ summary: "You have {cash_total}.", suggestions: [] }),
         facts(),
       ),
-    ).toEqual({
+    ).toMatchObject({
       ok: true,
       panel: { summary: "You have $1,500.25.", suggestions: [] },
     });
@@ -198,7 +228,7 @@ describe("completePanel", () => {
       facts(),
     );
 
-    expect(checked).toEqual({
+    expect(checked).toMatchObject({
       ok: true,
       panel: {
         summary: "You have $1,500.25.",

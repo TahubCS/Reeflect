@@ -134,6 +134,13 @@
       "when": 1791723379197,
       "tag": "0018_proactive_alerts",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791726478040,
+      "tag": "0019_summary_write",
+      "breakpoints": true
     }
   ]
 }
