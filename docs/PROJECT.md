@@ -102,14 +102,14 @@ Priorities follow ADR-043. Lanes: A = Data, B = Web, C = Agent.
 | F-19 | Delete data | P0 | B | Delete a workspace or an account and all its data. | ADR-025 |
 | F-20 | Audit log | Later | A | Security-relevant events, including phone linking and unlinking. | ADR-025 |
 | F-21 | Demo seed | P0 | A | `pnpm db:seed` builds the demo workspace, including its Nessie customer and history, from the synthetic generator. | ADR-033, ADR-049 |
-| F-22 | Bill due-date reminders | P1 | A + C | Remind 7 days before car payments, mortgage, rent, loans and card minimums are due; low-balance warning; no reminder if already paid. Web invoice tracking/due-soon notices are built (ADR-063); scheduled delivery and dashboard integration remain separate. In-app and by iMessage. | ADR-030, ADR-038, ADR-063 |
+| F-22 | Bill due-date reminders | P1 | A + C | Remind 7 days before car payments, mortgage, rent, loans and card minimums are due; low-balance warning; no reminder if already paid. Web invoice tracking/due-soon notices are built (ADR-063). The iMessage reminder is built: no amount in the text, DETAILS for the amount and the low-balance warning (ADR-105). Dashboard integration remains separate. | ADR-030, ADR-038, ADR-063, ADR-105 |
 | F-23 | Nessie import and sync | P0 | A | "Connect Capital One sandbox" creates a Nessie customer and accounts; sync maps purchases, deposits, withdrawals, transfers, bills and loans. | ADR-033 |
 | F-24 | Phone linking | P0 | C | Link an iPhone by texting a one-time code; unlink on the website or by texting STOP; opt in to proactive messages. | ADR-034, ADR-038 |
 | F-25 | "How am I doing?" | P0 | C | The agent replies with balance, what is owed before payday, the per-day amount, and an image of the week ahead (reply contents and image are Proposed). | ADR-031, ADR-035, ADR-042 |
-| F-26 | Subscription alerts | P0 | C | When a new subscription is detected, the agent texts that it found one, with the monthly and yearly cost on an image card; the user replies keep or cancel to set the mark. | ADR-031, ADR-038 |
+| F-26 | Subscription alerts | P0 | C | When a new subscription is detected, the agent texts that it found one, without amounts; DETAILS gives the monthly and yearly cost, and KEEP, CANCEL or IGNORE confirms or dismisses it and sets the mark (ADR-105). | ADR-031, ADR-038, ADR-105 |
 | F-27 | Log spending by text | P0 | C | "12 lunch": code takes the amount from the text, Gemini picks the category, the agent confirms with the category's remaining budget. | ADR-035 |
 | F-28 | Category and balance questions | P0 | C | "How much did I spend on food?" answered through tools with exact numbers. | ADR-031, ADR-035 |
-| F-29 | Receipt photos | Later | C | Photo of a receipt becomes a proposed transaction, saved only after the user confirms. | ADR-035 |
+| F-29 | Receipt photos | Later | C | Photo of a receipt becomes a proposed transaction, saved only after the user confirms. Built, and off unless `AGENT_RECEIPT_PHOTOS` is on. | ADR-035, ADR-067 |
 | F-30 | Weekly recap text | Later | C | Sunday evening summary with the week-ahead image. | ADR-038 |
 | F-31 | Household group chat | Later | C | The agent in a family group chat answers about the household calendar only. | ADR-034 |
 | F-32 | Agent worker | P0 | C | Long-running Spectrum process on Render that relays messages between iMessage and the Next.js brain. | ADR-032 |
@@ -176,7 +176,7 @@ Freemium subscription plus licensing the product to banks and credit unions
 | Transfer | Money moving between two accounts in the same workspace, including card payments (ADR-020) |
 | Recurring payment | A confirmed pattern of payments to one payee on one account, or a schedule entered by the user. Timing is inferred from evidence rather than fixed monthly/weekly windows; amounts can vary |
 | Subscription | An optional recurring service such as streaming; may have fixed or variable amounts |
-| Bill | A recurring obligation such as electricity, rent or a car payment; may have fixed or variable amounts. A predicted charge date is an estimate; scheduled reminders are F-22 |
+| Bill | A recurring obligation such as electricity, rent or a car payment; may have fixed or variable amounts. A predicted charge date is an estimate; reminders by text are F-22 |
 | Agent | Reeflect's iMessage interface (Photon Spectrum + Gemini) |
 | Worker | The long-running process that connects the agent to Photon (ADR-032) |
 | Brain | The Next.js code that decides what the agent says (`src/features/agent/`) |

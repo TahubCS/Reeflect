@@ -5,8 +5,9 @@ import { agentPendingLog } from "@/lib/db/schema";
 import { type Cents, cents } from "@/lib/money";
 import type { LogDay } from "../domain/log";
 
-// The one question the agent remembers (ADR-065): spending that is waiting
-// for its account. Every query is scoped to one verified phone link and its
+// The one question the agent remembers: spending that is waiting for its
+// account (ADR-065), or what was read from a receipt photo and is waiting
+// for a yes (ADR-067). Every query is scoped to one verified phone link and its
 // workspace (ADR-034).
 
 /** How long the agent waits for the answer. */
@@ -19,7 +20,20 @@ export type PendingLog = {
   /** The accounts that were listed, in the order they were numbered. */
   accountIds: string[];
   askedAt: Date;
+  /**
+   * `account`: which account a text's spending is for (ADR-065).
+   * `receipt`: whether to log what was read from a photo (ADR-067).
+   */
+  kind: "account" | "receipt";
+  /** A receipt's category, as its question showed it. */
+  categoryId: string | null;
+  /** A receipt's photo: the platform's id for that message. */
+  messageId: string | null;
 };
+
+/** A question to remember; one about an account needs no more than before. */
+export type NewPending = Omit<PendingLog, "kind" | "categoryId" | "messageId"> &
+  Partial<Pick<PendingLog, "kind" | "categoryId" | "messageId">>;
 
 type Owner = { identityId: string; workspaceId: string };
 
@@ -38,7 +52,7 @@ const stillOpen = (owner: Owner, now: Date) =>
 /** Remembers the question, replacing any earlier one from this phone. */
 export async function rememberPending(
   owner: Owner,
-  pending: PendingLog,
+  pending: NewPending,
 ): Promise<void> {
   const values = {
     workspaceId: owner.workspaceId,
@@ -47,6 +61,10 @@ export async function rememberPending(
     day: pending.day,
     accountIds: pending.accountIds,
     askedAt: pending.askedAt,
+    // Written every time, so a new question never keeps the last one's.
+    kind: pending.kind ?? ("account" as const),
+    categoryId: pending.categoryId ?? null,
+    messageId: pending.messageId ?? null,
   };
   await db
     .insert(agentPendingLog)
@@ -71,6 +89,9 @@ export async function findPending(
     day: row.day,
     accountIds: row.accountIds,
     askedAt: row.askedAt,
+    kind: row.kind,
+    categoryId: row.categoryId,
+    messageId: row.messageId,
   };
 }
 

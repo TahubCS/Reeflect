@@ -91,12 +91,14 @@ Rules:
 | ADR-062 | A text that confirms what the user just did is not a proactive message (refines ADR-038) | Proposed |
 | ADR-064 | Logging spending by text: code decides, asks when unsure, never guesses (refines ADR-035, ADR-040) | Proposed |
 | ADR-065 | The agent remembers one open question: which account a text's spending is for (refines ADR-064) | Proposed |
+| ADR-067 | Receipt photos: the model reads, code checks, the person confirms (refines ADR-035, ADR-065) | Proposed |
 | ADR-082 | Sample years in the developers' own accounts (exception to ADR-049) | Accepted |
 | ADR-083 | Ask the user to categorize large uncategorized payments (refines ADR-055, ADR-057) | Proposed |
 | ADR-084 | Reserved ADR and handoff numbers for each developer | Accepted |
 | ADR-102 | Planned transactions are kept apart from the ledger (refines ADR-042, ADR-050) | Proposed |
 | ADR-103 | Built-in category keywords when no saved rule matches (refines ADR-013) | Proposed |
 | ADR-104 | Quiet hours per user, in Eastern time; UNDO takes back the latest text change (refines ADR-038, ADR-064) | Proposed |
+| ADR-105 | Subscription alerts and bill reminders by text: DETAILS for amounts, a reply confirms (refines ADR-030, ADR-038, ADR-041, ADR-058, ADR-063) | Proposed |
 
 ---
 
@@ -1942,6 +1944,97 @@ Rules:
     the first text, because the number reads as a second amount; its place
     in the list works.
 
+### ADR-067: Receipt photos: the model reads, code checks, the person confirms (refines ADR-035, ADR-065)
+
+- **Status:** Proposed (2026-10-11)
+- **Owner to confirm:** Muhammad Tahub Khatri
+- **Context:** ADR-035 lets Gemini read a receipt's total and merchant, as
+  long as nothing is saved before the person confirms. A photo of a receipt
+  is real data, and ADR-040 keeps real data away from the free-tier key.
+  The worker dropped photos without a word, and a text sent as a threaded
+  reply too. ADR-065 remembers one open question per phone.
+- **Decision:**
+  - **Off by default.** `AGENT_RECEIPT_PHOTOS=on` turns it on (decided by
+    Muhammad, 2026-10-11). Off, a photo gets a reply written by code that
+    asks for the amount by text, and no model is called. Tests and the
+    demo use generated receipts only (`tests/fixtures/receipts/`).
+  - **The worker relays one photo** as base64 inside the turn request, at
+    most 3,000,000 bytes, as JPEG, PNG, HEIC, HEIF or WebP. When it cannot
+    (too large, another kind of file, several photos, a failed download)
+    it says which, and the app writes the reply. It also forwards what a
+    threaded reply holds. The image is never stored or logged: not by the
+    worker, the app, or Google (`store: false`).
+  - **A caption is not read,** except for LINK and STOP.
+  - **A phone that is not linked** gets the sign-up reply; its photo is not
+    looked at (ADR-034).
+  - **One model request** with the image and the workspace's spending
+    category names. The answer is five fields (kind, merchant, total,
+    currency, category) in a shape the API enforces and zod checks again.
+    Nothing else about the person is sent: no id, account or balance.
+  - **Code checks every field.** The total goes through
+    `parseReceiptTotal` in `src/lib/money`: one amount in US dollars with
+    its two decimals, above zero, at most $9,999.99. A refund, another
+    currency, a screenshot of a balance, and anything that is not exactly
+    the shape asked for give no proposal. The merchant is cut to 40
+    characters of letters and a few marks, and a word with a digit is
+    dropped, so a model never puts a number of its own in front of the
+    person. The category must be one of the workspace's names; the
+    person's saved rules win over the model's choice.
+  - **The proposal waits in `agent_pending_log`** (migration 0017 adds
+    `kind`, `category_id` and `message_id`) for 10 minutes. It is the
+    phone's one open question: a newer question replaces it, and a photo
+    replaces an open "which account?".
+  - **Confirming.** One account: "yes" saves it. Several: the question
+    lists them, and the account's number or name saves it; a bare "yes"
+    is asked again. "no" drops it. Code reads the answer, and the whole
+    text must be the answer. A typed 👍 counts as yes; a tapback does
+    not (see the consequences). New spending or UNDO closes the question;
+    other texts leave it open.
+  - **"yes" or "no" with nothing waiting** gets a reply that says so,
+    instead of the summary.
+  - **Saved as any text log** (`source: "text"`), dated the day the photo
+    was sent: the same 50-a-day limit, UNDO and calendar label. The
+    transactions feature is unchanged.
+  - **One photo is at most one transaction:** the id comes from the link
+    and the photo's message id. The same photo delivered again while its
+    question is open is not read a second time.
+  - **Every reply is written by code.** Printed instructions on a receipt
+    can change nothing: the model has no tools, is given nothing to leak,
+    and each thing it writes is only a field that code checks.
+  - **Each model gets 8 seconds for a photo** inside the same 14 in total
+    (ADR-059 gives 4 to a text). `pnpm ai:check receipt` sends each test
+    model a generated receipt and reports whether it read the total.
+- **Alternatives considered:** a second table for proposals (two open
+  questions at once, and "1" or "yes" could answer either); a separate
+  upload request or a multipart body (a little more room, more moving
+  parts); a new `source` value (changes the transactions feature);
+  reading the date from the receipt (another number from a model);
+  accepting a tapback as yes (the app would have to know which message
+  the tapback was put on).
+- **Consequences:**
+  - **Before the switch is turned on for real users,** two things are
+    needed: a billing-enabled Gemini key (ADR-040), and a daily limit on
+    photo reads for each phone. Today only confirmed logs are counted, so
+    a linked phone could use up the models' daily allowance with photos
+    it never confirms.
+  - The photo is sent to Gemini as it arrived, so any EXIF data in it
+    (which can include where it was taken) goes too. Removing it needs an
+    image library, which was not added.
+  - With the switch off the photo still travels from the worker to the
+    app, where it is dropped; nothing goes to Google.
+  - A photo over 3 MB is refused, which will include some full-size JPEG
+    photos. A multipart body would raise that to about 4.3 MB.
+  - A tapback 👍 does not confirm, so the question says "Reply yes".
+    Spectrum does deliver tapbacks; they are not forwarded yet.
+  - A merchant whose name is a number ("7-Eleven") is shown as "that
+    receipt" and saved as "Receipt".
+  - A receipt from another day is saved as today.
+  - Photo reads share the models' daily allowance with replies.
+  - A photo delivered again after its log was undone can be logged again
+    by a new "yes", as with texts (ADR-064).
+  - Deploy the app before the worker: an older app drops the photo and
+    answers the empty text with the summary.
+
 ### ADR-084: Reserved ADR and handoff numbers for each developer
 
 - **Status:** Accepted (2026-10-11)
@@ -2075,6 +2168,67 @@ Rules:
   `nextAllowedSend` with the user's quiet hours before sending. A user
   outside Eastern time gets quiet hours in Eastern time until time zones
   are stored.
+
+### ADR-105: Subscription alerts and bill reminders by text: DETAILS for amounts, a reply confirms (refines ADR-030, ADR-038, ADR-041, ADR-058, ADR-063)
+
+- **Status:** Proposed (2026-10-11), from Simon. **Muhammad (owner of F-10
+  and Bills) should confirm** the parts that touch ADR-058 and ADR-063.
+- **Context:** F-26 (subscription alerts) and F-22 (bill reminders) need
+  Reeflect to text first. ADR-038 puts a proactive text's amounts in an
+  attached image card unless a kickoff test showed that iOS lock screens
+  show readable thumbnails; that test was never recorded, and the worker's
+  `/send` is text only. ADR-058 says a detected subscription is only a
+  suggestion until the user confirms it. ADR-041 proposed the worker as
+  the job clock.
+- **Decision:**
+  - **Amounts by DETAILS, no image card.** A proactive text names the
+    subscription or bill and the date but never an amount; a saved name
+    that holds a digit or a currency sign is replaced by a generic word.
+    The user replies DETAILS and gets the amounts as an answer to their
+    own request, which ADR-038 already allows. The bill answer includes
+    ADR-030's low-balance sentence when checking plus savings is below
+    what is left to pay, and says "about" and "estimate" when no invoice
+    amount was entered.
+  - **Subscription alerts go out for suggestions.** A payment that code
+    suggests as a subscription (kind `subscription`, decision `candidate`,
+    active) is texted once. The reply **is** the confirmation ADR-058
+    requires: KEEP confirms it and marks Keep; CANCEL confirms it and marks
+    Planning to cancel (Reeflect never cancels anything); IGNORE or NOT
+    MINE dismisses it. A text reply only ever answers the most recent alert
+    sent to that phone in the last 72 hours, and only whole-message
+    replies count.
+  - **Bill reminders read Bills cycles (ADR-063).** A confirmed bill cycle
+    due within seven days (counting today) that is not `paid`,
+    `marked_paid` or `no_payment_due` is reminded once, using the cycle's
+    due date. The check is repeated just before sending, so a bill paid in
+    between is not reminded. A cycle without an invoice amount is reminded
+    as an estimate.
+  - **Outbox.** `proactive_message` keeps one row per subscription or bill
+    cycle (unique per workspace, kind and subject), with its status and
+    when it may be sent; it stores no amounts and no text. Before sending,
+    the phone must still be linked and opted in, the type switched on,
+    quiet hours over (ADR-104) and fewer than three texts sent to that
+    user since midnight Eastern; otherwise it waits (or is cancelled). A
+    failed send is tried three times, five minutes apart. Each row is
+    locked while it is sent, so two ticks cannot send it twice.
+  - **Each type can be switched off** on Settings → Notifications
+    (`notification_setting.subscription_alerts`, `bill_reminders`, both on
+    by default), as ADR-038 asks. The opt-in on the Messages card still
+    governs both.
+  - **Job clock (makes ADR-041's Proposed part Accepted for this use).**
+    The worker posts `/api/jobs/tick` every five minutes with the service
+    token; Vercel Cron calls it once a day with `CRON_SECRET` as a backup.
+    The route takes no input: it works only on verified, opted-in phones.
+- **Alternatives considered:** The image card (needs image rendering,
+  signed URLs and attachments in the worker, for a privacy gain DETAILS
+  already gives); alerting only after the user confirms on the website
+  (the alert would tell them what they already know); a daily Vercel Cron
+  only (a text held by quiet hours would wait until the next day).
+- **Consequences:** Adds migration 0018 and the `alerts` feature. A user
+  with many suggestions at once receives them three a day. Undoing KEEP,
+  CANCEL or IGNORE by text is not built; the Recurring payments page can
+  change all three. The weekly recap and stale Nessie syncs are not on the
+  tick yet.
 
 ---
 

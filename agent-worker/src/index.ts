@@ -7,6 +7,7 @@ import { imessage } from "spectrum-ts/providers/imessage";
 import { terminal } from "spectrum-ts/providers/terminal";
 import { parseConfig } from "./config.ts";
 import { keepAwake, startServer } from "./server.ts";
+import { startTicking } from "./tick.ts";
 import { type MessageSource, runWorker } from "./worker.ts";
 
 const config = parseConfig(process.env);
@@ -58,6 +59,11 @@ if (config.RENDER_EXTERNAL_URL !== undefined) {
 
 live.connection = await connect();
 const { source } = live.connection;
+// The job clock (ADR-041, ADR-105): started once texts can be sent.
+startTicking({
+  appUrl: config.REEFLECT_URL,
+  serviceToken: config.AGENT_SERVICE_TOKEN,
+});
 console.info("worker: connected", {
   provider: config.AGENT_PROVIDER,
   port: config.PORT,

@@ -129,3 +129,46 @@ export async function undoQuietHours(
     });
   return row ?? null;
 }
+
+/** Which proactive texts a user wants (ADR-038, ADR-105). Both by default. */
+export type AlertTypes = {
+  subscriptionAlerts: boolean;
+  billReminders: boolean;
+};
+
+export const DEFAULT_ALERT_TYPES: AlertTypes = {
+  subscriptionAlerts: true,
+  billReminders: true,
+};
+
+export async function getAlertTypes(userId: string): Promise<AlertTypes> {
+  const [row] = await db
+    .select({
+      subscriptionAlerts: notificationSetting.subscriptionAlerts,
+      billReminders: notificationSetting.billReminders,
+    })
+    .from(notificationSetting)
+    .where(eq(notificationSetting.userId, userId))
+    .limit(1);
+  return row ?? DEFAULT_ALERT_TYPES;
+}
+
+/** Sets them from the website; a new row keeps the default quiet hours. */
+export async function setAlertTypes(
+  userId: string,
+  types: AlertTypes,
+): Promise<void> {
+  const values = {
+    subscriptionAlerts: types.subscriptionAlerts,
+    billReminders: types.billReminders,
+  };
+  await db
+    .insert(notificationSetting)
+    .values({
+      userId,
+      quietStartMinute: DEFAULT_QUIET_HOURS.startMinute,
+      quietEndMinute: DEFAULT_QUIET_HOURS.endMinute,
+      ...values,
+    })
+    .onConflictDoUpdate({ target: notificationSetting.userId, set: values });
+}

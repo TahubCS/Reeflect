@@ -1,6 +1,8 @@
-import { inArray } from "drizzle-orm";
-import { afterAll, describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { eq, inArray } from "drizzle-orm";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { APP_NAME } from "@/config/app";
+import { ALERT_REPLIES } from "@/features/alerts";
 import { DEFAULT_QUIET_HOURS } from "@/features/messaging/domain/quiet-hours";
 import { approveLink, createLinkCode } from "@/features/messaging/server/link";
 import { getQuietHours } from "@/features/messaging/server/notifications";
@@ -9,7 +11,12 @@ import {
   personalSlug,
 } from "@/lib/auth/personal-workspace";
 import { db } from "@/lib/db/client";
-import { agentLinkAttempt, organization, user } from "@/lib/db/schema";
+import {
+  agentLinkAttempt,
+  organization,
+  transaction,
+  user,
+} from "@/lib/db/schema";
 import {
   createAccount,
   getAccount,
@@ -17,8 +24,9 @@ import {
 import { cents } from "@/lib/money";
 import { LOG_REPLIES, UNCLEAR_REPLIES } from "../domain/log-replies";
 import { QUIET_HOURS_REPLIES } from "../domain/quiet-hours-replies";
+import { RECEIPT_REPLIES } from "../domain/receipt-replies";
 import { REPLIES } from "../domain/replies";
-import { runAgentTurn } from "./runAgentTurn";
+import { type TurnOptions, runAgentTurn } from "./runAgentTurn";
 
 // Integration tests against the Docker database (TEST-05). The link code is
 // made and approved through messaging's own functions, as the website does.
@@ -50,6 +58,26 @@ const text = (handle: string, message: string): Promise<string> =>
     messageId: crypto.randomUUID(),
     text: message,
   });
+
+const PNG = readFileSync("tests/fixtures/receipts/normal.png", "base64");
+
+/** A generated receipt picture (TEST-08) sent from `handle`. */
+const photo = (
+  handle: string,
+  caption: string,
+  options: TurnOptions,
+): Promise<string> =>
+  runAgentTurn(
+    {
+      platform: "imessage",
+      handle,
+      spaceId: `any;-;${handle}`,
+      messageId: crypto.randomUUID(),
+      text: caption,
+      photo: { status: "attached", mimeType: "image/png", data: PNG },
+    },
+    options,
+  );
 
 async function newCode(userId: string): Promise<string> {
   const result = await createLinkCode(userId);
@@ -295,6 +323,113 @@ describe("runAgentTurn", () => {
     expect(await text(handle, "STOP")).toBe(REPLIES.stopped);
     expect(await text(handle, "1")).toBe(REPLIES.signUp);
     expect(await balance()).toBe(48_250);
+  });
+
+  it("reads KEEP, CANCEL, IGNORE and DETAILS as replies to an alert, for linked phones only", async () => {
+    const me = await newUser();
+    const handle = newPhone();
+    await text(handle, `LINK ${await newCode(me.userId)}`);
+    await approveLink(me.userId, me.workspaceId);
+
+    expect(await text(newPhone(), "KEEP")).toBe(REPLIES.signUp);
+    // No alert was sent, so there is nothing to answer, and none of these
+    // is read as spending or sent to the model. The replies themselves are
+    // tested in src/features/alerts.
+    for (const message of ["KEEP", "cancel", "ignore", "Details"]) {
+      expect(await text(handle, message)).toBe(ALERT_REPLIES.nothingOpen);
+    }
+  });
+
+  it("turns a receipt photo into a question, and a yes into a log (ADR-067)", async () => {
+    const me = await newUser();
+    const other = await newUser();
+    const handle = newPhone();
+    const theirs = newPhone();
+    for (const [phone, who] of [
+      [handle, me],
+      [theirs, other],
+    ] as const) {
+      await text(phone, `LINK ${await newCode(who.userId)}`);
+      await approveLink(who.userId, who.workspaceId);
+      await createAccount(who.workspaceId, {
+        type: "checking",
+        institutionName: "Test Bank",
+        nickname: "Everyday",
+        maskLast4: null,
+        balanceCents: cents(50_000),
+      });
+    }
+    const spent = async (who: { workspaceId: string }) =>
+      (
+        await db
+          .select({ amountCents: transaction.amountCents })
+          .from(transaction)
+          .where(eq(transaction.workspaceId, who.workspaceId))
+      ).map((row) => row.amountCents);
+    const readImage = vi.fn(async () =>
+      JSON.stringify({
+        kind: "receipt",
+        merchant: "Zorblat Goods",
+        total: "23.40",
+        currency: "$",
+        category: "Shopping",
+      }),
+    );
+    const on = { receiptPhotos: true, readImage };
+    const QUESTION =
+      'I read $23.40 at "Zorblat Goods", in Shopping. Reply yes to log it, or no to drop it. Nothing is logged yet.';
+
+    // A phone that is not linked: the sign-up reply, and the photo unread.
+    expect(await photo(newPhone(), "", on)).toBe(REPLIES.signUp);
+    expect(readImage).not.toHaveBeenCalled();
+
+    // The switch is off unless it is set: no model, whatever is sent.
+    expect(await photo(handle, "", { readImage })).toBe(RECEIPT_REPLIES.off);
+    expect(readImage).not.toHaveBeenCalled();
+
+    // The caption is not read as spending: only the photo is.
+    expect(await photo(handle, "12 lunch", on)).toBe(QUESTION);
+    expect(readImage).toHaveBeenCalledOnce();
+    expect(await spent(me)).toEqual([]);
+
+    // Someone else's yes is not an answer to it.
+    expect(await text(theirs, "yes")).toBe(RECEIPT_REPLIES.nothingWaiting);
+    expect(await spent(me)).toEqual([]);
+    expect(await spent(other)).toEqual([]);
+
+    // A question in between is answered as usual and leaves it waiting.
+    expect(await text(handle, "how am I doing?")).toMatch(/^You have \$500/);
+
+    expect(await text(handle, "Yes")).toBe(
+      'Logged $23.40 for "Zorblat Goods" today, in Shopping. Text UNDO to remove it.',
+    );
+    expect(await spent(me)).toEqual([-2340]);
+    expect(await spent(other)).toEqual([]);
+    expect(await text(handle, "yes")).toBe(RECEIPT_REPLIES.nothingWaiting);
+    expect(await spent(me)).toEqual([-2340]);
+
+    // New spending by text closes a waiting receipt; UNDO does too.
+    await photo(handle, "", on);
+    expect(await text(handle, "12 lunch")).toContain(
+      'Logged $12.00 for "lunch"',
+    );
+    expect(await text(handle, "yes")).toBe(RECEIPT_REPLIES.nothingWaiting);
+    await photo(handle, "", on);
+    expect(await text(handle, "undo")).toBe('Removed $12.00 for "lunch".');
+    expect(await text(handle, "yes")).toBe(RECEIPT_REPLIES.nothingWaiting);
+    expect(await spent(me)).toEqual([-2340]);
+
+    // LINK and STOP in a caption are still commands; the photo is not read.
+    readImage.mockClear();
+    await photo(handle, "", on);
+    readImage.mockClear();
+    expect(await photo(handle, "STOP", on)).toBe(REPLIES.stopped);
+    expect(readImage).not.toHaveBeenCalled();
+    // Unlinked: the receipt that was waiting went with the link.
+    expect(await text(handle, "yes")).toBe(REPLIES.signUp);
+    expect(await photo(handle, "", on)).toBe(REPLIES.signUp);
+    expect(readImage).not.toHaveBeenCalled();
+    expect(await spent(me)).toEqual([-2340]);
   });
 
   it("puts no digits in any fixed reply", () => {

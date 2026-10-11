@@ -49,6 +49,12 @@ const envSchema = z
      */
     AGENT_WORKER_URL: optionalText.pipe(z.url().optional()),
     /**
+     * Vercel Cron's secret for the daily backup call to `/api/jobs/tick`
+     * (ADR-041, ADR-105). Optional: without it only the worker's service
+     * token reaches the route.
+     */
+    CRON_SECRET: optionalText.pipe(z.string().min(16).optional()),
+    /**
      * The number users text, shown on the Settings card (ADR-051). Optional:
      * on Photon's shared pool there may be no single number. E.164 format.
      */
@@ -87,6 +93,14 @@ const envSchema = z
      * default chain in `src/lib/ai/models.ts`.
      */
     GEMINI_MODELS: optionalText,
+    /**
+     * `on` lets the agent send a receipt photo to Gemini (F-29, ADR-067).
+     * Unset means off: a photo then gets a reply written by code and no
+     * model is called. Leave it off while the key is on the free tier,
+     * where only made-up receipts may be sent (ADR-040). Any other value is
+     * refused, so a typo cannot be mistaken for either.
+     */
+    AGENT_RECEIPT_PHOTOS: optionalText.pipe(z.enum(["on"]).optional()),
     /**
      * Capital One Nessie sandbox key (ADR-033). Without it the Sync button
      * says Nessie is not set up; the key never leaves the server.

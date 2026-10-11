@@ -1,7 +1,7 @@
 import { env } from "@/lib/env";
 import { ownPersonalWorkspace } from "../server/access";
 import { getLinkState } from "../server/link";
-import { getQuietHours } from "../server/notifications";
+import { getAlertTypes, getQuietHours } from "../server/notifications";
 import { NotificationsCard } from "./notifications-card";
 import { PhoneLinkCard } from "./phone-link-card";
 
@@ -18,9 +18,10 @@ export async function MessagesSection({
   const own = await ownPersonalWorkspace(workspaceId);
   if (!own) return null;
 
-  const [state, hours] = await Promise.all([
+  const [state, hours, alertTypes] = await Promise.all([
     getLinkState(own.userId),
     getQuietHours(own.userId),
+    getAlertTypes(own.userId),
   ]);
   return (
     <>
@@ -29,7 +30,11 @@ export async function MessagesSection({
         state={state}
         agentPhone={env.AGENT_PHONE_NUMBER ?? null}
       />
-      <NotificationsCard workspaceId={own.workspaceId} hours={hours} />
+      <NotificationsCard
+        workspaceId={own.workspaceId}
+        hours={hours}
+        alertTypes={alertTypes}
+      />
     </>
   );
 }

@@ -120,6 +120,20 @@
       "when": 1791721370815,
       "tag": "0016_quiet_hours",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791722455507,
+      "tag": "0017_agent_pending_receipt",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791723379197,
+      "tag": "0018_proactive_alerts",
+      "breakpoints": true
     }
   ]
 }

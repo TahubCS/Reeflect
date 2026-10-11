@@ -182,6 +182,26 @@ describe("parseEnv", () => {
     ).toThrow(/AGENT_PHONE_NUMBER/);
   });
 
+  it("keeps receipt photos off unless the switch is exactly on (ADR-067)", () => {
+    const base = { DATABASE_URL: POOLED, ...AUTH };
+
+    expect(parseEnv(base).AGENT_RECEIPT_PHOTOS).toBe(undefined);
+    for (const blank of ["", "  "]) {
+      expect(
+        parseEnv({ ...base, AGENT_RECEIPT_PHOTOS: blank }).AGENT_RECEIPT_PHOTOS,
+      ).toBe(undefined);
+    }
+    expect(
+      parseEnv({ ...base, AGENT_RECEIPT_PHOTOS: "on" }).AGENT_RECEIPT_PHOTOS,
+    ).toBe("on");
+    // Anything else is refused instead of guessed at.
+    for (const value of ["true", "1", "yes", "ON", "off", "enabled"]) {
+      expect(() => parseEnv({ ...base, AGENT_RECEIPT_PHOTOS: value })).toThrow(
+        /AGENT_RECEIPT_PHOTOS/,
+      );
+    }
+  });
+
   it("rejects a malformed auth URL", () => {
     expect(() =>
       parseEnv({ DATABASE_URL: POOLED, ...AUTH, BETTER_AUTH_URL: "localhost" }),
