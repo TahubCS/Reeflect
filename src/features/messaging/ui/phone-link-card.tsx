@@ -20,7 +20,7 @@ type Props = {
   workspaceId: string;
   /** The server's view of the link; refreshed after every action. */
   state: LinkState;
-  /** The number to text, when there is a single one (ADR-050). */
+  /** The number to text, when there is a single one (ADR-051). */
   agentPhone: string | null;
 };
 

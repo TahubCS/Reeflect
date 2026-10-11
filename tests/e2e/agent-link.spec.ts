@@ -7,7 +7,7 @@ import {
 } from "@playwright/test";
 import { hydrated, ownClientAddress } from "./support";
 
-// F-24 phone linking (ADR-034, ADR-050). There is no worker in these tests:
+// F-24 phone linking (ADR-034, ADR-051). There is no worker in these tests:
 // the phone's texts are posted to /api/agent/turn as the worker would send
 // them, with the service token from playwright.config.ts.
 

@@ -16,7 +16,7 @@ import {
   normalizeLinkCode,
 } from "../domain/link-code";
 
-// Phone linking (ADR-034, ADR-050). A phone texts a one-time code, the user
+// Phone linking (ADR-034, ADR-051). A phone texts a one-time code, the user
 // approves that phone on the website, and only then does an identity exist.
 // Every query here is scoped to one user or one handle.
 

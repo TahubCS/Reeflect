@@ -1,4 +1,4 @@
-// The one-time code a user texts to link their phone (ADR-034, ADR-050).
+// The one-time code a user texts to link their phone (ADR-034, ADR-051).
 
 export const LINK_CODE_LENGTH = 6;
 export const LINK_CODE_TTL_MS = 10 * 60 * 1000;

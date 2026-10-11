@@ -120,7 +120,7 @@ have `updated_at`.
 |---|---|---|
 | `workspace_settings` | workspace_id (PK), kind (`personal`/`household`), timezone, cushion_target_cents (nullable) | Not built. It was for the aquarium (ADR-016, superseded); create it only if ADR-042 finds a use |
 | `financial_account` | id, workspace_id, institution_name, type (`checking`/`savings`/`credit_card`/`loan`), mask_last4, nickname, source (`manual`/`text`/`csv`/`pdf`/`plaid`/`nessie`/`synthetic`), current_balance_cents, balance_as_of, identity_confirmed_at, plaid_account_id (nullable), nessie_account_id (nullable) | Unique (workspace_id, plaid_account_id); unique (workspace_id, nessie_account_id). Built (migration 0002) |
-| `transaction` | id, workspace_id, financial_account_id, posted_on (date), amount_cents (signed, ADR-008), description_raw, merchant_normalized, category_id (nullable), status (`pending`/`posted`), is_transfer, transfer_pair_id (nullable; both sides of a transfer share it), source, import_batch_id (nullable), external_id (nullable), fingerprint | Unique (financial_account_id, fingerprint). Built (migration 0002) without `category_id` and `import_batch_id`; each arrives with the table it references |
+| `transaction` | id, workspace_id, financial_account_id, posted_on (date), amount_cents (signed, ADR-008), description_raw, merchant_normalized, category_id (nullable), status (`pending`/`posted`), is_transfer, transfer_pair_id (nullable; both sides of a transfer share it), source, import_batch_id (nullable), external_id (nullable), fingerprint | Unique (financial_account_id, fingerprint). Built (migration 0002) without `category_id` and `import_batch_id`; each arrives with the table it references. Manual rows: fingerprint `manual:<id>`, balance rule in ADR-050 |
 | `synthetic_batch` | id, label, generator_version, seed, start_month, months, as_of, spec (jsonb), notes, created_by, promoted_from | A replayable recipe (ADR-049). Built |
 | `synthetic_workspace` | workspace_id (PK, cascade), batch_id (restrict), person_key, persona, summary | The synthetic marker: a row means the workspace is synthetic, no row means real (ADR-049). Built |
 | `category` | id, workspace_id, name, color_token, sort_order, is_preset | |
@@ -133,9 +133,9 @@ have `updated_at`.
 | `csv_mapping` | id, workspace_id, institution_name, column_map (jsonb), date_format, sign_convention | Reused per institution |
 | `plaid_item` | id, workspace_id, plaid_item_id, institution_name, access_token_ciphertext, access_token_iv, transactions_cursor, status | Ciphertext only (ADR-012) |
 | `liability` | id, workspace_id, financial_account_id, apr_bps, minimum_payment_cents, next_due_on, source (`plaid`/`mock`) | P2 |
-| `messaging_identity` | id, user_id, workspace_id (personal), platform (`imessage`), handle, space_id, verified_at, proactive_opt_in (bool), revoked_at | Unique (platform, handle) and unique (user_id), both among non-revoked rows (ADR-034, ADR-050). `alert_prefs` (jsonb) arrives with F-26 |
-| `agent_link_code` | id, user_id, code_hash (unique), expires_at, used_at, and the pending request: platform, handle, space_id, claimed_at | Single use, 10-minute expiry. The hash is keyed with a server secret. A phone that texts the code is recorded here until the user approves it (ADR-050) |
-| `agent_link_attempt` | id, platform, handle, attempted_at | One row per wrong code; 5 in 10 minutes locks the handle out of linking (ADR-050) |
+| `messaging_identity` | id, user_id, workspace_id (personal), platform (`imessage`), handle, space_id, verified_at, proactive_opt_in (bool), revoked_at | Unique (platform, handle) and unique (user_id), both among non-revoked rows (ADR-034, ADR-051). `alert_prefs` (jsonb) arrives with F-26 |
+| `agent_link_code` | id, user_id, code_hash (unique), expires_at, used_at, and the pending request: platform, handle, space_id, claimed_at | Single use, 10-minute expiry. The hash is keyed with a server secret. A phone that texts the code is recorded here until the user approves it (ADR-051) |
+| `agent_link_attempt` | id, platform, handle, attempted_at | One row per wrong code; 5 in 10 minutes locks the handle out of linking (ADR-051) |
 | `nessie_link` | workspace_id (PK), nessie_customer_id, last_synced_at | One sandbox customer per workspace (ADR-033) |
 | `outbound_message` | id, messaging_identity_id, kind (`subscription_alert`/`bill_reminder`/`weekly_recap`), dedupe_key, scheduled_for, sent_at, status | Unique dedupe_key; enforces quiet hours and daily cap (ADR-038) |
 | `audit_event` | id, workspace_id (nullable), actor_user_id, action, target_type, target_id, created_at, ip_hash | No financial details |
@@ -273,7 +273,7 @@ Governed by: ADR-006, ADR-007, ADR-010, ADR-012, ADR-019, ADR-025
 | `NESSIE_API_KEY` | `features/nessie` (sent as a query parameter; logs must redact it) | Yes |
 | `NESSIE_BASE_URL` | `features/nessie`: `https://api.nessieisreal.com` (ADR-048) | No |
 | `AGENT_SERVICE_TOKEN` | Next.js and worker (shared secret, 32+ characters). Optional in Next.js: without it `/api/agent/turn` answers 404 to everyone | Yes |
-| `AGENT_PHONE_NUMBER` | Next.js: the number shown on the Settings link card, in `+15551234567` form; optional (ADR-050) | No |
+| `AGENT_PHONE_NUMBER` | Next.js: the number shown on the Settings link card, in `+15551234567` form; optional (ADR-051) | No |
 | `AGENT_WORKER_URL` | Next.js (where to POST proactive messages) | No |
 | `REEFLECT_URL` | Worker (where to POST turns) | No |
 | `PHOTON_PROJECT_ID`, `PHOTON_PROJECT_SECRET` | Worker only | Yes (secret) |
@@ -402,7 +402,7 @@ cron secret. Both are idempotent: running them repeatedly sends nothing twice
 
 ## ARCH-13: The iMessage agent
 
-Governed by: ADR-031, ADR-032, ADR-034, ADR-050, ADR-035, ADR-038, ADR-019
+Governed by: ADR-031, ADR-032, ADR-034, ADR-051, ADR-035, ADR-038, ADR-019
 
 ```mermaid
 sequenceDiagram
@@ -436,7 +436,7 @@ sequenceDiagram
 | Worker send API | `agent-worker/src/server.ts` | `POST /send` for proactive messages; token-protected |
 | Protocol types | `packages/agent-protocol/` | Zod schemas shared by worker and brain. Until the worker exists they live in `src/features/agent/domain/protocol.ts` |
 | Turn endpoint | `src/app/api/agent/turn/route.ts` | Token check (`src/features/agent/server/service-token.ts`, 404 without it), zod parse, call `runAgentTurn` |
-| Identity | `src/features/messaging/server/link.ts`, `actions.ts` | Link codes, the request a user approves, `messaging_identity`, STOP and Disconnect (ADR-050). The Settings card is `src/features/messaging/ui/` |
+| Identity | `src/features/messaging/server/link.ts`, `actions.ts` | Link codes, the request a user approves, `messaging_identity`, STOP and Disconnect (ADR-051). The Settings card is `src/features/messaging/ui/` |
 | Brain | `src/features/agent/server/runAgentTurn.ts` | Gemini loop with tools, reply composition. Today: LINK, STOP and fixed replies only (F-24); Gemini arrives with F-25 |
 | Tools | `src/features/agent/server/tools/` | `getSummary`, `getCategory`, `listSubscriptions`, `listUpcomingBills`, `logSpending`, `setSubscriptionIntent` |
 | Intent parsing | `src/features/agent/domain/parse.ts` | Code-only commands (ADR-040): LINK, TRY, STOP, keep / cancel / yes / UNDO / DETAILS, quiet hours, amounts from user text (ADR-035) |

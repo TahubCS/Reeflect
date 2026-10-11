@@ -1,4 +1,4 @@
-// Phone linking for the iMessage agent (ADR-034, ADR-050, ARCH-03). A phone
+// Phone linking for the iMessage agent (ADR-034, ADR-051, ARCH-03). A phone
 // acts as a user only through a verified, non-revoked `messaging_identity`.
 import { sql } from "drizzle-orm";
 import {
