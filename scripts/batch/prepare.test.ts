@@ -255,7 +255,7 @@ describe("report", () => {
   });
 });
 
-describe("parseUserMap (ADR-059)", () => {
+describe("parseUserMap (ADR-060)", () => {
   it("maps spec people to user ids", () => {
     expect(parseUserMap(["jacob=abc", "simon=def"])).toEqual(
       new Map([

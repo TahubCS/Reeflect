@@ -57,7 +57,7 @@ it is labelled "Sample".
   workspaces have none yet. Until a developer viewer exists, use
   `batch report`, or query the branch in the Neon SQL editor.
 
-### Developer accounts (ADR-059)
+### Developer accounts (ADR-060)
 
 For the hackathon only, a developer can get one spec person's year in the
 account they sign in with, to test Insights against the sample people.
@@ -79,6 +79,8 @@ pnpm batch take-back --user <userId> --target production --yes
   again.
 - `take-back` removes the sample accounts and their transactions. Without
   `--yes` it only counts them. Added categories and rules stay.
+- The team's spec is `scripts/batch/specs/devs.json`; its README has the
+  exact commands and the three user ids.
 
 ### Databases
 

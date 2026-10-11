@@ -291,7 +291,7 @@ export async function deleteBatch(db: Db, batchId: string): Promise<number> {
   });
 }
 
-// Developer accounts (ADR-059): one spec person's year written into a real
+// Developer accounts (ADR-060): one spec person's year written into a real
 // user's Personal workspace, so the team can test Insights against the
 // sample people. No `synthetic_workspace` marker: the workspace stays out
 // of the comparison group.

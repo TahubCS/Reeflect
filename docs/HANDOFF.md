@@ -2379,7 +2379,7 @@ recommendation, not a decision.
 - **The Subscriptions category** reads as spending, not as a subscription,
   until the calendar reads recurring payments.
 
-## HO-049: A sample year in the developers' own accounts (ADR-059)
+## HO-051: A sample year in the developers' own accounts (ADR-060)
 
 - **Date:** 2026-10-11 (EDT)
 - **Author:** Jacob Heminway with Claude (Claude Code)
@@ -2390,7 +2390,7 @@ recommendation, not a decision.
   batch-testing branch (`01a128e5-…`) was promoted to production. The
   promote first failed because production lacked migration 0008
   (`insight_sample`); Jacob migrated production and reran it.
-- **ADR-059 (Accepted):** the hackathon exception to ADR-049. The three
+- **ADR-060 (Accepted):** the hackathon exception to ADR-049. The three
   developers may get one spec person's year in their own Personal
   workspace; the Nessie demo customer is the only other exception.
 - **`pnpm batch give <spec.json> --user <personKey>=<userId> …`**
@@ -2427,3 +2427,42 @@ recommendation, not a decision.
 - The batch CLI still prints only "Failed (Error)" for database errors.
   The Postgres code is on `error.cause` (drizzle 0.45); fixing that is
   still to do.
+
+## HO-052: Fuller developer histories; ask about large uncategorized payments
+
+- **Date:** 2026-10-11 (EDT)
+- **Author:** Jacob Heminway with Claude (Claude Code)
+- **Branch / PR:** `feat/dev-sample-data` / not opened
+
+### What changed
+- **Renumbered:** main took ADR-059 (agent replies) and HO-049/HO-050 in
+  PR #22, so this branch's ADR is now ADR-060 and its handoff HO-051.
+- **`devs.json` revised:** every developer has a savings account with a
+  monthly transfer, and spends in most preset categories (health, personal
+  care, entertainment, shopping, gifts, travel). Rent, food and utilities
+  moved toward the 100-person batch's students. Jacob gets financial aid
+  refunds in January and August, and jacob-high pays into a Roth IRA;
+  simon-high moves $40 a month to a brokerage. Checked with seeds devs-1,
+  other-7, x3, x4, q9 and z2: checking never goes below $0, and pay stays
+  in the student band. Simon's three levels still warn "spends more than
+  comes in" because of the car he bought outright; that is intended. Spec
+  events can't be charged to savings, so the car purchases come out of
+  checking.
+- **`scripts/batch/specs/README.md`:** the exact give, swap, count and
+  take-back commands, with the three user ids.
+- **ADR-061 (Proposed):** a large uncategorized payment becomes an
+  optional question in the "Needs your answer" list from ADR-055.
+- **Simon saw no sample accounts.** Nothing in the app hides synthetic
+  accounts, so the give most likely never reached production (the CLI's
+  default target is the batch-testing branch) or Simon looked at another
+  workspace. The README's read-only `take-back` command (no `--yes`)
+  counts them.
+
+### What's next
+- Run the production give from the README with `--replace`.
+- Merge main into this branch (conflicts are only in AGENTS.md,
+  DECISIONS.md and HANDOFF.md), then open the PR.
+- ADR-061 needs an owner, and the "Needs your answer" list needs building.
+
+### Open problems
+- The batch CLI still prints only "Failed (Error)" for database errors.

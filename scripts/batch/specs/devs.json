@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "label": "Developer accounts: three students × three pay levels (ADR-059)",
-  "request": "3 histories for each dev, low to high income, same basic persona with income and a few parameters changed. Jacob: spends very little, big car down payment mid-year, saving, big on food and travel, very few subscriptions, two-week pay. Simon: bought a car outright about 2 months ago, no rent, food, regular subscriptions, a lot on Christmas presents, decent pay, two-week pay. Muhammed: out-of-state tuition paid in pieces, works a lot, weekly contract pay, decent subscriptions, a lot of eating out, a lot of gas, low rent.",
+  "label": "Developer accounts: three students × three pay levels (ADR-060)",
+  "request": "3 histories for each dev, low to high income, same basic persona with income and a few parameters changed. Jacob: spends very little, big car down payment mid-year, saving, big on food and travel, very few subscriptions, two-week pay. Simon: bought a car outright about 2 months ago, no rent, food, regular subscriptions, a lot on Christmas presents, decent pay, two-week pay. Muhammed: out-of-state tuition paid in pieces, works a lot, weekly contract pay, decent subscriptions, a lot of eating out, a lot of gas, low rent. Revised: everyone has a savings account and spends in most categories, nudged toward the sample students' averages.",
   "startMonth": "2025-10",
   "months": 13,
   "people": [
@@ -9,14 +9,14 @@
       "key": "jacob-low",
       "name": "Frugal saver, lower pay",
       "persona": "student",
-      "summary": "Student, spends little, saves $50/mo, car down payment in April, big on food and travel, $330 every two weeks",
+      "summary": "Student, spends little, saves $60/mo, car down payment in April, big on food and travel, $430 every two weeks",
       "accounts": {
         "checking": {
-          "openingBalanceCents": 360000
+          "openingBalanceCents": 380000
         },
         "savings": {
-          "openingBalanceCents": 150000,
-          "monthlyTransferCents": 5000,
+          "openingBalanceCents": 90000,
+          "monthlyTransferCents": 6000,
           "transferDay": 2
         },
         "card": {
@@ -31,7 +31,7 @@
       "income": [
         {
           "payer": "ECU STUDENT EMPLOYMENT PAYROLL",
-          "amountCents": 33000,
+          "amountCents": 43000,
           "variationPct": 6,
           "schedule": {
             "every": "two_weeks",
@@ -42,7 +42,7 @@
       "bills": [
         {
           "name": "Shared apartment rent",
-          "amountCents": 29000,
+          "amountCents": 42500,
           "day": 1,
           "category": "Housing"
         },
@@ -53,8 +53,14 @@
           "category": "Phone & internet"
         },
         {
+          "name": "Spectrum internet share",
+          "amountCents": 2500,
+          "day": 12,
+          "category": "Phone & internet"
+        },
+        {
           "name": "Greenville Utilities Commission",
-          "amountCents": 3800,
+          "amountCents": 5200,
           "day": 18,
           "category": "Utilities",
           "variationPct": 25
@@ -73,12 +79,12 @@
           "category": "Groceries",
           "merchants": ["Food Lion", "Aldi", "Harris Teeter"],
           "perMonth": {
-            "min": 3,
-            "max": 5
+            "min": 4,
+            "max": 6
           },
           "amountCents": {
-            "min": 1258,
-            "max": 3414
+            "min": 1800,
+            "max": 4000
           },
           "cardShare": 60
         },
@@ -92,12 +98,12 @@
             "Christy's Europub"
           ],
           "perMonth": {
-            "min": 5,
-            "max": 9
+            "min": 8,
+            "max": 12
           },
           "amountCents": {
-            "min": 800,
-            "max": 1673
+            "min": 900,
+            "max": 2020
           },
           "cardShare": 70
         },
@@ -124,7 +130,7 @@
           "merchants": ["Sheetz", "Wawa"],
           "perMonth": {
             "min": 1,
-            "max": 2
+            "max": 3
           },
           "amountCents": {
             "min": 1500,
@@ -133,25 +139,75 @@
         },
         {
           "category": "Shopping",
-          "merchants": ["Amazon.com", "Target"],
+          "merchants": ["Amazon.com", "Target", "Goodwill"],
+          "perMonth": {
+            "min": 1,
+            "max": 2
+          },
+          "amountCents": {
+            "min": 800,
+            "max": 3000
+          },
+          "cardShare": 50
+        },
+        {
+          "category": "Fun",
+          "merchants": ["Greenville Grind climbing", "Regal Cinemas"],
+          "perMonth": {
+            "min": 0,
+            "max": 2
+          },
+          "amountCents": {
+            "min": 1000,
+            "max": 2500
+          },
+          "cardShare": 50
+        },
+        {
+          "category": "Personal care",
+          "merchants": ["Great Clips"],
           "perMonth": {
             "min": 0,
             "max": 1
           },
           "amountCents": {
-            "min": 800,
-            "max": 2500
+            "min": 1600,
+            "max": 2400
+          }
+        },
+        {
+          "category": "Health",
+          "merchants": ["CVS Pharmacy"],
+          "perMonth": {
+            "min": 0,
+            "max": 1
           },
-          "cardShare": 50
+          "amountCents": {
+            "min": 600,
+            "max": 2200
+          }
         }
       ],
       "events": [
+        {
+          "date": "2025-12-14",
+          "description": "TARGET CHRISTMAS GIFTS",
+          "amountCents": -4900,
+          "account": "card",
+          "category": "Gifts"
+        },
         {
           "date": "2025-12-19",
           "description": "DELTA AIR LINES WINTER BREAK",
           "amountCents": -13300,
           "account": "card",
           "category": "Travel"
+        },
+        {
+          "date": "2026-01-16",
+          "description": "ECU FIN AID REFUND",
+          "amountCents": 150000,
+          "category": "Other"
         },
         {
           "date": "2026-03-07",
@@ -244,6 +300,12 @@
           "amountCents": -12600,
           "account": "card",
           "category": "Travel"
+        },
+        {
+          "date": "2026-08-18",
+          "description": "ECU FIN AID REFUND",
+          "amountCents": 150000,
+          "category": "Other"
         }
       ],
       "retirement": {
@@ -254,13 +316,13 @@
       "key": "jacob-mid",
       "name": "Frugal saver, middle pay",
       "persona": "student",
-      "summary": "Student, spends little, saves $120/mo, car down payment in April, big on food and travel, $470 every two weeks",
+      "summary": "Student, spends little, saves $120/mo, car down payment in April, big on food and travel, $560 every two weeks",
       "accounts": {
         "checking": {
-          "openingBalanceCents": 520000
+          "openingBalanceCents": 500000
         },
         "savings": {
-          "openingBalanceCents": 280000,
+          "openingBalanceCents": 150000,
           "monthlyTransferCents": 12000,
           "transferDay": 2
         },
@@ -276,7 +338,7 @@
       "income": [
         {
           "payer": "ECU STUDENT EMPLOYMENT PAYROLL",
-          "amountCents": 47000,
+          "amountCents": 56000,
           "variationPct": 6,
           "schedule": {
             "every": "two_weeks",
@@ -287,7 +349,7 @@
       "bills": [
         {
           "name": "Shared apartment rent",
-          "amountCents": 33000,
+          "amountCents": 46500,
           "day": 1,
           "category": "Housing"
         },
@@ -298,8 +360,14 @@
           "category": "Phone & internet"
         },
         {
+          "name": "Spectrum internet share",
+          "amountCents": 2500,
+          "day": 12,
+          "category": "Phone & internet"
+        },
+        {
           "name": "Greenville Utilities Commission",
-          "amountCents": 3800,
+          "amountCents": 5200,
           "day": 18,
           "category": "Utilities",
           "variationPct": 25
@@ -318,12 +386,12 @@
           "category": "Groceries",
           "merchants": ["Food Lion", "Aldi", "Harris Teeter"],
           "perMonth": {
-            "min": 3,
-            "max": 5
+            "min": 4,
+            "max": 6
           },
           "amountCents": {
-            "min": 1400,
-            "max": 3800
+            "min": 1800,
+            "max": 4000
           },
           "cardShare": 60
         },
@@ -337,12 +405,12 @@
             "Christy's Europub"
           ],
           "perMonth": {
-            "min": 5,
-            "max": 9
+            "min": 8,
+            "max": 12
           },
           "amountCents": {
-            "min": 800,
-            "max": 2000
+            "min": 900,
+            "max": 2200
           },
           "cardShare": 70
         },
@@ -369,7 +437,7 @@
           "merchants": ["Sheetz", "Wawa"],
           "perMonth": {
             "min": 1,
-            "max": 2
+            "max": 3
           },
           "amountCents": {
             "min": 1500,
@@ -378,25 +446,75 @@
         },
         {
           "category": "Shopping",
-          "merchants": ["Amazon.com", "Target"],
+          "merchants": ["Amazon.com", "Target", "Goodwill"],
+          "perMonth": {
+            "min": 1,
+            "max": 2
+          },
+          "amountCents": {
+            "min": 800,
+            "max": 3000
+          },
+          "cardShare": 50
+        },
+        {
+          "category": "Fun",
+          "merchants": ["Greenville Grind climbing", "Regal Cinemas"],
+          "perMonth": {
+            "min": 0,
+            "max": 2
+          },
+          "amountCents": {
+            "min": 1000,
+            "max": 2500
+          },
+          "cardShare": 50
+        },
+        {
+          "category": "Personal care",
+          "merchants": ["Great Clips"],
           "perMonth": {
             "min": 0,
             "max": 1
           },
           "amountCents": {
-            "min": 800,
-            "max": 2500
+            "min": 1600,
+            "max": 2400
+          }
+        },
+        {
+          "category": "Health",
+          "merchants": ["CVS Pharmacy"],
+          "perMonth": {
+            "min": 0,
+            "max": 1
           },
-          "cardShare": 50
+          "amountCents": {
+            "min": 600,
+            "max": 2200
+          }
         }
       ],
       "events": [
+        {
+          "date": "2025-12-14",
+          "description": "TARGET CHRISTMAS GIFTS",
+          "amountCents": -7000,
+          "account": "card",
+          "category": "Gifts"
+        },
         {
           "date": "2025-12-19",
           "description": "DELTA AIR LINES WINTER BREAK",
           "amountCents": -19000,
           "account": "card",
           "category": "Travel"
+        },
+        {
+          "date": "2026-01-16",
+          "description": "ECU FIN AID REFUND",
+          "amountCents": 120000,
+          "category": "Other"
         },
         {
           "date": "2026-03-07",
@@ -489,6 +607,12 @@
           "amountCents": -18000,
           "account": "card",
           "category": "Travel"
+        },
+        {
+          "date": "2026-08-18",
+          "description": "ECU FIN AID REFUND",
+          "amountCents": 120000,
+          "category": "Other"
         }
       ],
       "retirement": {
@@ -499,14 +623,14 @@
       "key": "jacob-high",
       "name": "Frugal saver, higher pay",
       "persona": "student",
-      "summary": "Student, spends little, saves $230/mo, car down payment in April, big on food and travel, $670 every two weeks",
+      "summary": "Student, spends little, saves $220/mo, car down payment in April, big on food and travel, $690 every two weeks",
       "accounts": {
         "checking": {
-          "openingBalanceCents": 700000
+          "openingBalanceCents": 650000
         },
         "savings": {
-          "openingBalanceCents": 450000,
-          "monthlyTransferCents": 23000,
+          "openingBalanceCents": 220000,
+          "monthlyTransferCents": 22000,
           "transferDay": 2
         },
         "card": {
@@ -521,7 +645,7 @@
       "income": [
         {
           "payer": "ECU STUDENT EMPLOYMENT PAYROLL",
-          "amountCents": 67000,
+          "amountCents": 69000,
           "variationPct": 6,
           "schedule": {
             "every": "two_weeks",
@@ -532,7 +656,7 @@
       "bills": [
         {
           "name": "Shared apartment rent",
-          "amountCents": 38000,
+          "amountCents": 51500,
           "day": 1,
           "category": "Housing"
         },
@@ -543,8 +667,14 @@
           "category": "Phone & internet"
         },
         {
+          "name": "Spectrum internet share",
+          "amountCents": 2500,
+          "day": 12,
+          "category": "Phone & internet"
+        },
+        {
           "name": "Greenville Utilities Commission",
-          "amountCents": 3800,
+          "amountCents": 5200,
           "day": 18,
           "category": "Utilities",
           "variationPct": 25
@@ -563,12 +693,12 @@
           "category": "Groceries",
           "merchants": ["Food Lion", "Aldi", "Harris Teeter"],
           "perMonth": {
-            "min": 3,
-            "max": 5
+            "min": 4,
+            "max": 6
           },
           "amountCents": {
-            "min": 1549,
-            "max": 4204
+            "min": 1800,
+            "max": 4000
           },
           "cardShare": 60
         },
@@ -582,12 +712,12 @@
             "Christy's Europub"
           ],
           "perMonth": {
-            "min": 5,
-            "max": 9
+            "min": 8,
+            "max": 12
           },
           "amountCents": {
-            "min": 800,
-            "max": 2366
+            "min": 900,
+            "max": 2440
           },
           "cardShare": 70
         },
@@ -614,7 +744,7 @@
           "merchants": ["Sheetz", "Wawa"],
           "perMonth": {
             "min": 1,
-            "max": 2
+            "max": 3
           },
           "amountCents": {
             "min": 1500,
@@ -623,25 +753,75 @@
         },
         {
           "category": "Shopping",
-          "merchants": ["Amazon.com", "Target"],
+          "merchants": ["Amazon.com", "Target", "Goodwill"],
+          "perMonth": {
+            "min": 1,
+            "max": 2
+          },
+          "amountCents": {
+            "min": 800,
+            "max": 3000
+          },
+          "cardShare": 50
+        },
+        {
+          "category": "Fun",
+          "merchants": ["Greenville Grind climbing", "Regal Cinemas"],
+          "perMonth": {
+            "min": 0,
+            "max": 2
+          },
+          "amountCents": {
+            "min": 1000,
+            "max": 2500
+          },
+          "cardShare": 50
+        },
+        {
+          "category": "Personal care",
+          "merchants": ["Great Clips"],
           "perMonth": {
             "min": 0,
             "max": 1
           },
           "amountCents": {
-            "min": 800,
-            "max": 2500
+            "min": 1600,
+            "max": 2400
+          }
+        },
+        {
+          "category": "Health",
+          "merchants": ["CVS Pharmacy"],
+          "perMonth": {
+            "min": 0,
+            "max": 1
           },
-          "cardShare": 50
+          "amountCents": {
+            "min": 600,
+            "max": 2200
+          }
         }
       ],
       "events": [
+        {
+          "date": "2025-12-14",
+          "description": "TARGET CHRISTMAS GIFTS",
+          "amountCents": -9800,
+          "account": "card",
+          "category": "Gifts"
+        },
         {
           "date": "2025-12-19",
           "description": "DELTA AIR LINES WINTER BREAK",
           "amountCents": -26600,
           "account": "card",
           "category": "Travel"
+        },
+        {
+          "date": "2026-01-16",
+          "description": "ECU FIN AID REFUND",
+          "amountCents": 90000,
+          "category": "Other"
         },
         {
           "date": "2026-03-07",
@@ -734,10 +914,19 @@
           "amountCents": -25200,
           "account": "card",
           "category": "Travel"
+        },
+        {
+          "date": "2026-08-18",
+          "description": "ECU FIN AID REFUND",
+          "amountCents": 90000,
+          "category": "Other"
         }
       ],
       "retirement": {
-        "plan": "none"
+        "plan": "own",
+        "name": "FIDELITY ROTH IRA CONTRIBUTION",
+        "amountCents": 5000,
+        "day": 5
       }
     },
     {
@@ -747,7 +936,12 @@
       "summary": "Student living rent-free, bought a car outright in August, big Christmas, regular subscriptions, $470 every two weeks",
       "accounts": {
         "checking": {
-          "openingBalanceCents": 980000
+          "openingBalanceCents": 930000
+        },
+        "savings": {
+          "openingBalanceCents": 120000,
+          "monthlyTransferCents": 7500,
+          "transferDay": 25
         },
         "card": {
           "openingBalanceCents": 0,
@@ -775,6 +969,13 @@
           "amountCents": 4800,
           "day": 12,
           "category": "Phone & internet"
+        },
+        {
+          "name": "Household utilities share",
+          "amountCents": 4000,
+          "day": 5,
+          "category": "Utilities",
+          "variationPct": 20
         },
         {
           "name": "ECU parking permit",
@@ -823,16 +1024,29 @@
             "Chick-fil-A",
             "Jimmy John's",
             "Moe's Southwest Grill",
-            "Starbucks",
-            "Waffle House"
+            "Waffle House",
+            "Cookout"
           ],
           "perMonth": {
-            "min": 10,
-            "max": 18
+            "min": 9,
+            "max": 15
           },
           "amountCents": {
             "min": 900,
-            "max": 2380
+            "max": 2210
+          },
+          "cardShare": 80
+        },
+        {
+          "category": "Coffee",
+          "merchants": ["Starbucks", "Scullery Coffee"],
+          "perMonth": {
+            "min": 2,
+            "max": 6
+          },
+          "amountCents": {
+            "min": 500,
+            "max": 900
           },
           "cardShare": 80
         },
@@ -845,7 +1059,7 @@
           },
           "amountCents": {
             "min": 1800,
-            "max": 4675
+            "max": 4250
           },
           "cardShare": 80
         },
@@ -858,7 +1072,7 @@
           },
           "amountCents": {
             "min": 1200,
-            "max": 3825
+            "max": 3400
           },
           "cardShare": 100
         },
@@ -876,16 +1090,40 @@
         },
         {
           "category": "Shopping",
-          "merchants": ["Amazon.com", "Nike"],
+          "merchants": ["Amazon.com", "Nike", "Old Navy"],
           "perMonth": {
-            "min": 0,
+            "min": 1,
             "max": 2
           },
           "amountCents": {
             "min": 1500,
-            "max": 5100
+            "max": 4250
           },
           "cardShare": 100
+        },
+        {
+          "category": "Personal care",
+          "merchants": ["Sport Clips"],
+          "perMonth": {
+            "min": 0,
+            "max": 1
+          },
+          "amountCents": {
+            "min": 2000,
+            "max": 2800
+          }
+        },
+        {
+          "category": "Health",
+          "merchants": ["Walgreens"],
+          "perMonth": {
+            "min": 0,
+            "max": 1
+          },
+          "amountCents": {
+            "min": 800,
+            "max": 2500
+          }
         }
       ],
       "events": [
@@ -925,6 +1163,27 @@
           "category": "Gifts"
         },
         {
+          "date": "2026-03-14",
+          "description": "SPRING BREAK MYRTLE BEACH HOTEL",
+          "amountCents": -19200,
+          "account": "card",
+          "category": "Travel"
+        },
+        {
+          "date": "2026-05-02",
+          "description": "ETSY BIRTHDAY GIFT",
+          "amountCents": -3825,
+          "account": "card",
+          "category": "Gifts"
+        },
+        {
+          "date": "2026-06-27",
+          "description": "AIRBNB EMERALD ISLE",
+          "amountCents": -14400,
+          "account": "card",
+          "category": "Travel"
+        },
+        {
           "date": "2026-08-08",
           "description": "PIRATE AUTO SALES CAR PURCHASE",
           "amountCents": -780000,
@@ -949,12 +1208,6 @@
           "category": "Insurance"
         },
         {
-          "date": "2026-10-06",
-          "description": "PROGRESSIVE AUTO INSURANCE",
-          "amountCents": -9800,
-          "category": "Insurance"
-        },
-        {
           "date": "2026-08-14",
           "description": "SHEETZ FUEL",
           "amountCents": -4800,
@@ -969,7 +1222,8 @@
       ],
       "retirement": {
         "plan": "none"
-      }
+      },
+      "investing": []
     },
     {
       "key": "simon-mid",
@@ -978,7 +1232,12 @@
       "summary": "Student living rent-free, bought a car outright in August, big Christmas, regular subscriptions, $560 every two weeks",
       "accounts": {
         "checking": {
-          "openingBalanceCents": 1320000
+          "openingBalanceCents": 1280000
+        },
+        "savings": {
+          "openingBalanceCents": 200000,
+          "monthlyTransferCents": 10000,
+          "transferDay": 25
         },
         "card": {
           "openingBalanceCents": 0,
@@ -1006,6 +1265,13 @@
           "amountCents": 4800,
           "day": 12,
           "category": "Phone & internet"
+        },
+        {
+          "name": "Household utilities share",
+          "amountCents": 4000,
+          "day": 5,
+          "category": "Utilities",
+          "variationPct": 20
         },
         {
           "name": "ECU parking permit",
@@ -1054,16 +1320,29 @@
             "Chick-fil-A",
             "Jimmy John's",
             "Moe's Southwest Grill",
-            "Starbucks",
-            "Waffle House"
+            "Waffle House",
+            "Cookout"
           ],
           "perMonth": {
-            "min": 10,
-            "max": 18
+            "min": 9,
+            "max": 15
           },
           "amountCents": {
             "min": 900,
-            "max": 2800
+            "max": 2600
+          },
+          "cardShare": 80
+        },
+        {
+          "category": "Coffee",
+          "merchants": ["Starbucks", "Scullery Coffee"],
+          "perMonth": {
+            "min": 2,
+            "max": 6
+          },
+          "amountCents": {
+            "min": 500,
+            "max": 900
           },
           "cardShare": 80
         },
@@ -1076,7 +1355,7 @@
           },
           "amountCents": {
             "min": 1800,
-            "max": 5500
+            "max": 5000
           },
           "cardShare": 80
         },
@@ -1089,7 +1368,7 @@
           },
           "amountCents": {
             "min": 1200,
-            "max": 4500
+            "max": 4000
           },
           "cardShare": 100
         },
@@ -1107,16 +1386,40 @@
         },
         {
           "category": "Shopping",
-          "merchants": ["Amazon.com", "Nike"],
+          "merchants": ["Amazon.com", "Nike", "Old Navy"],
           "perMonth": {
-            "min": 0,
+            "min": 1,
             "max": 2
           },
           "amountCents": {
             "min": 1500,
-            "max": 6000
+            "max": 5000
           },
           "cardShare": 100
+        },
+        {
+          "category": "Personal care",
+          "merchants": ["Sport Clips"],
+          "perMonth": {
+            "min": 0,
+            "max": 1
+          },
+          "amountCents": {
+            "min": 2000,
+            "max": 2800
+          }
+        },
+        {
+          "category": "Health",
+          "merchants": ["Walgreens"],
+          "perMonth": {
+            "min": 0,
+            "max": 1
+          },
+          "amountCents": {
+            "min": 800,
+            "max": 2500
+          }
         }
       ],
       "events": [
@@ -1156,6 +1459,27 @@
           "category": "Gifts"
         },
         {
+          "date": "2026-03-14",
+          "description": "SPRING BREAK MYRTLE BEACH HOTEL",
+          "amountCents": -24000,
+          "account": "card",
+          "category": "Travel"
+        },
+        {
+          "date": "2026-05-02",
+          "description": "ETSY BIRTHDAY GIFT",
+          "amountCents": -4500,
+          "account": "card",
+          "category": "Gifts"
+        },
+        {
+          "date": "2026-06-27",
+          "description": "AIRBNB EMERALD ISLE",
+          "amountCents": -18000,
+          "account": "card",
+          "category": "Travel"
+        },
+        {
           "date": "2026-08-08",
           "description": "PIRATE AUTO SALES CAR PURCHASE",
           "amountCents": -1150000,
@@ -1180,12 +1504,6 @@
           "category": "Insurance"
         },
         {
-          "date": "2026-10-06",
-          "description": "PROGRESSIVE AUTO INSURANCE",
-          "amountCents": -11200,
-          "category": "Insurance"
-        },
-        {
           "date": "2026-08-14",
           "description": "SHEETZ FUEL",
           "amountCents": -4800,
@@ -1200,7 +1518,8 @@
       ],
       "retirement": {
         "plan": "none"
-      }
+      },
+      "investing": []
     },
     {
       "key": "simon-high",
@@ -1209,7 +1528,12 @@
       "summary": "Student living rent-free, bought a car outright in August, big Christmas, regular subscriptions, $680 every two weeks",
       "accounts": {
         "checking": {
-          "openingBalanceCents": 1750000
+          "openingBalanceCents": 1700000
+        },
+        "savings": {
+          "openingBalanceCents": 300000,
+          "monthlyTransferCents": 15000,
+          "transferDay": 25
         },
         "card": {
           "openingBalanceCents": 0,
@@ -1237,6 +1561,13 @@
           "amountCents": 4800,
           "day": 12,
           "category": "Phone & internet"
+        },
+        {
+          "name": "Household utilities share",
+          "amountCents": 4000,
+          "day": 5,
+          "category": "Utilities",
+          "variationPct": 20
         },
         {
           "name": "ECU parking permit",
@@ -1285,16 +1616,29 @@
             "Chick-fil-A",
             "Jimmy John's",
             "Moe's Southwest Grill",
-            "Starbucks",
-            "Waffle House"
+            "Waffle House",
+            "Cookout"
           ],
           "perMonth": {
-            "min": 10,
-            "max": 18
+            "min": 9,
+            "max": 15
           },
           "amountCents": {
             "min": 900,
-            "max": 3360
+            "max": 3120
+          },
+          "cardShare": 80
+        },
+        {
+          "category": "Coffee",
+          "merchants": ["Starbucks", "Scullery Coffee"],
+          "perMonth": {
+            "min": 2,
+            "max": 6
+          },
+          "amountCents": {
+            "min": 500,
+            "max": 900
           },
           "cardShare": 80
         },
@@ -1307,7 +1651,7 @@
           },
           "amountCents": {
             "min": 1800,
-            "max": 6600
+            "max": 6000
           },
           "cardShare": 80
         },
@@ -1320,7 +1664,7 @@
           },
           "amountCents": {
             "min": 1200,
-            "max": 5400
+            "max": 4800
           },
           "cardShare": 100
         },
@@ -1338,16 +1682,40 @@
         },
         {
           "category": "Shopping",
-          "merchants": ["Amazon.com", "Nike"],
+          "merchants": ["Amazon.com", "Nike", "Old Navy"],
           "perMonth": {
-            "min": 0,
+            "min": 1,
             "max": 2
           },
           "amountCents": {
             "min": 1500,
-            "max": 7200
+            "max": 6000
           },
           "cardShare": 100
+        },
+        {
+          "category": "Personal care",
+          "merchants": ["Sport Clips"],
+          "perMonth": {
+            "min": 0,
+            "max": 1
+          },
+          "amountCents": {
+            "min": 2000,
+            "max": 2800
+          }
+        },
+        {
+          "category": "Health",
+          "merchants": ["Walgreens"],
+          "perMonth": {
+            "min": 0,
+            "max": 1
+          },
+          "amountCents": {
+            "min": 800,
+            "max": 2500
+          }
         }
       ],
       "events": [
@@ -1387,6 +1755,27 @@
           "category": "Gifts"
         },
         {
+          "date": "2026-03-14",
+          "description": "SPRING BREAK MYRTLE BEACH HOTEL",
+          "amountCents": -31200,
+          "account": "card",
+          "category": "Travel"
+        },
+        {
+          "date": "2026-05-02",
+          "description": "ETSY BIRTHDAY GIFT",
+          "amountCents": -5400,
+          "account": "card",
+          "category": "Gifts"
+        },
+        {
+          "date": "2026-06-27",
+          "description": "AIRBNB EMERALD ISLE",
+          "amountCents": -23400,
+          "account": "card",
+          "category": "Travel"
+        },
+        {
           "date": "2026-08-08",
           "description": "PIRATE AUTO SALES CAR PURCHASE",
           "amountCents": -1550000,
@@ -1411,12 +1800,6 @@
           "category": "Insurance"
         },
         {
-          "date": "2026-10-06",
-          "description": "PROGRESSIVE AUTO INSURANCE",
-          "amountCents": -12800,
-          "category": "Insurance"
-        },
-        {
           "date": "2026-08-14",
           "description": "SHEETZ FUEL",
           "amountCents": -4800,
@@ -1431,16 +1814,28 @@
       ],
       "retirement": {
         "plan": "none"
-      }
+      },
+      "investing": [
+        {
+          "name": "FIDELITY BROKERAGE TRANSFER",
+          "amountCents": 4000,
+          "day": 27
+        }
+      ]
     },
     {
       "key": "muhammad-low",
       "name": "Out-of-state contractor, lower pay",
       "persona": "student",
-      "summary": "Out-of-state student paying tuition in installments, weekly contract pay $200, eats out a lot, drives a lot, low rent $300",
+      "summary": "Out-of-state student paying tuition in installments, weekly contract pay $220, eats out a lot, drives a lot, low rent $360",
       "accounts": {
         "checking": {
-          "openingBalanceCents": 390000
+          "openingBalanceCents": 500000
+        },
+        "savings": {
+          "openingBalanceCents": 30000,
+          "monthlyTransferCents": 2500,
+          "transferDay": 8
         },
         "card": {
           "openingBalanceCents": 0,
@@ -1454,7 +1849,7 @@
       "income": [
         {
           "payer": "UPWORK CONTRACT PAYMENT",
-          "amountCents": 20000,
+          "amountCents": 22000,
           "variationPct": 22,
           "schedule": {
             "every": "week",
@@ -1465,9 +1860,16 @@
       "bills": [
         {
           "name": "University Suites shared room",
-          "amountCents": 30000,
+          "amountCents": 36000,
           "day": 1,
           "category": "Housing"
+        },
+        {
+          "name": "Greenville Utilities Commission",
+          "amountCents": 4200,
+          "day": 16,
+          "category": "Utilities",
+          "variationPct": 25
         },
         {
           "name": "T-Mobile",
@@ -1532,8 +1934,8 @@
             "Bojangles"
           ],
           "perMonth": {
-            "min": 16,
-            "max": 26
+            "min": 14,
+            "max": 22
           },
           "amountCents": {
             "min": 700,
@@ -1545,21 +1947,21 @@
           "category": "Transport",
           "merchants": ["Sheetz", "Wawa", "Exxon", "QuikTrip"],
           "perMonth": {
-            "min": 6,
-            "max": 9
+            "min": 5,
+            "max": 8
           },
           "amountCents": {
-            "min": 2500,
-            "max": 4500
+            "min": 2400,
+            "max": 4200
           },
           "cardShare": 30
         },
         {
           "category": "Groceries",
-          "merchants": ["Food Lion", "Walmart Supercenter"],
+          "merchants": ["Food Lion", "Walmart Supercenter", "Patel Brothers"],
           "perMonth": {
-            "min": 1,
-            "max": 3
+            "min": 2,
+            "max": 4
           },
           "amountCents": {
             "min": 1500,
@@ -1571,13 +1973,63 @@
           "merchants": ["Starbucks", "Dunkin'"],
           "perMonth": {
             "min": 3,
-            "max": 8
+            "max": 7
           },
           "amountCents": {
             "min": 400,
             "max": 800
           },
           "cardShare": 50
+        },
+        {
+          "category": "Shopping",
+          "merchants": ["Amazon.com", "Five Below", "Ross"],
+          "perMonth": {
+            "min": 1,
+            "max": 2
+          },
+          "amountCents": {
+            "min": 1000,
+            "max": 3500
+          },
+          "cardShare": 70
+        },
+        {
+          "category": "Fun",
+          "merchants": ["Dave & Buster's", "Steam"],
+          "perMonth": {
+            "min": 0,
+            "max": 2
+          },
+          "amountCents": {
+            "min": 1000,
+            "max": 3000
+          },
+          "cardShare": 70
+        },
+        {
+          "category": "Personal care",
+          "merchants": ["Fresh Cutz barbershop"],
+          "perMonth": {
+            "min": 1,
+            "max": 1
+          },
+          "amountCents": {
+            "min": 1800,
+            "max": 2500
+          }
+        },
+        {
+          "category": "Health",
+          "merchants": ["CVS Pharmacy"],
+          "perMonth": {
+            "min": 0,
+            "max": 1
+          },
+          "amountCents": {
+            "min": 600,
+            "max": 2000
+          }
         }
       ],
       "events": [
@@ -1653,6 +2105,13 @@
           "amountCents": -29000,
           "account": "card",
           "category": "Travel"
+        },
+        {
+          "date": "2026-03-19",
+          "description": "AMAZON.COM EID GIFTS",
+          "amountCents": -9000,
+          "account": "card",
+          "category": "Gifts"
         },
         {
           "date": "2026-05-08",
@@ -1670,10 +2129,15 @@
       "key": "muhammad-mid",
       "name": "Out-of-state contractor, middle pay",
       "persona": "student",
-      "summary": "Out-of-state student paying tuition in installments, weekly contract pay $265, eats out a lot, drives a lot, low rent $340",
+      "summary": "Out-of-state student paying tuition in installments, weekly contract pay $285, eats out a lot, drives a lot, low rent $400",
       "accounts": {
         "checking": {
-          "openingBalanceCents": 310000
+          "openingBalanceCents": 470000
+        },
+        "savings": {
+          "openingBalanceCents": 60000,
+          "monthlyTransferCents": 4500,
+          "transferDay": 8
         },
         "card": {
           "openingBalanceCents": 0,
@@ -1687,7 +2151,7 @@
       "income": [
         {
           "payer": "UPWORK CONTRACT PAYMENT",
-          "amountCents": 26500,
+          "amountCents": 28500,
           "variationPct": 22,
           "schedule": {
             "every": "week",
@@ -1698,9 +2162,16 @@
       "bills": [
         {
           "name": "University Suites shared room",
-          "amountCents": 34000,
+          "amountCents": 40000,
           "day": 1,
           "category": "Housing"
+        },
+        {
+          "name": "Greenville Utilities Commission",
+          "amountCents": 4200,
+          "day": 16,
+          "category": "Utilities",
+          "variationPct": 25
         },
         {
           "name": "T-Mobile",
@@ -1765,8 +2236,8 @@
             "Bojangles"
           ],
           "perMonth": {
-            "min": 16,
-            "max": 26
+            "min": 14,
+            "max": 22
           },
           "amountCents": {
             "min": 700,
@@ -1778,21 +2249,21 @@
           "category": "Transport",
           "merchants": ["Sheetz", "Wawa", "Exxon", "QuikTrip"],
           "perMonth": {
-            "min": 6,
-            "max": 9
+            "min": 5,
+            "max": 8
           },
           "amountCents": {
-            "min": 2500,
-            "max": 4500
+            "min": 2400,
+            "max": 4200
           },
           "cardShare": 30
         },
         {
           "category": "Groceries",
-          "merchants": ["Food Lion", "Walmart Supercenter"],
+          "merchants": ["Food Lion", "Walmart Supercenter", "Patel Brothers"],
           "perMonth": {
-            "min": 1,
-            "max": 3
+            "min": 2,
+            "max": 4
           },
           "amountCents": {
             "min": 1500,
@@ -1804,13 +2275,63 @@
           "merchants": ["Starbucks", "Dunkin'"],
           "perMonth": {
             "min": 3,
-            "max": 8
+            "max": 7
           },
           "amountCents": {
             "min": 400,
             "max": 800
           },
           "cardShare": 50
+        },
+        {
+          "category": "Shopping",
+          "merchants": ["Amazon.com", "Five Below", "Ross"],
+          "perMonth": {
+            "min": 1,
+            "max": 2
+          },
+          "amountCents": {
+            "min": 1000,
+            "max": 3500
+          },
+          "cardShare": 70
+        },
+        {
+          "category": "Fun",
+          "merchants": ["Dave & Buster's", "Steam"],
+          "perMonth": {
+            "min": 0,
+            "max": 2
+          },
+          "amountCents": {
+            "min": 1000,
+            "max": 3000
+          },
+          "cardShare": 70
+        },
+        {
+          "category": "Personal care",
+          "merchants": ["Fresh Cutz barbershop"],
+          "perMonth": {
+            "min": 1,
+            "max": 1
+          },
+          "amountCents": {
+            "min": 1800,
+            "max": 2500
+          }
+        },
+        {
+          "category": "Health",
+          "merchants": ["CVS Pharmacy"],
+          "perMonth": {
+            "min": 0,
+            "max": 1
+          },
+          "amountCents": {
+            "min": 600,
+            "max": 2000
+          }
         }
       ],
       "events": [
@@ -1886,6 +2407,13 @@
           "amountCents": -29000,
           "account": "card",
           "category": "Travel"
+        },
+        {
+          "date": "2026-03-19",
+          "description": "AMAZON.COM EID GIFTS",
+          "amountCents": -9000,
+          "account": "card",
+          "category": "Gifts"
         },
         {
           "date": "2026-05-08",
@@ -1903,10 +2431,15 @@
       "key": "muhammad-high",
       "name": "Out-of-state contractor, higher pay",
       "persona": "student",
-      "summary": "Out-of-state student paying tuition in installments, weekly contract pay $340, eats out a lot, drives a lot, low rent $380",
+      "summary": "Out-of-state student paying tuition in installments, weekly contract pay $340, eats out a lot, drives a lot, low rent $440",
       "accounts": {
         "checking": {
-          "openingBalanceCents": 280000
+          "openingBalanceCents": 400000
+        },
+        "savings": {
+          "openingBalanceCents": 90000,
+          "monthlyTransferCents": 7000,
+          "transferDay": 8
         },
         "card": {
           "openingBalanceCents": 0,
@@ -1931,9 +2464,16 @@
       "bills": [
         {
           "name": "University Suites shared room",
-          "amountCents": 38000,
+          "amountCents": 44000,
           "day": 1,
           "category": "Housing"
+        },
+        {
+          "name": "Greenville Utilities Commission",
+          "amountCents": 4200,
+          "day": 16,
+          "category": "Utilities",
+          "variationPct": 25
         },
         {
           "name": "T-Mobile",
@@ -1998,8 +2538,8 @@
             "Bojangles"
           ],
           "perMonth": {
-            "min": 16,
-            "max": 26
+            "min": 14,
+            "max": 22
           },
           "amountCents": {
             "min": 700,
@@ -2011,21 +2551,21 @@
           "category": "Transport",
           "merchants": ["Sheetz", "Wawa", "Exxon", "QuikTrip"],
           "perMonth": {
-            "min": 6,
-            "max": 9
+            "min": 5,
+            "max": 8
           },
           "amountCents": {
-            "min": 2500,
-            "max": 4500
+            "min": 2400,
+            "max": 4200
           },
           "cardShare": 30
         },
         {
           "category": "Groceries",
-          "merchants": ["Food Lion", "Walmart Supercenter"],
+          "merchants": ["Food Lion", "Walmart Supercenter", "Patel Brothers"],
           "perMonth": {
-            "min": 1,
-            "max": 3
+            "min": 2,
+            "max": 4
           },
           "amountCents": {
             "min": 1500,
@@ -2037,13 +2577,63 @@
           "merchants": ["Starbucks", "Dunkin'"],
           "perMonth": {
             "min": 3,
-            "max": 8
+            "max": 7
           },
           "amountCents": {
             "min": 400,
             "max": 800
           },
           "cardShare": 50
+        },
+        {
+          "category": "Shopping",
+          "merchants": ["Amazon.com", "Five Below", "Ross"],
+          "perMonth": {
+            "min": 1,
+            "max": 2
+          },
+          "amountCents": {
+            "min": 1000,
+            "max": 3500
+          },
+          "cardShare": 70
+        },
+        {
+          "category": "Fun",
+          "merchants": ["Dave & Buster's", "Steam"],
+          "perMonth": {
+            "min": 0,
+            "max": 2
+          },
+          "amountCents": {
+            "min": 1000,
+            "max": 3000
+          },
+          "cardShare": 70
+        },
+        {
+          "category": "Personal care",
+          "merchants": ["Fresh Cutz barbershop"],
+          "perMonth": {
+            "min": 1,
+            "max": 1
+          },
+          "amountCents": {
+            "min": 1800,
+            "max": 2500
+          }
+        },
+        {
+          "category": "Health",
+          "merchants": ["CVS Pharmacy"],
+          "perMonth": {
+            "min": 0,
+            "max": 1
+          },
+          "amountCents": {
+            "min": 600,
+            "max": 2000
+          }
         }
       ],
       "events": [
@@ -2119,6 +2709,13 @@
           "amountCents": -29000,
           "account": "card",
           "category": "Travel"
+        },
+        {
+          "date": "2026-03-19",
+          "description": "AMAZON.COM EID GIFTS",
+          "amountCents": -9000,
+          "account": "card",
+          "category": "Gifts"
         },
         {
           "date": "2026-05-08",
