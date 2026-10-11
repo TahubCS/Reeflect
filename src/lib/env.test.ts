@@ -68,6 +68,50 @@ describe("parseEnv", () => {
     ).toBe("ba_key");
   });
 
+  it("treats the Resend key and sender as optional off Vercel", () => {
+    const env = parseEnv({
+      DATABASE_URL: POOLED,
+      ...AUTH,
+      RESEND_API_KEY: "",
+      EMAIL_FROM: " ",
+    });
+
+    expect(env.RESEND_API_KEY).toBe(undefined);
+    expect(env.EMAIL_FROM).toBe(undefined);
+  });
+
+  it("requires the Resend key and sender on Vercel, without echoing values", () => {
+    const attempt = (): unknown =>
+      parseEnv({
+        DATABASE_URL: POOLED,
+        ...AUTH,
+        VERCEL: "1",
+        EMAIL_FROM: "Reeflect <no-reply@secret-domain.test>",
+      });
+
+    expect(attempt).toThrow(/RESEND_API_KEY: required on Vercel/);
+    expect(attempt).not.toThrow(/EMAIL_FROM/);
+    expect(attempt).not.toThrow(/secret-domain/);
+    expect(() =>
+      parseEnv({ DATABASE_URL: POOLED, ...AUTH, VERCEL: "1" }),
+    ).toThrow(/EMAIL_FROM: required on Vercel/);
+    expect(
+      parseEnv({
+        DATABASE_URL: POOLED,
+        ...AUTH,
+        VERCEL: "1",
+        RESEND_API_KEY: "re_key",
+        EMAIL_FROM: "Reeflect <no-reply@example.test>",
+      }).RESEND_API_KEY,
+    ).toBe("re_key");
+  });
+
+  it("requires a sender whenever the Resend key is set", () => {
+    expect(() =>
+      parseEnv({ DATABASE_URL: POOLED, ...AUTH, RESEND_API_KEY: "re_key" }),
+    ).toThrow(/EMAIL_FROM: required when RESEND_API_KEY is set/);
+  });
+
   it("treats the agent token as optional, empty as unset, and short as invalid", () => {
     const base = { DATABASE_URL: POOLED, ...AUTH };
     const token = "agent-token-0123456789-0123456789-abc";

@@ -29,6 +29,13 @@
       "when": 1791672276538,
       "tag": "0003_phone_linking",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791677777544,
+      "tag": "0004_verify_existing_users",
+      "breakpoints": true
     }
   ]
 }

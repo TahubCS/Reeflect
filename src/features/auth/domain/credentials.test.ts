@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   authFailureMessage,
+  parseEmailOnly,
+  parseNewPassword,
   parseSignIn,
   parseSignUp,
   prefillEmail,
+  resetToken,
+  verificationLinkMessage,
 } from "./credentials";
 
 describe("prefillEmail", () => {
@@ -92,6 +96,18 @@ describe("parseSignIn", () => {
 });
 
 describe("authFailureMessage", () => {
+  it("asks an unverified user to confirm their email (ADR-052)", () => {
+    expect(
+      authFailureMessage({ status: 403, code: "EMAIL_NOT_VERIFIED" }),
+    ).toBe("Confirm your email first. We've sent a new link to your inbox.");
+  });
+
+  it("explains an expired reset link", () => {
+    expect(authFailureMessage({ status: 400, code: "INVALID_TOKEN" })).toBe(
+      "That reset link has expired. Ask for a new one.",
+    );
+  });
+
   it("explains a wrong email or password", () => {
     expect(
       authFailureMessage({ status: 401, code: "INVALID_EMAIL_OR_PASSWORD" }),
@@ -120,5 +136,68 @@ describe("authFailureMessage", () => {
     expect(authFailureMessage({})).toBe(
       "Something went wrong. Please try again.",
     );
+  });
+});
+
+describe("parseEmailOnly", () => {
+  it("accepts an email address", () => {
+    expect(parseEmailOnly({ email: "sam@example.test" })).toEqual({
+      ok: true,
+      value: { email: "sam@example.test" },
+    });
+  });
+
+  it("explains a missing or malformed address", () => {
+    expect(parseEmailOnly({ email: "nope" })).toEqual({
+      ok: false,
+      errors: { email: "Enter an email address like name@example.com." },
+    });
+  });
+});
+
+describe("parseNewPassword", () => {
+  it("accepts 8 to 128 characters", () => {
+    expect(parseNewPassword({ password: "a".repeat(8) }).ok).toBe(true);
+    expect(parseNewPassword({ password: "a".repeat(128) }).ok).toBe(true);
+  });
+
+  it("rejects a password that is too short or too long", () => {
+    expect(parseNewPassword({ password: "short" })).toEqual({
+      ok: false,
+      errors: { password: "Use at least 8 characters." },
+    });
+    expect(parseNewPassword({ password: "a".repeat(129) })).toEqual({
+      ok: false,
+      errors: { password: "Use 128 characters or fewer." },
+    });
+  });
+});
+
+describe("resetToken", () => {
+  it("keeps a URL-safe token", () => {
+    expect(resetToken("AbC-123_xyz")).toBe("AbC-123_xyz");
+  });
+
+  it("ignores a missing, repeated, empty or odd token", () => {
+    expect(resetToken(undefined)).toBeNull();
+    expect(resetToken(["a", "b"])).toBeNull();
+    expect(resetToken("")).toBeNull();
+    expect(resetToken("<script>")).toBeNull();
+    expect(resetToken("a".repeat(257))).toBeNull();
+  });
+});
+
+describe("verificationLinkMessage", () => {
+  it("says an expired link has expired", () => {
+    expect(verificationLinkMessage("TOKEN_EXPIRED")).toBe(
+      "That link has expired. Sign in and we'll send you a new one.",
+    );
+  });
+
+  it("gives a general message for any other code", () => {
+    const general =
+      "That link doesn't work any more. Sign in and we'll send you a new one.";
+    expect(verificationLinkMessage("INVALID_TOKEN")).toBe(general);
+    expect(verificationLinkMessage(["x"])).toBe(general);
   });
 });

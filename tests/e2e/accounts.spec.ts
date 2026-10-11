@@ -1,5 +1,5 @@
 import { type Browser, type Page, expect, test } from "@playwright/test";
-import { hydrated, ownClientAddress } from "./support";
+import { hydrated, signUpVerified } from "./support";
 
 // F-03 (TEST-07): add each account type, edit, delete with confirmation.
 // Each test signs up its own user, so its Personal workspace starts empty.
@@ -9,15 +9,10 @@ async function newUserPage(
   baseURL: string | undefined,
 ): Promise<Page> {
   const context = await browser.newContext();
-  const response = await context.request.post("/api/auth/sign-up/email", {
-    headers: { origin: baseURL ?? "", ...ownClientAddress() },
-    data: {
-      name: "Accounts Tester",
-      email: `e2e-accounts-${crypto.randomUUID()}@example.test`,
-      password: "correct-horse-battery-staple",
-    },
+  await signUpVerified(context.request, baseURL, {
+    name: "Accounts Tester",
+    email: `e2e-accounts-${crypto.randomUUID()}@example.test`,
   });
-  expect(response.status()).toBe(200);
   return context.newPage();
 }
 
