@@ -50,6 +50,13 @@
       "when": 1791687774339,
       "tag": "0006_import_batch",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791690029878,
+      "tag": "0007_import_batch_optional_balances",
+      "breakpoints": true
     }
   ]
 }

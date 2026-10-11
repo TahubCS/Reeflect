@@ -2,9 +2,9 @@ import "server-only";
 import { readFileSync } from "node:fs";
 import type { EntryPoint } from "@/lib/auth/entry-point";
 import {
-  commitPdfImportAction,
+  commitImportAction,
   discardImportAction,
-  previewPdfImportAction,
+  previewImportAction,
 } from "./actions";
 
 const STATEMENT = new URL(
@@ -30,19 +30,19 @@ function confirmForm(): FormData {
   return form;
 }
 
-/** Every F-06 server action, for the isolation matrix (TEST-06). */
+/** Every F-05 and F-06 server action, for the isolation matrix (TEST-06). */
 export const IMPORT_ENTRY_POINTS: EntryPoint[] = [
   {
-    name: "previewPdfImportAction",
+    name: "previewImportAction",
     minimumRole: "editor",
     call: ({ workspaceId, accountId }) =>
-      previewPdfImportAction(workspaceId, {}, previewForm(accountId)),
+      previewImportAction(workspaceId, {}, previewForm(accountId)),
   },
   {
-    name: "commitPdfImportAction",
+    name: "commitImportAction",
     minimumRole: "editor",
     call: ({ workspaceId, importBatchId }) =>
-      commitPdfImportAction(workspaceId, importBatchId, {}, confirmForm()),
+      commitImportAction(workspaceId, importBatchId, {}, confirmForm()),
   },
   {
     name: "discardImportAction",

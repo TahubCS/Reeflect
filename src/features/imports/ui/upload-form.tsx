@@ -14,7 +14,10 @@ type Props = {
   accounts: { id: string; label: string }[];
 };
 
-/** Choose an account and a PDF statement; the server reads and checks it. */
+/**
+ * Choose an account and a statement, a PDF or a CSV export; the server
+ * reads and checks it.
+ */
 export function UploadForm({ action, accounts }: Props) {
   const [state, formAction, pending] = useActionState(action, {});
   const accountId = useId();
@@ -38,18 +41,19 @@ export function UploadForm({ action, accounts }: Props) {
           </select>
         </div>
         <div className={styles.field}>
-          <label htmlFor={fileId}>Statement (PDF)</label>
+          <label htmlFor={fileId}>Statement (PDF or CSV)</label>
           <input
             id={fileId}
             name="statement"
             type="file"
-            accept="application/pdf,.pdf"
+            accept="application/pdf,.pdf,text/csv,.csv"
             required
             aria-describedby={`${fileId}-hint`}
           />
           <span id={`${fileId}-hint`} className={styles.hint}>
-            A Capital One 360 checking or savings statement, downloaded as a
-            PDF. The file itself isn’t kept.
+            From Capital One: a 360 checking or savings statement as a PDF, or
+            the transactions downloaded as a CSV from a 360 account or a credit
+            card. The file itself isn’t kept.
           </span>
         </div>
         <div className={styles.actions}>

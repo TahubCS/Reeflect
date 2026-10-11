@@ -1,4 +1,5 @@
 import { parseDecimalString, toDecimalString } from "@/lib/money";
+import { readRecords } from "./csv-records";
 import type { StatementRow } from "./statement";
 
 // The canonical CSV every import stores (ADR-053): one row per transaction,
@@ -28,48 +29,11 @@ export function toCsv(rows: readonly StatementRow[]): string {
   return [CSV_HEADER, ...lines].join("\r\n") + "\r\n";
 }
 
-/** Splits RFC 4180 text into records of fields. Null on unbalanced quotes. */
-function records(text: string): string[][] | null {
-  const out: string[][] = [];
-  let record: string[] = [];
-  let field = "";
-  let quoted = false;
-  let i = 0;
-  while (i < text.length) {
-    const char = text[i]!;
-    if (quoted) {
-      if (char === '"' && text[i + 1] === '"') {
-        field += '"';
-        i += 2;
-        continue;
-      }
-      if (char === '"') quoted = false;
-      else field += char;
-      i += 1;
-      continue;
-    }
-    if (char === '"' && field === "") quoted = true;
-    else if (char === ",") {
-      record.push(field);
-      field = "";
-    } else if (char === "\r" && text[i + 1] === "\n") {
-      record.push(field);
-      out.push(record);
-      record = [];
-      field = "";
-      i += 1;
-    } else field += char;
-    i += 1;
-  }
-  if (quoted || field !== "" || record.length > 0) return null;
-  return out;
-}
-
 export type CsvResult =
   { ok: true; rows: StatementRow[] } | { ok: false; error: string };
 
 export function parseCsv(text: string): CsvResult {
-  const parsed = records(text);
+  const parsed = readRecords(text, "canonical");
   if (!parsed) return { ok: false, error: "The file does not end cleanly." };
   const [header, ...body] = parsed;
   if (header?.join(",") !== CSV_HEADER) {

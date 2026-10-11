@@ -11,16 +11,26 @@ import {
   runChecks,
 } from "../domain/checks";
 import { parseCsv, toCsv } from "../domain/csv";
+import { readRecords } from "../domain/csv-records";
 import { type StatementSummary, summarize } from "../domain/preview";
 import { fingerprints } from "../domain/fingerprint";
-import { parseStatement } from "../domain/parse";
+import { parseCsvStatement, parseStatement } from "../domain/parse";
 import type {
   ParseFailure,
+  ParseResult,
   ParsedStatement,
   StatementRow,
 } from "../domain/statement";
 import { toLines } from "../domain/text";
-import { FILE_PROBLEM_TEXT, checkPdfBytes } from "../domain/validate-file";
+import {
+  FILE_PROBLEM_TEXT,
+  type FileProblem,
+  MAX_CSV_ROWS,
+  type StatementFormat,
+  checkCsvBytes,
+  checkPdfBytes,
+  statementFormat,
+} from "../domain/validate-file";
 import { extractPdfText } from "./extract-pdf";
 import {
   type BatchSummary,
@@ -33,10 +43,12 @@ import {
   savePreview,
 } from "./repository";
 
-// ARCH-05 for PDF statements: preview (read, check, store the CSV, save a
-// `previewed` batch) and commit (read the stored CSV back, check it again,
-// add the rows). Callers authorize first; every function takes the
-// verified workspace id. Logs carry ids only, never statement contents.
+// ARCH-05 for PDF statements and CSV exports: preview (read, check, store
+// the canonical CSV, save a `previewed` batch) and commit (read the stored
+// CSV back, check it again, add the rows). Only reading differs between the
+// two formats; everything from the parsed statement on is shared. Callers
+// authorize first; every function takes the verified workspace id. Logs
+// carry ids only, never statement contents.
 
 const sha256 = (data: Uint8Array | string) =>
   createHash("sha256").update(data).digest("hex");
@@ -56,17 +68,53 @@ export type PreviewOutcome =
   | { kind: "blocked"; summary: StatementSummary; checks: Check[] }
   | { kind: "saved"; batchId: string };
 
-function parseProblem(failure: ParseFailure, maskLast4: string | null): string {
+function parseProblem(
+  failure: ParseFailure,
+  maskLast4: string | null,
+  format: StatementFormat,
+): string {
   if (failure.reason === "unsupported") return failure.detail;
+  const file = format === "pdf" ? "statement" : "CSV";
   if (failure.reason === "no-account") {
     const found = failure.accountsFound
       .map((last4) => `••${last4}`)
       .join(" and ");
     return maskLast4 === null
-      ? `This statement covers ${found}. Add the account's last 4 digits on the Accounts page, so the right one can be read.`
-      : `This statement covers ${found}, but the chosen account ends in ${maskLast4}. Choose the matching account.`;
+      ? `This ${file} covers ${found}. Add the account's last 4 digits on the Accounts page, so the right one can be read.`
+      : `This ${file} covers ${found}, but the chosen account ends in ${maskLast4}. Choose the matching account.`;
   }
-  return `${failure.detail} If this is a Capital One 360 statement, it may use a layout that can't be read yet.`;
+  return format === "pdf"
+    ? `${failure.detail} If this is a Capital One 360 statement, it may use a layout that can't be read yet.`
+    : `${failure.detail} If this is a Capital One CSV export, it may use columns that can't be read yet.`;
+}
+
+type Reading =
+  { ok: true; result: ParseResult } | { ok: false; problem: FileProblem };
+
+async function readPdf(
+  bytes: Uint8Array,
+  maskLast4: string | null,
+): Promise<Reading> {
+  const fileProblem = checkPdfBytes(bytes);
+  if (fileProblem) return { ok: false, problem: fileProblem };
+  const extraction = await extractPdfText(bytes);
+  if (!extraction.ok) return { ok: false, problem: extraction.problem };
+  return {
+    ok: true,
+    result: parseStatement(toLines(extraction.items), maskLast4),
+  };
+}
+
+function readCsv(bytes: Uint8Array, maskLast4: string | null): Reading {
+  const decoded = checkCsvBytes(bytes);
+  if (!decoded.ok) return decoded;
+  const records = readRecords(decoded.text, "upload");
+  if (!records) return { ok: false, problem: "csv-unreadable" };
+  // The first record is the header.
+  if (records.length - 1 > MAX_CSV_ROWS) {
+    return { ok: false, problem: "too-many-rows" };
+  }
+  return { ok: true, result: parseCsvStatement(records, maskLast4) };
 }
 
 async function bestEffortDelete(
@@ -83,37 +131,77 @@ async function bestEffortDelete(
   }
 }
 
+/**
+ * Reads an uploaded PDF statement or CSV export, checks it, and saves a
+ * preview. `fileName` and `contentType` come from the upload and only pick
+ * the reader; a PDF is recognized by its bytes.
+ */
 export async function previewStatement(input: {
   workspaceId: string;
   accountId: string;
   userId: string;
   bytes: Uint8Array;
+  fileName?: string;
+  contentType?: string;
   store: ObjectStore;
 }): Promise<PreviewOutcome> {
-  const { workspaceId, accountId, store } = input;
+  const { workspaceId, accountId } = input;
   const account = await getAccount(workspaceId, accountId);
   if (!account)
     return { kind: "problem", message: "Choose one of your accounts." };
 
-  const fileProblem = checkPdfBytes(input.bytes);
-  if (fileProblem)
-    return { kind: "problem", message: FILE_PROBLEM_TEXT[fileProblem] };
-  // Only the hash of the PDF is kept (ADR-025); the bytes go out of scope
-  // when this function returns.
-  const fileSha256 = sha256(input.bytes);
-  const extraction = await extractPdfText(input.bytes);
-  if (!extraction.ok) {
-    return { kind: "problem", message: FILE_PROBLEM_TEXT[extraction.problem] };
+  if (input.bytes.length === 0) {
+    return { kind: "problem", message: FILE_PROBLEM_TEXT.missing };
   }
-
-  const parsed = parseStatement(toLines(extraction.items), account.maskLast4);
-  if (!parsed.ok) {
+  const format = statementFormat(
+    input.bytes,
+    input.fileName ?? "",
+    input.contentType ?? "",
+  );
+  if (!format) {
+    return { kind: "problem", message: FILE_PROBLEM_TEXT["unknown-type"] };
+  }
+  // Only the hash of the uploaded file is kept (ADR-025); the bytes go out
+  // of scope when this function returns.
+  const fileSha256 = sha256(input.bytes);
+  const reading =
+    format === "pdf"
+      ? await readPdf(input.bytes, account.maskLast4)
+      : readCsv(input.bytes, account.maskLast4);
+  if (!reading.ok) {
+    return { kind: "problem", message: FILE_PROBLEM_TEXT[reading.problem] };
+  }
+  if (!reading.result.ok) {
     return {
       kind: "problem",
-      message: parseProblem(parsed, account.maskLast4),
+      message: parseProblem(reading.result, account.maskLast4, format),
     };
   }
-  const { statement } = parsed;
+  return previewParsed({
+    workspaceId,
+    accountId,
+    userId: input.userId,
+    format,
+    fileSha256,
+    statement: reading.result.statement,
+    account,
+    store: input.store,
+  });
+}
+
+/** Checks a parsed statement and, unless a check blocks, saves a preview. */
+async function previewParsed(input: {
+  workspaceId: string;
+  accountId: string;
+  userId: string;
+  format: StatementFormat;
+  fileSha256: string;
+  statement: ParsedStatement;
+  account: NonNullable<Awaited<ReturnType<typeof getAccount>>>;
+  store: ObjectStore;
+}): Promise<PreviewOutcome> {
+  const { workspaceId, accountId, fileSha256, statement, account, store } =
+    input;
   const csv = toCsv(statement.rows);
   const rowFingerprints = fingerprints(accountId, statement.rows);
   const [existing, history] = await Promise.all([
@@ -145,6 +233,7 @@ export async function previewStatement(input: {
   try {
     saved = await savePreview(workspaceId, {
       id: batchId,
+      kind: input.format,
       accountId,
       createdBy: input.userId,
       fileSha256,
@@ -182,8 +271,9 @@ const CHANGED =
 
 /**
  * Reads a batch's CSV back from storage and checks it is the file the
- * preview stored: same SHA-256, readable, same number of rows, and its rows
- * still take the opening balance to the closing balance.
+ * preview stored: same SHA-256, readable, same number of rows, and, when
+ * the file had balances, its rows still take the opening balance to the
+ * closing balance.
  */
 export async function readStoredRows(
   batch: BatchSummary,
@@ -202,12 +292,18 @@ export async function readStoredRows(
   if (!parsed.ok || parsed.rows.length !== batch.rowsParsed) {
     return { ok: false, message: CHANGED };
   }
-  const difference = reconciliationDifference(
-    batch.openingBalanceCents,
-    parsed.rows.map((row) => row.amountCents),
-    batch.closingBalanceCents,
-  );
-  if (difference !== 0) return { ok: false, message: CHANGED };
+  const { openingBalanceCents: opening, closingBalanceCents: closing } = batch;
+  if (
+    opening !== null &&
+    closing !== null &&
+    reconciliationDifference(
+      opening,
+      parsed.rows.map((row) => row.amountCents),
+      closing,
+    ) !== 0
+  ) {
+    return { ok: false, message: CHANGED };
+  }
   return { ok: true, rows: parsed.rows };
 }
 

@@ -79,6 +79,7 @@ Rules:
 | ADR-051 | Phone linking: six digits, approved on the website (refines ADR-034) | Proposed |
 | ADR-052 | Email through Resend; verified email required | Proposed |
 | ADR-053 | Statement CSVs in Neon object storage (refines ADR-025) | Proposed |
+| ADR-054 | CSV import: Capital One exports in built-in formats (refines ADR-044) | Proposed |
 
 ---
 
@@ -504,7 +505,7 @@ Rules:
 
 ### ADR-044: Statement parsing: CSV and PDF, by code only
 
-- **Status:** Accepted (2026-10-10), decided by Muhammad. Supersedes ADR-011.
+- **Status:** Accepted (2026-10-10), decided by Muhammad. Supersedes ADR-011. Its CSV pipeline is refined by ADR-054
 - **Context:** ADR-011 left PDF import as a preview and planned an AI
   fallback for unknown layouts. Statement parsing is now one of the four main
   features (ADR-043), and the team wants every number to be read by code.
@@ -955,6 +956,55 @@ Rules:
   in the test bucket accumulate until the bucket is cleared. Vercel caps a request body at 4.5 MB,
   below ADR-044's 10 MB, so larger PDFs fail there until uploads go another
   way. A failed storage delete leaves an orphaned file, logged by id.
+
+### ADR-054: CSV import: Capital One exports in built-in formats (refines ADR-044)
+
+- **Status:** Proposed (2026-10-10), from Simon. **The team should confirm it.**
+- **Context:** ADR-044 has the user map a CSV's columns once per
+  institution (`csv_mapping`, ARCH-03). For HackNC only Capital One is
+  supported, as for PDFs, so a mapping screen would have one bank to map.
+  Capital One offers two exports: 360 checking and savings, with a balance
+  after every row, and credit card, with no balances.
+- **Decision:**
+  - **Built-in formats, no mapping screen yet.** The two Capital One
+    exports are recognized by their header names, in any column order
+    (`domain/templates/capital-one-csv.ts`). Any other CSV fails with
+    "Only Capital One CSV exports can be read for now". The mapping screen
+    and the `csv_mapping` table are deferred, not dropped.
+  - **One upload field for PDF and CSV.** A file starting with `%PDF-` is
+    read as a PDF; a `.csv` name or `text/csv` type is read as a CSV.
+    A CSV is at most 2 MB (under Vercel's 4.5 MB request cap) and 10,000
+    rows, UTF-8, with or without a byte order mark, with LF or CRLF line ends.
+  - **360 export:** the sign comes from Transaction Type (Debit is money
+    out). The row order is the one in which every balance equals the one
+    before it plus the row: the file's order or its reverse, since the
+    export lists newest first. If neither works, rows go by date and the
+    running-balance check blocks. Opening balance = first row's balance
+    minus its amount; closing balance = last row's balance. Reconciliation
+    then runs as for a PDF.
+  - **Card export:** Debit is negative and Credit positive (ADR-008); the
+    Posted Date is the date. The file has no balances, so `import_batch`'s
+    opening and closing balances are null (migration 0007),
+    `reconciliation` is `not_applicable` (ADR-010: "if running balance
+    column exists"), the balance checks are skipped, and committing never
+    changes the account's balance.
+  - **Identity:** the last 4 digits come from the Account Number or Card
+    No. column; the rest of the number is dropped, never stored or logged.
+    As with a PDF that covers several accounts, only the chosen account's
+    rows are read.
+  - Everything after parsing is the PDF pipeline: canonical CSV in the
+    `statements` bucket (ADR-053), the ADR-010 checks, preview, commit.
+    Transactions get `source = 'csv'`; `import_batch.kind` is `csv`.
+- **Alternatives considered:** the mapping screen now (works for every
+  bank, but more to build and test for one bank this weekend); refusing
+  card exports (no migration, but the most common Capital One download
+  would fail).
+- **Consequences:** Supporting another bank's CSV means writing another
+  format, or building the mapping screen. The column names come from
+  Capital One's documented exports, not from a real file in the repo:
+  check them against a real export (kept in a gitignored `private/`
+  folder). A PDF and a CSV of the same period only dedupe where their
+  descriptions match.
 
 ---
 

@@ -44,7 +44,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-02 Personal workspace | B | Simon Ormond | `feat/personal-workspace` | Personal workspace and `/w/[workspaceId]` done (HO-027); household later |
 | F-03 Financial accounts | A | Simon Ormond | `feat/financial-accounts` | Done: manual accounts, list, edit, delete (HO-030) |
 | F-04 Manual transactions | A | Simon Ormond | `feat/manual-transactions` | Built: add, edit, delete, list by day, account filter (HO-031); ADR-050 Proposed |
-| F-05 CSV import | A | Unassigned | — | Not started |
+| F-05 CSV import | A | Simon Ormond | `feat/csv-statement-import` | Built for Capital One 360 and credit-card CSV exports (HO-039, ADR-054 Proposed); no mapping screen yet |
 | F-06 PDF statement import (P0, ADR-044) | A | Simon Ormond | `feat/pdf-statement-import` | Built for Capital One 360 checking and savings (HO-038); CSV kept in Neon object storage (ADR-053 Proposed); needs `neon deploy` and Vercel vars |
 | F-08 Categorization | A | Codex | `feat/transaction-categorization` | Full feature implemented and verified (HO-037); PR #12 awaits merge |
 | F-09 Monthly budgets (P1) | A | Unassigned | — | Not started |
@@ -1833,3 +1833,73 @@ recommendation, not a decision.
   until Gemini answers (F-25).
 - The worker does not retry a failed send, and the app does not yet ignore
   a turn it has already seen.
+
+## HO-040: CSV import (F-05) for Capital One exports, through the PDF pipeline
+
+- **Date:** 2026-10-10 (EDT)
+- **Author:** Simon Ormond with Claude (Claude Code)
+- **Branch / PR:** `feat/csv-statement-import` / not opened
+
+### What changed
+- **ADR-054 (Proposed):** CSV import reads Capital One's two exports with
+  built-in formats, recognized by header names: 360 checking and savings
+  (a balance after every row) and credit card (no balances). There is no
+  column-mapping screen or `csv_mapping` table yet. ADR-044's status line
+  now says ADR-054 refines its CSV pipeline. **The team should confirm it.**
+- **Migration `0007_import_batch_optional_balances`:** `import_batch`'s
+  opening and closing balances can be null, for a card export.
+- **`src/features/imports/`:**
+  - `domain/csv-records.ts`: the RFC 4180 reader, taken out of `csv.ts`. Upload
+    mode accepts a BOM, LF or CRLF and blank lines; canonical mode is as
+    strict as before.
+  - `domain/templates/capital-one-csv.ts`:
+    - 360: the sign comes from Transaction Type, the row order from the
+      balance chain (the export lists newest first), and the opening
+      balance is worked out from the first row.
+    - Card: Debit is negative and Credit positive, and there are no
+      balances.
+    - Only the chosen account's rows are read, and only the last 4 digits
+      of the account number are kept.
+  - `ParsedStatement`: `accountType` became `accountTypes` (a 360 export can
+    be checking or savings), and the balances can be null.
+  - Checks: when a file has no balances, reconciliation, running balance
+    and continuity are skipped. `readStoredRows` re-reconciles only when
+    there are balances.
+  - Pipeline: `previewStatement` picks a PDF or CSV reader, and everything
+    from the parsed statement on is shared. `import_batch.kind` and
+    `transaction.source` are `csv` for these imports. A file without
+    balances never changes the account's balance.
+  - Actions were renamed to `previewImportAction` and `commitImportAction`.
+    A CSV is limited to 2 MB and 10,000 rows.
+  - UI:
+    - one field, "Statement (PDF or CSV)"
+    - "Not in this file" for missing balances, with a note
+    - no Balance column when there are none
+    - the waiting list names the format
+- `src/lib/money`: `parseExportAmount`, for plain export amounts with 0 to 2
+  decimals.
+- **Fixtures:** `tests/fixtures/csv/`, synthetic and hand-written.
+- **Tests:** `pnpm test:unit` (1115) and `pnpm test:e2e` (83, including the
+  new `csv-import.spec.ts`) pass. `pnpm lint`, `typecheck`, `build` and
+  `scan:bundle` pass. Storage tests ran against the `storage-tests` bucket.
+
+### What's next
+- Upload a **real Capital One CSV export** (360 and card) and check its
+  header names against ADR-054. Keep it in a gitignored
+  `tests/fixtures/**/private/` folder. Adjust the names in
+  `capital-one-csv.ts` if they differ.
+- `pnpm db:migrate:to production` for migration 0007 when this merges,
+  after HO-038's 0006.
+- Gemini reading the stored CSVs (ADR-053, ADR-019, ADR-040), the same
+  canonical file for PDF and CSV imports.
+- The mapping screen and `csv_mapping`, when another bank is needed.
+
+### Open problems
+- ADR-054 and ADR-053 are Proposed, not Accepted.
+- The column names come from Capital One's documented exports, not from a
+  real file.
+- A PDF and a CSV of the same period dedupe only where their descriptions
+  match, so importing both may add some rows twice.
+- A card export never updates the card's balance; it stays as typed.
+- Imported rows are not categorized or paired as transfers yet (F-08,
+  ADR-020): a card payment shows on both accounts.

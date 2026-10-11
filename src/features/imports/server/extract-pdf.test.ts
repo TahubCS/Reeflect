@@ -60,7 +60,7 @@ function checksFor(
     account: {
       institutionName: "Capital One",
       maskLast4: account.number.slice(-4),
-      type: statement.accountType ?? "checking",
+      type: statement.accountTypes[0] ?? "checking",
     },
     duplicateFile: false,
     duplicateRows: 0,
@@ -77,7 +77,7 @@ describe("Capital One fixtures", () => {
     expect(result.statement).toMatchObject({
       institution: "Capital One",
       productName: "360 Checking",
-      accountType: "checking",
+      accountTypes: ["checking"],
       accountLast4: "1234",
       periodStart: "2026-09-01",
       periodEnd: "2026-09-30",
@@ -104,7 +104,7 @@ describe("Capital One fixtures", () => {
     expect(first.ok && first.statement.rows).toEqual(expectedRows(checking!));
     const second = await read("capital-one-multipage.pdf", "5678");
     expect(second.ok && second.statement.rows).toEqual(expectedRows(savings!));
-    expect(second.ok && second.statement.accountType).toBe("savings");
+    expect(second.ok && second.statement.accountTypes).toEqual(["savings"]);
   });
 
   it("blocks the statement that is off by a cent and shows the difference", async () => {

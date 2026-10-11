@@ -68,7 +68,7 @@ when coverage is already met.
 | Recurring (ADR-014) | Three monthly charges → subscription; three grocery visits at random intervals → no subscription; price change beyond ±15% flagged; weekly cadence; manual mark |
 | Transfers (ADR-020) | Checking → card payment pairs and is excluded from spending; same amount but more than 3 days apart does not pair; two candidates for one transaction pairs only once; unpairing |
 | Import guardrails (ADR-010) | Each check in the ADR-010 table passes and fails; nothing written when any blocking check fails; duplicate file; overlapping periods dedupe; reconciliation off by $0.01 blocks |
-| CSV parsing | Each sign convention; date formats; extra header rows; trailing blank lines; quoted commas; UTF-8 BOM |
+| CSV parsing (ADR-054) | Each sign convention (360 Debit/Credit type, card Debit/Credit columns); date formats; row order from the balance chain; trailing blank lines; quoted commas and quotes; UTF-8 BOM; LF and CRLF; wrong account and multi-account exports; other banks fail clearly. Fixtures in `tests/fixtures/csv/` |
 | PDF parsing (ADR-044) | Each supported template against fixture PDFs; encrypted PDF rejected; image-only PDF rejected; wrong-bank PDF blocked by identity check |
 | Nessie mapping (ADR-033) | `fromDollarNumber`: 12.1 → 1210, 0.1 + 0.2 style inputs, 19.999 rejected, negative and zero amounts; purchase on a credit-card account is negative; deposit positive; transfer pairs; bill → `recurring_series` kind `bill` with lender due date; loan → `liability`; re-sync creates no duplicates (external id) |
 | Nessie client | API key never appears in thrown errors or log output (spy on logger with a failing request); every purchase, deposit, withdrawal and transfer is sent with `status`; dates that are not real `YYYY-MM-DD` days are rejected before sending; amounts with cents are rejected for everything except bills; a 400 on one account's list skips that account only (ADR-048) |
@@ -125,7 +125,7 @@ when coverage is already met.
 | `workspaces.spec.ts` | Personal workspace exists after sign-up; create household; invite link; second user joins with correct role; switching workspaces changes the calendar |
 | `accounts.spec.ts` | Add each account type; edit; delete with confirmation |
 | `categorization.spec.ts` | Categorize a transaction and save a rule; existing/later matches; manual Uncategorized and return to automatic; edit priority/category and delete rule; rename category; invalid input; viewer/stranger access; pagination; 360px dark/reduced-motion; failed-load recovery |
-| `csv-import.spec.ts` | Upload, map columns, preview, commit; duplicate upload blocked; wrong account blocked |
+| `csv-import.spec.ts` | Upload a 360 export, preview, commit; duplicate upload blocked; card export with no balances; wrong account blocked; other bank fails clearly. Column mapping when it is built |
 | `pdf-import.spec.ts` | Supported statement imports and reconciles; wrong bank blocked; unsupported layout fails clearly |
 | `nessie-live.spec.ts` | Tagged `@external`: against the real Nessie sandbox, create a customer and a purchase, sync, verify the transaction appears |
 | `worker-idle.spec.ts` | Tagged `@external`, run manually before the event weekend: leave the deployed worker idle for 30 minutes, then send a text; a reply must arrive within 10 seconds (ADR-041) |
