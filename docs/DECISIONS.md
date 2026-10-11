@@ -91,11 +91,13 @@ Rules:
 | ADR-062 | A text that confirms what the user just did is not a proactive message (refines ADR-038) | Proposed |
 | ADR-064 | Logging spending by text: code decides, asks when unsure, never guesses (refines ADR-035, ADR-040) | Proposed |
 | ADR-065 | The agent remembers one open question: which account a text's spending is for (refines ADR-064) | Proposed |
+| ADR-067 | Receipt photos: the model reads, code checks, the person confirms (refines ADR-035, ADR-065) | Proposed |
 | ADR-082 | Sample years in the developers' own accounts (exception to ADR-049) | Accepted |
 | ADR-083 | Ask the user to categorize large uncategorized payments (refines ADR-055, ADR-057) | Proposed |
 | ADR-084 | Reserved ADR and handoff numbers for each developer | Accepted |
 | ADR-102 | Planned transactions are kept apart from the ledger (refines ADR-042, ADR-050) | Proposed |
 | ADR-103 | Built-in category keywords when no saved rule matches (refines ADR-013) | Proposed |
+| ADR-104 | Quiet hours per user, in Eastern time; UNDO takes back the latest text change (refines ADR-038, ADR-064) | Proposed |
 
 ---
 
@@ -1941,6 +1943,97 @@ Rules:
     the first text, because the number reads as a second amount; its place
     in the list works.
 
+### ADR-067: Receipt photos: the model reads, code checks, the person confirms (refines ADR-035, ADR-065)
+
+- **Status:** Proposed (2026-10-11)
+- **Owner to confirm:** Muhammad Tahub Khatri
+- **Context:** ADR-035 lets Gemini read a receipt's total and merchant, as
+  long as nothing is saved before the person confirms. A photo of a receipt
+  is real data, and ADR-040 keeps real data away from the free-tier key.
+  The worker dropped photos without a word, and a text sent as a threaded
+  reply too. ADR-065 remembers one open question per phone.
+- **Decision:**
+  - **Off by default.** `AGENT_RECEIPT_PHOTOS=on` turns it on (decided by
+    Muhammad, 2026-10-11). Off, a photo gets a reply written by code that
+    asks for the amount by text, and no model is called. Tests and the
+    demo use generated receipts only (`tests/fixtures/receipts/`).
+  - **The worker relays one photo** as base64 inside the turn request, at
+    most 3,000,000 bytes, as JPEG, PNG, HEIC, HEIF or WebP. When it cannot
+    (too large, another kind of file, several photos, a failed download)
+    it says which, and the app writes the reply. It also forwards what a
+    threaded reply holds. The image is never stored or logged: not by the
+    worker, the app, or Google (`store: false`).
+  - **A caption is not read,** except for LINK and STOP.
+  - **A phone that is not linked** gets the sign-up reply; its photo is not
+    looked at (ADR-034).
+  - **One model request** with the image and the workspace's spending
+    category names. The answer is five fields (kind, merchant, total,
+    currency, category) in a shape the API enforces and zod checks again.
+    Nothing else about the person is sent: no id, account or balance.
+  - **Code checks every field.** The total goes through
+    `parseReceiptTotal` in `src/lib/money`: one amount in US dollars with
+    its two decimals, above zero, at most $9,999.99. A refund, another
+    currency, a screenshot of a balance, and anything that is not exactly
+    the shape asked for give no proposal. The merchant is cut to 40
+    characters of letters and a few marks, and a word with a digit is
+    dropped, so a model never puts a number of its own in front of the
+    person. The category must be one of the workspace's names; the
+    person's saved rules win over the model's choice.
+  - **The proposal waits in `agent_pending_log`** (migration 0017 adds
+    `kind`, `category_id` and `message_id`) for 10 minutes. It is the
+    phone's one open question: a newer question replaces it, and a photo
+    replaces an open "which account?".
+  - **Confirming.** One account: "yes" saves it. Several: the question
+    lists them, and the account's number or name saves it; a bare "yes"
+    is asked again. "no" drops it. Code reads the answer, and the whole
+    text must be the answer. A typed 👍 counts as yes; a tapback does
+    not (see the consequences). New spending or UNDO closes the question;
+    other texts leave it open.
+  - **"yes" or "no" with nothing waiting** gets a reply that says so,
+    instead of the summary.
+  - **Saved as any text log** (`source: "text"`), dated the day the photo
+    was sent: the same 50-a-day limit, UNDO and calendar label. The
+    transactions feature is unchanged.
+  - **One photo is at most one transaction:** the id comes from the link
+    and the photo's message id. The same photo delivered again while its
+    question is open is not read a second time.
+  - **Every reply is written by code.** Printed instructions on a receipt
+    can change nothing: the model has no tools, is given nothing to leak,
+    and each thing it writes is only a field that code checks.
+  - **Each model gets 8 seconds for a photo** inside the same 14 in total
+    (ADR-059 gives 4 to a text). `pnpm ai:check receipt` sends each test
+    model a generated receipt and reports whether it read the total.
+- **Alternatives considered:** a second table for proposals (two open
+  questions at once, and "1" or "yes" could answer either); a separate
+  upload request or a multipart body (a little more room, more moving
+  parts); a new `source` value (changes the transactions feature);
+  reading the date from the receipt (another number from a model);
+  accepting a tapback as yes (the app would have to know which message
+  the tapback was put on).
+- **Consequences:**
+  - **Before the switch is turned on for real users,** two things are
+    needed: a billing-enabled Gemini key (ADR-040), and a daily limit on
+    photo reads for each phone. Today only confirmed logs are counted, so
+    a linked phone could use up the models' daily allowance with photos
+    it never confirms.
+  - The photo is sent to Gemini as it arrived, so any EXIF data in it
+    (which can include where it was taken) goes too. Removing it needs an
+    image library, which was not added.
+  - With the switch off the photo still travels from the worker to the
+    app, where it is dropped; nothing goes to Google.
+  - A photo over 3 MB is refused, which will include some full-size JPEG
+    photos. A multipart body would raise that to about 4.3 MB.
+  - A tapback 👍 does not confirm, so the question says "Reply yes".
+    Spectrum does deliver tapbacks; they are not forwarded yet.
+  - A merchant whose name is a number ("7-Eleven") is shown as "that
+    receipt" and saved as "Receipt".
+  - A receipt from another day is saved as today.
+  - Photo reads share the models' daily allowance with replies.
+  - A photo delivered again after its log was undone can be logged again
+    by a new "yes", as with texts (ADR-064).
+  - Deploy the app before the worker: an older app drops the photo and
+    answers the empty text with the summary.
+
 ### ADR-084: Reserved ADR and handoff numbers for each developer
 
 - **Status:** Accepted (2026-10-11)
@@ -2038,6 +2131,42 @@ Rules:
   rules are next applied (any rule change or `applyCategoryRules`). A
   workspace has at most `MAX_RULES` saved rules plus the built-in ones, so
   the engine accepts up to 2,000 rules.
+
+---
+
+### ADR-104: Quiet hours per user, in Eastern time; UNDO takes back the latest text change (refines ADR-038, ADR-064)
+
+- **Status:** Proposed (2026-10-11)
+- **Context:** ADR-038 lets users set quiet hours on the website and by
+  text, and the text confirmation says "Reply UNDO to go back". ADR-064
+  already gives UNDO a meaning: remove the latest spending logged by text.
+  ADR-038 also says "the workspace time zone", but nothing stores a time
+  zone yet; every "today" in the app uses `DEFAULT_TIME_ZONE`.
+- **Decision:**
+  - Quiet hours are stored per user in `notification_setting`, not per
+    phone, so they survive unlinking and linking again. No row means the
+    default, 9 PM to 9 AM. They are minutes after midnight; a database
+    check keeps both in range and different.
+  - They are read in `DEFAULT_TIME_ZONE` (Eastern) until users or
+    workspaces have a time zone; the website and the agent say "Eastern
+    time". `nextAllowedSend` keeps the end time on the wall clock across
+    daylight saving changes.
+  - A text that mentions "quiet hours" is read by code before logging,
+    which would otherwise read its times as amounts. With no times it
+    tells the person their current hours. Without AM or PM, only the
+    24-hour form ("23:00", "07:00") is accepted; anything else gets an
+    example and changes nothing.
+  - **UNDO takes back whichever came last within 24 hours**: the latest
+    quiet-hours change made by text or the latest spending logged by text.
+    A quiet-hours change can be undone once. A change on the website clears
+    the text change's UNDO.
+- **Alternatives considered:** No UNDO for quiet hours (simpler, but
+  ADR-038's reply promises it); a separate word such as "UNDO QUIET" (one
+  more thing to remember).
+- **Consequences:** Adds migration 0016. The job tick (F-22, F-26) must call
+  `nextAllowedSend` with the user's quiet hours before sending. A user
+  outside Eastern time gets quiet hours in Eastern time until time zones
+  are stored.
 
 ---
 

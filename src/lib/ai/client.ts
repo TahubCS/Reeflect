@@ -4,6 +4,7 @@ import {
   type AiRequest,
   AiUnavailableError,
   type Attempt,
+  IMAGE_ATTEMPT_TIMEOUT_MS,
   createChain,
 } from "./chain";
 import { googleTransport } from "./google";
@@ -14,13 +15,19 @@ export { AiUnavailableError, type AiRequest } from "./chain";
 // Built once per server instance, so a model that hit its limit stays
 // skipped between requests. Without a key there is no chain, and every call
 // reports "unavailable": callers then use their code-built reply.
-const chain =
-  env.GEMINI_API_KEY === undefined
+const transport =
+  env.GEMINI_API_KEY === undefined ? null : googleTransport(env.GEMINI_API_KEY);
+// Users' models on the deployed app, the test model anywhere else.
+const models = parseModels(env.GEMINI_MODELS, env.VERCEL !== undefined);
+const chain = transport === null ? null : createChain({ transport, models });
+// The same models with a longer wait each, inside the same total (ADR-067).
+const imageChain =
+  transport === null
     ? null
     : createChain({
-        transport: googleTransport(env.GEMINI_API_KEY),
-        // Users' models on the deployed app, the test model anywhere else.
-        models: parseModels(env.GEMINI_MODELS, env.VERCEL !== undefined),
+        transport,
+        models,
+        attemptTimeoutMs: IMAGE_ATTEMPT_TIMEOUT_MS,
       });
 
 /** Model names and outcomes only: never the prompt, the reply or the key. */
@@ -34,9 +41,24 @@ function logSkipped(attempts: readonly Attempt[]): void {
  * with `AiUnavailableError` when none does, or when no key is set.
  */
 export async function generateText(request: AiRequest): Promise<string> {
-  if (chain === null) throw new AiUnavailableError([]);
+  return run(chain, request);
+}
+
+/**
+ * The same for a request that carries a picture: each model is given
+ * longer, since reading an image is slower than writing a sentence.
+ */
+export async function generateFromImage(request: AiRequest): Promise<string> {
+  return run(imageChain, request);
+}
+
+async function run(
+  generate: typeof chain,
+  request: AiRequest,
+): Promise<string> {
+  if (generate === null) throw new AiUnavailableError([]);
   try {
-    const { text, attempts } = await chain(request);
+    const { text, attempts } = await generate(request);
     logSkipped(attempts);
     return text;
   } catch (error) {

@@ -13,6 +13,7 @@ import {
 } from "../domain/forms";
 import {
   confirmPattern,
+  listRecurringPayments,
   refreshRecurringSeries,
   savePayment,
   setPaymentDisposition,
@@ -142,4 +143,24 @@ export async function paymentDispositionAction(
       disposition.data,
     ),
   );
+}
+
+/**
+ * How many suggested patterns wait for a yes or no: the count on the
+ * header's Recurring payments link. Any member may read it. The header asks
+ * on every page, including one the visitor may not open, so a refusal is no
+ * number (0) instead of a not-found page.
+ */
+export async function suggestionCountAction(
+  workspaceId: unknown,
+): Promise<number> {
+  let verified: string;
+  try {
+    verified = (
+      await requireWorkspaceAccess(await getSession(), workspaceId, "viewer")
+    ).workspaceId;
+  } catch {
+    return 0;
+  }
+  return (await listRecurringPayments(verified)).summary.candidates;
 }

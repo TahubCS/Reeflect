@@ -6,9 +6,10 @@ import {
   disconnectAction,
   rejectLinkAction,
   setProactiveOptInAction,
+  setQuietHoursAction,
 } from "./actions";
 
-/** Every F-24 server action, for the isolation matrix (TEST-06). */
+/** Every F-24 and F-33 server action, for the isolation matrix (TEST-06). */
 export const MESSAGING_ENTRY_POINTS: EntryPoint[] = [
   {
     name: "createLinkCodeAction",
@@ -34,5 +35,11 @@ export const MESSAGING_ENTRY_POINTS: EntryPoint[] = [
     name: "setProactiveOptInAction",
     minimumRole: "owner",
     call: ({ workspaceId }) => setProactiveOptInAction(workspaceId, true),
+  },
+  {
+    name: "setQuietHoursAction",
+    minimumRole: "owner",
+    call: ({ workspaceId }) =>
+      setQuietHoursAction(workspaceId, "23:00", "07:00"),
   },
 ];

@@ -120,13 +120,50 @@
 .charges {
   list-style: none;
   padding: 0;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
 }
 .charges li {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  border-bottom: 1px solid var(--line);
-  padding-block: 0.45rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0 1rem;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.9rem;
+}
+.charges li + li {
+  border-top: 1px solid var(--line);
+}
+.chargeAmount {
+  font-family: var(--font-num);
+  text-align: right;
+}
+.gapNote {
+  grid-column: 1 / -1;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+.gapNote[data-off] {
+  color: var(--bill);
+  font-weight: 600;
+}
+
+/* The charges behind a payment (ChargeEvidence): ledger rows, newest
+   first, with the days since the one before under each date. */
+.evidence {
+  display: grid;
+  gap: 0.5rem;
+  margin-block: 0.75rem;
+}
+.evidenceHead {
+  margin: 0;
+  font-size: 0.9rem;
+}
+.evidenceNote {
+  color: var(--ink-soft);
+}
+.page .showAll {
+  justify-self: start;
 }
 .card details {
   margin-block: 0.6rem;

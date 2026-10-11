@@ -83,7 +83,7 @@ export function logTransactionId(
   ].join("-");
 }
 
-function dayOf(day: "today" | "yesterday", now: Date): string {
+export function dayOf(day: "today" | "yesterday", now: Date): string {
   return isoDateIn(
     day === "today" ? now : new Date(now.getTime() - DAY_MS),
     DEFAULT_TIME_ZONE,
@@ -122,7 +122,11 @@ async function budgetLeft(
 /** Spending that has been read and only needs its account. */
 type Spending = { amount: Cents; description: string; day: LogDay };
 
-const canHoldSpending = (account: LogAccount) => account.type !== "loan";
+export const canHoldSpending = (account: LogAccount) => account.type !== "loan";
+
+/** Categories a model may be offered: the ones that are spending. */
+export const isSpendingCategory = (category: { presetKey: string }) =>
+  !NOT_SPENDING.has(category.presetKey);
 
 /**
  * Asks which account, and remembers the spending so that the next text can
@@ -179,8 +183,14 @@ async function save(
   );
 }
 
-/** Saves spending on the account that has been settled, and confirms it. */
-async function saveOn(
+/**
+ * Saves spending on the account that has been settled, and confirms it.
+ * A receipt photo's proposal (ADR-067) is saved here too, once the person
+ * has said yes: `receipt` then carries the photo's message id, so one photo
+ * is one transaction, and the category its question showed, so no model is
+ * asked again.
+ */
+export async function saveOn(
   spending: Spending,
   account: LogAccount,
   how: {
@@ -188,13 +198,17 @@ async function saveOn(
     nameAccount: boolean;
     context: LogContext;
     now: Date;
+    receipt?: { messageId: string; categoryId: string | null };
   },
 ): Promise<string> {
-  const { context, now } = how;
+  const { context, now, receipt } = how;
   const { workspaceId } = context;
   const { description } = spending;
 
-  const id = logTransactionId(context.identityId, context.messageId);
+  const id = logTransactionId(
+    context.identityId,
+    receipt?.messageId ?? context.messageId,
+  );
   const logged = await countTextTransactions(
     workspaceId,
     new Date(now.getTime() - DAY_MS),
@@ -219,15 +233,19 @@ async function saveOn(
 
   // From here on the spending is saved. The category and the budget line
   // are extras: if either fails, the reply still confirms the log.
-  const extras = await categoryAndBudget(context, id, description, now).catch(
-    (error: unknown) => {
-      console.warn("agent: log saved without its category", {
-        messageId: context.messageId,
-        reason: error instanceof Error ? error.name : "unknown",
-      });
-      return { category: null, budgetLeft: null };
-    },
-  );
+  const extras = await categoryAndBudget(
+    context,
+    id,
+    description,
+    now,
+    receipt,
+  ).catch((error: unknown) => {
+    console.warn("agent: log saved without its category", {
+      messageId: context.messageId,
+      reason: error instanceof Error ? error.name : "unknown",
+    });
+    return { category: null, budgetLeft: null };
+  });
 
   return loggedReply({
     amount: spending.amount,
@@ -244,18 +262,24 @@ async function categoryAndBudget(
   transactionId: string,
   description: string,
   now: Date,
+  receipt?: { categoryId: string | null },
 ): Promise<{ category: string | null; budgetLeft: Cents | null }> {
   const { workspaceId } = context;
   const categories = await listCategories(workspaceId);
   let categoryId = await ruleCategory(workspaceId, description);
   if (categoryId === null) {
-    const picked = await pickCategory(
-      description,
-      categories
-        .filter((category) => !NOT_SPENDING.has(category.presetKey))
-        .map(({ id, name }) => ({ id, name })),
-      context.generate,
-    );
+    // A receipt's category was chosen when it was read, and shown in the
+    // question the person answered: that one is used, or none.
+    const picked =
+      receipt === undefined
+        ? await pickCategory(
+            description,
+            categories
+              .filter(isSpendingCategory)
+              .map(({ id, name }) => ({ id, name })),
+            context.generate,
+          )
+        : (categories.find(({ id }) => id === receipt.categoryId) ?? null);
     if (
       picked !== null &&
       (await saveOverride(workspaceId, transactionId, {
@@ -326,7 +350,8 @@ export async function answerPending(
 ): Promise<string | null> {
   const now = context.now ?? new Date();
   const pending = await findPending(context, now);
-  if (pending === null) return null;
+  // A receipt waiting for yes or no is not this question (ADR-067).
+  if (pending === null || pending.kind !== "account") return null;
 
   const all = await listAccounts(context.workspaceId);
   const accounts = all.filter(canHoldSpending);

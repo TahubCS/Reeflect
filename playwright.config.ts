@@ -77,6 +77,9 @@ export default defineConfig({
         // No Gemini key, so the agent's replies are the ones built by code and
         // tests never call Google (ADR-059). Empty wins over .env.local.
         GEMINI_API_KEY: "",
+        // Receipt photos are switched on so a photo travels the whole path
+        // (ADR-067); with no Gemini key above, none can reach a model.
+        AGENT_RECEIPT_PHOTOS: "on",
         RESEND_API_KEY: "",
         EMAIL_FROM: "",
         // The Neon `storage-tests` branch's bucket, never production's

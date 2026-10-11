@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { NAV_ITEMS, navHref } from "./nav";
+import { NAV_ITEMS, navCountLabel, navCountText, navHref } from "./nav";
 
 const APP_GROUP = join(process.cwd(), "src", "app", "(app)");
 const WORKSPACE = join(APP_GROUP, "w", "[workspaceId]");
@@ -35,5 +35,26 @@ describe("navHref", () => {
 
   it("links to the redirect when no workspace is open", () => {
     expect(navHref("accounts")).toBe("/accounts");
+  });
+});
+
+describe("link counts", () => {
+  it("shows up to 99, then 99+", () => {
+    expect(navCountText(3)).toBe("3");
+    expect(navCountText(99)).toBe("99");
+    expect(navCountText(100)).toBe("99+");
+  });
+
+  it("says what the number on Recurring payments counts", () => {
+    expect(navCountLabel("subscriptions", 1)).toBe(
+      "1 suggested pattern to review",
+    );
+    expect(navCountLabel("subscriptions", 3)).toBe(
+      "3 suggested patterns to review",
+    );
+  });
+
+  it("has a plain reading for other links", () => {
+    expect(navCountLabel("bills", 2)).toBe("2 to review");
   });
 });

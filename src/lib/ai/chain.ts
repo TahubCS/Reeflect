@@ -6,6 +6,10 @@ export type AiRequest = {
   system: string;
   /** This turn's input. */
   user: string;
+  /** A picture sent with the input, as base64 (F-29, ADR-067). */
+  image?: { mimeType: string; data: string };
+  /** A JSON schema the answer must follow; the answer is then JSON text. */
+  schema?: Record<string, unknown>;
 };
 
 /** One call to one model. Rejects with an error that may carry `status`. */
@@ -45,6 +49,8 @@ export type ChainOptions = {
 // leave time for a third to answer, inside the worker's 20-second wait.
 export const ATTEMPT_TIMEOUT_MS = 4_000;
 export const TOTAL_BUDGET_MS = 14_000;
+/** Reading a picture takes longer than writing a sentence (ADR-067). */
+export const IMAGE_ATTEMPT_TIMEOUT_MS = 8_000;
 /**
  * A model that failed (rate or quota limit, overload, timeout) is left alone
  * this long, so the texts that follow do not each wait on it again.

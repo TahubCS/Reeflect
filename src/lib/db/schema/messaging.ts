@@ -4,14 +4,17 @@ import { sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
+  check,
   index,
   pgTable,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { uuidv7 } from "../id";
 import { organization, user } from "./auth";
+import { category } from "./categorization";
 
 const timestamptz = (name: string) => timestamp(name, { withTimezone: true });
 
@@ -126,4 +129,51 @@ export const agentPendingLog = pgTable("agent_pending_log", {
   /** The accounts that were listed, in the order they were numbered. */
   accountIds: text("account_ids").array().notNull(),
   askedAt: timestamptz("asked_at").notNull(),
+  /**
+   * What is being asked. `account`: which account a text's spending is for
+   * (ADR-065). `receipt`: whether to log what was read from a receipt photo
+   * (ADR-067); the amount is then a model's read, checked by code, and
+   * nothing is a transaction until the person says yes.
+   */
+  kind: text("kind", { enum: ["account", "receipt"] })
+    .notNull()
+    .default("account"),
+  /** The category shown in a receipt's question, so the save matches it. */
+  categoryId: text("category_id").references(() => category.id, {
+    onDelete: "set null",
+  }),
+  /** The photo's message id: one photo is asked about, and saved, once. */
+  messageId: text("message_id"),
 });
+
+/**
+ * A user's notification settings (F-33, ADR-038, ADR-104). Kept per user,
+ * not per phone, so they survive unlinking and linking again. No row means
+ * the defaults: quiet from 9 PM to 9 AM.
+ */
+export const notificationSetting = pgTable(
+  "notification_setting",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => user.id, { onDelete: "cascade" }),
+    /** Minutes after midnight, 0 to 1439, in the workspace time zone. */
+    quietStartMinute: smallint("quiet_start_minute").notNull(),
+    quietEndMinute: smallint("quiet_end_minute").notNull(),
+    /** What a text replaced, so UNDO can put it back. */
+    previousStartMinute: smallint("previous_start_minute"),
+    previousEndMinute: smallint("previous_end_minute"),
+    /** When a text last changed the hours; UNDO reaches back 24 hours. */
+    changedByTextAt: timestamptz("changed_by_text_at"),
+    updatedAt: timestamptz("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    check(
+      "notification_setting_quiet_hours_check",
+      sql`${table.quietStartMinute} between 0 and 1439 and ${table.quietEndMinute} between 0 and 1439 and ${table.quietStartMinute} <> ${table.quietEndMinute}`,
+    ),
+  ],
+);

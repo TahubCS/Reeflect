@@ -16,6 +16,7 @@ export {
   paymentIntentAction,
   refreshPaymentsAction,
   savePaymentAction,
+  suggestionCountAction,
   updatePaymentAction,
 } from "./server/actions";
 export { RecurringPage } from "./ui/recurring-page";

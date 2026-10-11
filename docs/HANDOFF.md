@@ -62,6 +62,8 @@ Update this table when work is assigned or finished. Features are listed in
 | F-26 Subscription alerts | C | Unassigned | — | Not started |
 | F-27 Log spending by text | C | Muhammad Tahub Khatri | `feat/agent-log-spending` | Built (HO-071, ADR-064): log, ask when unsure, UNDO. The account question is remembered and answered in the next text (HO-073, ADR-065). Not built: money in, days before yesterday, receipts |
 | F-28 Category and balance questions | C | Muhammad Tahub Khatri | `feat/agent-questions` | Built (HO-072, ADR-059): this month's spending and budgets by category, the next payments before payday, each account's balance. Not built: any period other than this month so far |
+| F-29 Receipt photos | C | Muhammad Tahub Khatri | `feat/agent-receipt-photos` | Built behind `AGENT_RECEIPT_PHOTOS`, off by default (HO-115, ADR-067). Not tried on a real phone |
+| F-33 Quiet hours settings | B + C | Simon Ormond | `feat/quiet-hours` | Built (HO-096, ADR-104 Proposed): Settings → Notifications and by text, with UNDO. Nothing sends proactive texts yet |
 | F-32 Agent worker | C | Muhammad Tahub Khatri | `feat/agent-worker` | Done, replies only (HO-039, PR #17); live on Render (HO-049) |
 | F-22 Bill reminders (P1) | A + C | Unassigned | — | Not started |
 | F-15 Gemini summary on the website (P1, ADR-045) | C | Unassigned | — | Not started |
@@ -3809,7 +3811,269 @@ recommendation, not a decision.
 - The full unit run is not clean on this machine while another agent's
   worktree is active.
 
-## HO-115: Database readiness preflight and verified cloud Neon access
+## HO-096: F-33, quiet hours on the website and by text (ADR-104)
+
+- **Date:** 2026-10-11 (America/New_York)
+- **Author:** Simon Ormond with Claude Code
+- **Branch / PR:** `feat/quiet-hours` / not opened
+
+### What changed
+- **Schema change:** migration 0016 adds `notification_setting`, one row
+  per user (no row = 9 PM–9 AM). A check keeps both minutes in 0–1439 and
+  different. Applied to the local Docker database only.
+- `messaging/domain/quiet-hours.ts`: `isQuiet` (ranges across midnight),
+  `nextAllowedSend` (keeps the end time on the wall clock across daylight
+  saving), formatting and time-input helpers. Exported from messaging's
+  `index.ts` for the job tick that will send proactive texts.
+- `messaging/server/notifications.ts`: get, set from the website, set by
+  text (keeps the old hours) and undo. `setQuietHoursAction` is in the
+  isolation matrix.
+- Settings shows a Notifications card under Messages: the current hours in
+  words and two time fields. The "Not built yet" note now lists only F-19.
+- The agent reads "quiet hours …" texts before logging
+  (`agent/domain/quiet-hours-command.ts`, code only): "11pm to 7am",
+  "11 PM - 7 AM", "23:00 to 07:00", midnight/noon. Unclear input gets an
+  example; "quiet hours?" tells the current ones.
+- ADR-104 (Proposed): per-user storage, Eastern time until zones exist,
+  and UNDO takes back whichever came last within 24 hours, a quiet-hours
+  text change or a text-logged spending. `latestTextTransaction` now
+  returns `createdAt` for that comparison.
+- Playwright: `quiet-hours.spec.ts`. `agent-link.spec.ts` now reads the
+  Messages card's status, since the page has two.
+- Merged `main` after F-28 and ADR-065: main's 0015 is `agent_pending_log`,
+  so this migration was regenerated as 0016. In `runAgentTurn`, quiet-hours
+  texts are read before an open "which account?" question, and UNDO clears
+  that question as for any UNDO before choosing what to take back.
+
+### What's next
+- Run `pnpm db:migrate:to branch` / `production` for 0016 once the PR is
+  approved.
+- The job tick (F-22, F-26) must call `nextAllowedSend` before sending.
+
+### Open problems
+- Quiet hours are in Eastern time for everyone (ADR-104).
+- F-29 (`feat/agent-receipt-photos`, HO-074) also plans migration 0016:
+  whichever merges second regenerates its migration.
+- Turning off each proactive type separately (ADR-038) is not built; the
+  single opt-in on the Messages card is the only switch.
+
+## HO-078: UI rework: header counts and Sync, month row, charge rhythm, shorter transactions list
+
+- **Date:** 2026-10-11 08:30 (EDT)
+- **Author:** Jacob Heminway with Claude (Claude Code)
+- **Branch / PR:** `UI/Fixes` (fast-forwarded to `main` at PR #36) / not opened; nothing committed
+
+### What changed
+- **Mockups to choose from** (private artifact, share from its menu):
+  https://claude.ai/artifact/X1SxnRHhexFaZpdRBvfW6i. Three style directions
+  (current app; the landing page's dark band; a flat "hairline" sheet) and
+  three layouts each for the header, the month control, the recurring charges
+  and the transactions list. Its "Copy picks" button gives a line to paste
+  back. Built in the app: header 1, month 1, recurring 1, transactions 2, all
+  in today's style.
+- **Header** (`src/components/ui/app-nav.tsx`): a link can show a number.
+  Recurring payments shows the suggestions waiting (`suggestionCountAction`,
+  recurring feature); the layout passes one server action per link
+  (`NAV_COUNTS`), so Bills can add its own. The number is in the link's
+  accessible name. Counts are read on each page change and when
+  `NAV_REFRESH_EVENT` fires (`src/config/nav.ts`); the recurring page fires it
+  when its count changes (`src/components/ui/nav-refresh.tsx`).
+- **Sync in the header** (`NessieNavSync`, `nessieStatusAction`): shows only
+  for a workspace with Nessie accounts; editors get the button, viewers the
+  time ("Synced 5 min ago"). Both header actions return "nothing" (0, not
+  linked) for a non-member instead of calling `notFound()`: a not-found from
+  a server action the header calls rendered a 404 on the page.
+- **Dashboard:** a Month row of chips under the Show chips (May to three
+  months ahead), scrolling sideways when long. The Earlier / This month /
+  Later buttons stay. `monthRange`, `monthChipLabel` in cashflow dates.
+- **Recurring payments:** the "Recent matching charges" disclosure is now
+  `ChargeEvidence`: dots with the days between charges, a full-width "See 3
+  matching charges" button with the rhythm in words ("Every 30–31 days, no
+  breaks"; a gap well off the usual one is named), and each charge's gap in
+  small text. Pure logic in `recurring/domain/evidence.ts`.
+- **Transactions:** the first 15 rows show, then "Show 35 more"
+  (`splitPreview`, `ShowMore`); the cut finishes a day when the day ends
+  within 5 rows. Pagination (50 a page) is unchanged.
+- **Nessie refunds:** a `[refund:<purchase>]` deposit kept its own row and the
+  purchase kept its row already, but the refund was uncategorized, so
+  Insights counted it as take-home pay. The mapper now keeps the link
+  (`refundOf`, `refundTargets`) and the sync gives the refund the purchase's
+  category (never over a manual choice), so it nets against that spending.
+  No schema change. Sync only removes rows whose Nessie record is gone or
+  cancelled (e.g. `demo undo` of a refund); I found no path that deletes a
+  refunded purchase.
+- `docs/PITCH.md` recurring demo mentions the count and the button.
+- The local Docker database was 3 migrations behind; I ran
+  `pnpm db:migrate:to local` (test database only).
+
+### Verified
+- `pnpm lint`, `format:check`, `typecheck`, `docs:check`, `build`,
+  `scan:bundle` pass.
+- `pnpm test:unit`: 2024 pass; the 12 failures are the storage tests (no
+  `.env.storage-tests` here) and two DB tests that time out only under the
+  full parallel run (they pass alone).
+- `pnpm test:e2e`: all 117 pass, including the new month-row and header
+  tests and the updated 50-row and charges tests.
+
+### What's next
+- Pick from the mockups; then apply the chosen style across pages (tokens in
+  `globals.css`, header, a hero band per page if style B).
+- Bills could add a header count (due this week) through `NAV_COUNTS`.
+- Show "Refunded" on the purchase and link the two rows: needs a column
+  (`refund_of_id`), so an ADR-worthy schema change; not done.
+
+### Open problems
+- The header's recurring count runs the full recurring analysis on every
+  page change (the dashboard already does the same). Fine for the demo;
+  cache or store candidates if it gets slow.
+- A Nessie purchase whose status becomes "cancelled" still disappears from
+  the history (mapper drops cancelled records); keeping it needs a status we
+  don't have.
+
+## HO-079: UI rework part 2: style B, two-row header, month stepper, ledger rows, +20 transactions, app icon
+
+- **Date:** 2026-10-11 08:40 (EDT)
+- **Author:** Jacob Heminway with Claude (Claude Code)
+- **Branch / PR:** `UI/Fixes` (after "UI fixes Part 1") / not opened; nothing committed
+
+### What changed
+Jacob's picks from the mockups (HO-078): style B "landing night band",
+header 3 "two rows", month control 2 "stepper + date", recurring 2 "ledger
+rows", transactions 2 "show more" in steps of 20, plus a view-only list.
+- **Style B** (`src/app/globals.css`, `src/app/layout.tsx`): Geist for text
+  and Geist Mono (`--font-num`) for the dashboard sums, list amounts, charge
+  amounts and header counts; the landing page's grey sheets as `--bg`,
+  `--surface` and friends (light and dark). New `--head-*` tokens are the
+  night band, dark in both themes.
+- **Header** (`src/app/(app)/layout.tsx`): two rows on the night band with
+  the grid texture. Top: the logo (`src/components/ui/logo.tsx`) and
+  wordmark, the Capital One status chip (`NessieNavSync`: "Capital One ·
+  Synced 5 min ago", "Sync now"), the address and Sign out. Below: the tabs,
+  current one underlined, counts as light pills. `scroll-padding-top` is now
+  8rem for the taller header.
+- **Dashboard:** the headline continues the night band edge to edge. The
+  month chips are replaced by `‹ Month ›`, Today, and "Go to a day" (a date
+  input bounded by `dayBounds`, checked by `dayWithin`) right above the
+  calendar. The old Earlier / This month / Later buttons by the month title
+  are gone; the stepper does the same. `monthRange` and `monthChipLabel`
+  are removed.
+- **Recurring payments:** `ChargeEvidence` is now ledger rows: "Matching
+  charges · Every 30 days, no breaks", the latest 3 charges newest first with
+  the days since the one before, then "Show all N charges". The dot timeline
+  is gone.
+- **Transactions:** 15 rows, then "Show 20 more" per press (`splitBatches`,
+  `MORE_ROWS`; each cut still finishes a day when it can), "Show all" and
+  "Show fewer". "Open a view-only list" opens
+  `/w/[id]/transactions/view` in a new window: up to 1000 rows
+  (`VIEW_ROWS`), same day groups, no edit links or category controls,
+  viewer access, honours `?account=`.
+- **App icon:** `src/app/icon.svg` is the landing logo on its night square;
+  `src/app/favicon.ico` is deleted.
+- `docs/PITCH.md` recurring demo matches the ledger rows.
+
+### Verified
+- `pnpm lint`, `format:check`, `typecheck`, `build` pass.
+- Unit: the cashflow dates, transaction-input and evidence tests pass (77),
+  including new `dayBounds` / `dayWithin` / `splitBatches` cases.
+- E2E: calendar, categorization and recurring specs pass (35), with the
+  stepper and Go to a day, the 15 → 35 → 50 batches, Show all, and the
+  view-only window (51 rows, no buttons or edit links).
+- Full `pnpm test:e2e`: all 117 pass with the new header and style.
+
+### What's next
+- Other pages still use the plain heading; a night-band hero per page
+  (Bills, Recurring) would finish style B.
+- The landing page keeps its own copy of the logo; it could use
+  `components/ui/logo.tsx`.
+
+### Open problems
+- The e2e run retook the Bills, Budgets and Recurring screenshots in
+  `docs/screenshots/` in the new style; other docs images may still show the
+  old look.
+
+## HO-115: F-29, receipt photos: read by a model, checked by code, saved on yes (ADR-067)
+
+- **Date:** 2026-10-11 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `feat/agent-receipt-photos` / not opened
+
+### What changed
+- **How this was done.** `fix/agent-log-account-followup` was committed and
+  pushed at `3f5f8cb` so this work could build on it. The agent was asked
+  to run in the cloud but ran on this machine, in the worktree
+  `.claude/worktrees/agent-a503939b6c667a740`. It wrote a plan first;
+  Muhammad approved it, and decided the switch is off by default with
+  generated receipts only.
+- **A photo of a receipt becomes a question, and "yes" makes it a
+  transaction** (ADR-067, Proposed). `AGENT_RECEIPT_PHOTOS=on` turns it on;
+  off, a photo gets "I can't read photos yet. Text the amount ...", and no
+  model is called.
+- **Worker** (`agent-worker/src/turn.ts`, `photo.ts`, `worker.ts`): forwards
+  one photo as base64 in the turn (3,000,000 bytes at most; JPEG, PNG,
+  HEIC, HEIF, WebP), or says why it could not. It now also forwards what a
+  threaded reply holds: before, a text swiped onto a message was dropped.
+- **Protocol** (`packages/agent-protocol`): the turn has an optional
+  `photo`. Deploy the app before the worker.
+- **Reading** (`src/features/agent/domain/receipt.ts`,
+  `server/tools/logReceipt.ts`): one model request with the picture and the
+  category names; five fields come back and code checks each. New
+  `parseReceiptTotal` in `src/lib/money`. `src/lib/ai` can send a picture
+  and ask for JSON in a given shape; a photo gets 8 seconds a model.
+- **Waiting** in `agent_pending_log`: **migration 0017** adds `kind`,
+  `category_id` and `message_id`. One account: "yes" saves. Several: the
+  account's number or name saves. "no" drops it. "yes" or "no" with
+  nothing waiting now gets a reply that says so.
+- **Saving** goes through F-27's `saveOn` with `source: "text"`: the same
+  limit, UNDO and "texted in" label. Nothing in the transactions feature
+  changed.
+- `pnpm ai:check receipt` sends the test models a generated receipt.
+  Fixtures: `tests/fixtures/receipts/`, drawn by `generate.ts`.
+- The turn order in `runAgentTurn` is LINK, STOP, the link, a photo, quiet
+  hours, the open question, logging, the answer.
+- **Merged with main (after PR #40):** main had taken this entry's first
+  number for the planning note and migration 0016 for quiet hours, so this
+  entry is HO-115 and the migration was regenerated as **0017**. Conflicts
+  were in `runAgentTurn.ts` and its test, `logSpending.ts`, `pending.ts`,
+  `messaging.ts`, `env.ts`, the migration journal and four docs; both
+  sides were kept. A photo is handled before quiet hours, so a caption is
+  never read as a quiet-hours command. Muhammad's handoff block was full:
+  AGENTS.md section 9 now gives him a second block.
+
+### Verified
+- `pnpm ai:check receipt`, test model `gemini-3.1-flash-lite`, generated
+  receipt: it takes a picture, answers in the shape asked for through
+  `response_format` with no other setting, and read the total and
+  "Groceries" three times, in about 6 seconds each. Two other tries got a
+  503 from Google, as the plain `pnpm ai:check` did in the same minute.
+  The users' models were not asked.
+- **After the merge:** `pnpm lint`, `format:check`, `typecheck`,
+  `docs:check`, `build` and `scan:bundle` pass. `pnpm test:unit`: 2520
+  pass; the 8 that fail are the storage tests that need
+  `.env.storage-tests`, so coverage thresholds were not evaluated.
+  `pnpm test:e2e`: all 123 pass.
+- Tests ran on a separate local database, `app_test_f29`, on the same
+  Docker server, rebuilt from all migrations after the merge. It can be
+  dropped.
+
+### What's next
+- Apply migration 0017 where 0016 is applied, before deploying
+  (`pnpm db:migrate:to`). Deploy the app, then the worker.
+- On a real phone with the switch on and a generated receipt on screen:
+  a photo, "yes", the calendar, UNDO; a photo with a caption; two photos;
+  a Live Photo; a "yes" swiped onto the question.
+- Before the switch is on for real users: a billing-enabled key, and a
+  daily limit on photo reads for each phone (ADR-067).
+
+### Open problems
+- Not tried with a real iMessage: the types and sizes iPhones send, HEIC,
+  and whether a Live Photo arrives as one file or two are unverified.
+- A photo takes about 6 seconds to read, so within the 14 second total
+  only the first model gets a full try.
+- A tapback is not a yes; EXIF data in a photo reaches Gemini; a photo
+  over 3 MB is refused; a receipt from another day is saved as today.
+- A merchant whose name holds a digit ("7-Eleven") is saved as "Receipt".
+
+## HO-116: Database readiness preflight and verified cloud Neon access
 
 - **Date:** 2026-10-11 07:43 (EDT)
 - **Author:** Muhammad Tahub Khatri with Codex
@@ -3868,7 +4132,7 @@ recommendation, not a decision.
   preserves main's independently numbered Bills and agent history;
   the earlier Neon-only entry remains in the original `work` checkout.
 
-## HO-116: Explicit web transfer review and preserved cashflow balances
+## HO-117: Explicit web transfer review and preserved cashflow balances
 
 - **Date:** 2026-10-11 (EDT)
 - **Author:** Muhammad Tahub Khatri with Codex
@@ -3890,7 +4154,7 @@ recommendation, not a decision.
 - The user reports no overlapping teammate work and authorizes local commits,
   merging current main into the branches and resolving merge conflicts.
   Renumbered the transfer ADR to ADR-066 because main now owns ADR-065.
-  Readiness uses HO-115; main's handoff history is preserved.
+  Readiness uses HO-116; main's handoff history is preserved.
 
 ### Verified
 - Merged main `e75fc63` into both implementation branches. The handoff was the

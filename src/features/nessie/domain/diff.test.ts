@@ -14,6 +14,7 @@ function synced(id: string, amount = -900): SyncedRow {
     isTransfer: false,
     categoryKey: null,
     transferPairId: null,
+    refundOf: null,
   };
 }
 
