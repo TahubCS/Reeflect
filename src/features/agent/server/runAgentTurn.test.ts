@@ -7,6 +7,12 @@ import {
 } from "@/lib/auth/personal-workspace";
 import { db } from "@/lib/db/client";
 import { agentLinkAttempt, organization, user } from "@/lib/db/schema";
+import {
+  createAccount,
+  getAccount,
+} from "@/features/accounts/server/repository";
+import { cents } from "@/lib/money";
+import { UNCLEAR_REPLIES } from "../domain/log-replies";
 import { REPLIES } from "../domain/replies";
 import { runAgentTurn } from "./runAgentTurn";
 
@@ -102,6 +108,51 @@ describe("runAgentTurn", () => {
     expect(await text(handle, "Stop.")).toBe(REPLIES.stopped);
     expect(await text(handle, "how am I doing?")).toBe(REPLIES.signUp);
     expect(await text(handle, "STOP")).toBe(REPLIES.notLinked);
+  });
+
+  it("logs spending and undoes it for a linked phone, and for no one else", async () => {
+    const me = await newUser();
+    const handle = newPhone();
+    await text(handle, `LINK ${await newCode(me.userId)}`);
+    await approveLink(me.userId, me.workspaceId);
+    const accountId = await createAccount(me.workspaceId, {
+      type: "checking",
+      institutionName: "Test Bank",
+      nickname: "Everyday",
+      maskLast4: null,
+      balanceCents: cents(50_000),
+    });
+    const balance = async () =>
+      (await getAccount(me.workspaceId, accountId))!.balanceCents;
+
+    // A stranger's phone sending the same words writes nothing.
+    expect(await text(newPhone(), "12 lunch")).toBe(REPLIES.signUp);
+    expect(await balance()).toBe(50_000);
+
+    expect(await text(handle, "12 lunch")).toContain(
+      'Logged $12.00 for "lunch" today',
+    );
+    expect(await balance()).toBe(48_800);
+
+    // An unclear text is answered by code and saves nothing.
+    expect(await text(handle, "12 lunch and 5 coffee")).toBe(
+      UNCLEAR_REPLIES.several_amounts,
+    );
+    expect(await balance()).toBe(48_800);
+
+    // A question with a number still goes to the answer, not to a log.
+    expect(
+      await text(handle, "how much did I spend in the last 30 days?"),
+    ).toMatch(/^You have \$488\.00 in checking and savings/);
+    expect(await balance()).toBe(48_800);
+
+    expect(await text(handle, "UNDO")).toBe('Removed $12.00 for "lunch".');
+    expect(await balance()).toBe(50_000);
+
+    // LINK and STOP are still read first.
+    expect(await text(handle, "STOP")).toBe(REPLIES.stopped);
+    expect(await text(handle, "12 lunch")).toBe(REPLIES.signUp);
+    expect(await balance()).toBe(50_000);
   });
 
   it("puts no digits in any fixed reply", () => {

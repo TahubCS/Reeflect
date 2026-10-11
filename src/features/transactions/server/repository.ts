@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, gte, lte } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, lte } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { getCategoryMetadata } from "@/features/categorization";
 import { uuidv7 } from "@/lib/db/id";
@@ -10,7 +10,9 @@ import {
   type LedgerInput,
   type TransactionInput,
   type TransactionSummary,
+  type TypedSource,
   balanceEffect,
+  isTyped,
 } from "../domain/transaction-input";
 
 // Every function takes the verified workspace id first and filters on it
@@ -41,7 +43,7 @@ function toSummary(row: Row): TransactionSummary {
   return {
     ...row,
     amountCents: cents(row.amountCents),
-    editableInFull: row.source === "manual",
+    editableInFull: isTyped(row.source),
   };
 }
 
@@ -138,7 +140,7 @@ export async function listTransactionsBetween(
   return rows.map((row) => ({
     ...row,
     amountCents: cents(row.amountCents),
-    editableInFull: row.source === "manual",
+    editableInFull: isTyped(row.source),
   }));
 }
 
@@ -194,10 +196,17 @@ async function moveBalance(
  * `id` is for a caller that must not add the same row twice, like confirming
  * a plan (ADR-102): when a transaction with that id is already in this
  * workspace, nothing is added and the balance does not move again.
+ *
+ * `source` is `"text"` for spending logged from a text message (F-27); it
+ * behaves like a row typed on the website and shows where it came from.
  */
 export async function createTransaction(
   workspaceId: string,
-  input: TransactionInput & { ledger: LedgerInput; id?: string },
+  input: TransactionInput & {
+    ledger: LedgerInput;
+    id?: string;
+    source?: TypedSource;
+  },
 ): Promise<string | null> {
   const { ledger } = input;
   return db.transaction(async (tx) => {
@@ -223,7 +232,7 @@ export async function createTransaction(
         ...categoryMetadata,
         status: ledger.status,
         isTransfer: input.isTransfer,
-        source: "manual",
+        source: input.source ?? "manual",
         // Typed rows are not imported, so they never collide with each other:
         // two identical coffees on one day are two transactions (ADR-050).
         fingerprint: `manual:${id}`,
@@ -245,6 +254,58 @@ export async function createTransaction(
     );
     return id;
   });
+}
+
+/** What a text logged, as the agent needs it to undo or count it (F-27). */
+export type TextTransaction = {
+  id: string;
+  amountCents: Cents;
+  description: string;
+};
+
+/**
+ * The transaction this workspace most recently logged by text since `since`,
+ * or null. Rows typed on the website or imported are never returned.
+ */
+export async function latestTextTransaction(
+  workspaceId: string,
+  since: Date,
+): Promise<TextTransaction | null> {
+  const [row] = await db
+    .select({
+      id: transaction.id,
+      amountCents: transaction.amountCents,
+      description: transaction.descriptionRaw,
+    })
+    .from(transaction)
+    .where(
+      and(
+        eq(transaction.workspaceId, workspaceId),
+        eq(transaction.source, "text"),
+        gte(transaction.createdAt, since),
+      ),
+    )
+    .orderBy(desc(transaction.createdAt), desc(transaction.id))
+    .limit(1);
+  return row ? { ...row, amountCents: cents(row.amountCents) } : null;
+}
+
+/** How many transactions this workspace has logged by text since `since`. */
+export async function countTextTransactions(
+  workspaceId: string,
+  since: Date,
+): Promise<number> {
+  const [row] = await db
+    .select({ logged: count() })
+    .from(transaction)
+    .where(
+      and(
+        eq(transaction.workspaceId, workspaceId),
+        eq(transaction.source, "text"),
+        gte(transaction.createdAt, since),
+      ),
+    );
+  return row?.logged ?? 0;
 }
 
 export type UpdateResult = "updated" | "not found" | "no such account";
@@ -274,7 +335,7 @@ export async function updateTransaction(
       .for("update");
     if (!existing) return "not found";
 
-    const ledger = existing.source === "manual" ? input.ledger : null;
+    const ledger = isTyped(existing.source) ? input.ledger : null;
     if (ledger) {
       // Lock both accounts in id order, so two edits cannot deadlock.
       const ids = [...new Set([existing.accountId, ledger.accountId])].sort();
@@ -358,7 +419,7 @@ export async function deleteTransaction(
       });
     if (!deleted) return false;
 
-    if (deleted.source === "manual") {
+    if (isTyped(deleted.source)) {
       const account = await lockAccount(tx, workspaceId, deleted.accountId);
       if (account) {
         await moveBalance(
