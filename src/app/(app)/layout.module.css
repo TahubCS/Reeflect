@@ -10,7 +10,7 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  padding: 0 clamp(1rem, 3vw, 3.5rem);
+  padding: 0 var(--gutter, clamp(1rem, 3vw, 3.5rem));
   background-color: var(--head-bg, #161616);
   background-image:
     linear-gradient(
@@ -99,7 +99,7 @@
 }
 
 .loading {
-  padding: 2rem clamp(1rem, 3vw, 3.5rem);
+  padding: 2rem var(--gutter);
   color: var(--ink-soft);
 }
 

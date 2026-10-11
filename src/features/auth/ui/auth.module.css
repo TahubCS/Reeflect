@@ -6,7 +6,7 @@
   max-width: 26rem;
   padding: 1.75rem;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: var(--surface);
 }
 
@@ -37,8 +37,8 @@
 .field input {
   width: 100%;
   padding: 0.5rem 0.625rem;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius-control);
   background: var(--surface);
 }
 
@@ -72,7 +72,7 @@
   margin-top: 1.25rem;
   padding: 0.625rem;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--ink);
   color: var(--bg);
   font-weight: 600;
@@ -135,7 +135,7 @@
   margin-top: 1.25rem;
   padding: 0.625rem;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--surface);
   font-weight: 600;
   cursor: pointer;
@@ -156,4 +156,13 @@ a.submit {
   display: block;
   text-align: center;
   text-decoration: none;
+}
+
+/* Hover: ink buttons lighten a little, outlined ones pick up the tint. */
+.submit:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.secondary:hover:not(:disabled) {
+  background: var(--tint);
 }

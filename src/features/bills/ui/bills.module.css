@@ -1,6 +1,6 @@
 .page {
-  max-width: 86rem;
-  margin-inline: auto;
+  max-width: var(--page-wide);
+  padding: var(--page-top) var(--gutter) 3rem;
 }
 .heading,
 .cardHead,
@@ -30,7 +30,7 @@
 .panel,
 .add {
   border: 1px solid var(--line);
-  border-radius: 0.65rem;
+  border-radius: var(--radius-card);
   padding: 1rem;
   background: var(--surface);
   min-width: 0;
@@ -67,8 +67,15 @@
   text-decoration: none;
   color: var(--ink);
 }
-.tabs a[aria-current="page"] {
+.tabs a:hover {
   background: var(--tint);
+}
+/* The selected tab is filled with ink, like the calendar's filter chips;
+   aria-current also says it in words. */
+.tabs a[aria-current="page"] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--bg);
   font-weight: 650;
 }
 .filters,
@@ -94,8 +101,8 @@
   box-sizing: border-box;
   background: var(--surface-soft);
   color: var(--ink);
-  border: 1px solid var(--line);
-  border-radius: 0.4rem;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius-control);
   padding: 0.6rem;
   font: inherit;
   width: 100%;
@@ -112,14 +119,19 @@
 .form button,
 .operation button,
 .filters button {
-  padding: 0.6rem 0.85rem;
+  padding: 0.5rem 1rem;
   border: 1px solid var(--line);
-  border-radius: 0.4rem;
+  border-radius: var(--radius-control);
   background: var(--tint);
   color: var(--ink);
   cursor: pointer;
   font: inherit;
   width: fit-content;
+}
+.form button:hover:not(:disabled),
+.operation button:hover:not(:disabled),
+.filters button:hover:not(:disabled) {
+  border-color: var(--ink-soft);
 }
 .form button:disabled,
 .operation button:disabled {
@@ -203,10 +215,6 @@
 .panel h3 {
   font-size: 1rem;
   margin-block: 1.5rem 0.75rem;
-}
-.page :focus-visible {
-  outline: 2px solid var(--in);
-  outline-offset: 3px;
 }
 .page p[role="alert"] {
   font-weight: 500;

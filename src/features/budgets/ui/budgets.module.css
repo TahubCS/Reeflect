@@ -1,7 +1,6 @@
 .page {
-  max-width: 1160px;
-  margin: 0 auto;
-  padding: 2rem 0 4rem;
+  max-width: var(--page-wide);
+  padding: var(--page-top) var(--gutter) 3rem;
 }
 .header {
   display: flex;
@@ -12,11 +11,9 @@
 }
 .page h1 {
   margin: 0 0 0.5rem;
-  font-size: clamp(2rem, 4vw, 3rem);
 }
 .page h2 {
   margin: 1.5rem 0 0.5rem;
-  font-size: 1.4rem;
 }
 .page h3 {
   margin: 0 0 1rem;
@@ -45,29 +42,28 @@
 .form input {
   background: var(--surface);
   color: var(--ink);
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius-control);
   font: inherit;
-  padding: 0.7rem;
+  padding: 0.5rem 0.625rem;
   min-width: 0;
 }
 .page button {
-  padding: 0.7rem 1rem;
+  padding: 0.5rem 1rem;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--tint);
   color: var(--ink);
   cursor: pointer;
   font: inherit;
   min-height: 44px;
 }
+.page button:hover:not(:disabled) {
+  border-color: var(--ink-soft);
+}
 .page button:disabled {
   cursor: wait;
   opacity: 0.65;
-}
-.page :is(a, button, input):focus-visible {
-  outline: 2px solid var(--sub);
-  outline-offset: 3px;
 }
 .note {
   color: var(--ink-soft);
@@ -83,7 +79,7 @@
   padding: 1rem;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   display: grid;
   gap: 0.5rem;
 }
@@ -101,7 +97,7 @@
 .explanation {
   padding: 1rem 1.25rem;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   margin: 1rem 0;
   background: var(--surface-soft);
 }
@@ -117,7 +113,7 @@
 .card {
   padding: 1.25rem;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background: var(--surface);
   min-width: 0;
   overflow-wrap: anywhere;

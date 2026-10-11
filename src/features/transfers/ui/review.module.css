@@ -1,6 +1,6 @@
 .page {
-  max-width: 70rem;
-  padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1rem, 3vw, 3rem) 3rem;
+  max-width: var(--page-wide);
+  padding: var(--page-top) var(--gutter) 3rem;
 }
 .heading,
 .actions {
@@ -11,10 +11,6 @@
 }
 .heading {
   justify-content: space-between;
-}
-.page h1 {
-  font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
-  line-height: 1.15;
 }
 .page h2 {
   font-size: 1.15rem;
@@ -48,7 +44,7 @@
 .page input[type="date"],
 .page select {
   padding: 0.5rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--field-line);
   border-radius: 6px;
   background: var(--surface);
   color: var(--ink);
@@ -56,13 +52,16 @@
   max-width: 100%;
 }
 .page button {
-  padding: 0.6rem 0.85rem;
+  padding: 0.5rem 1rem;
   border: 1px solid var(--ink);
-  border-radius: 8px;
-  color: var(--surface);
+  border-radius: var(--radius-control);
+  color: var(--bg);
   background: var(--ink);
   cursor: pointer;
   min-height: 44px;
+}
+.page button:hover:not(:disabled) {
+  opacity: 0.88;
 }
 .page button:disabled {
   opacity: 0.65;
@@ -73,10 +72,6 @@
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
-.page :focus-visible {
-  outline: 2px solid var(--ink);
-  outline-offset: 3px;
-}
 .cards {
   display: grid;
   gap: 1.25rem;
@@ -84,7 +79,7 @@
 }
 .card {
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background: var(--surface);
   padding: 1rem;
   overflow-wrap: anywhere;
@@ -141,7 +136,7 @@
   margin: 1rem 0;
   padding: 0.85rem;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
 }
 @media (max-width: 480px) {
   .filters {

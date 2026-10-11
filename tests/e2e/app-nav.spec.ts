@@ -79,6 +79,19 @@ test.describe("signed in", () => {
 
     expect(grounds.body).toEqual(grounds.header);
     expect(grounds.body.grid).toContain("linear-gradient");
+
+    // Cards, lines and soft text are neutral greys like the header: no
+    // blue cast (red, green and blue channels equal).
+    const greys = await page.evaluate(() => {
+      const root = getComputedStyle(document.documentElement);
+      return ["--surface", "--surface-soft", "--line", "--tint", "--ink-soft"]
+        .map((name) => [name, root.getPropertyValue(name).trim()] as const)
+        .filter(([, hex]) => {
+          const [r, g, b] = [1, 3, 5].map((i) => hex.slice(i, i + 2));
+          return r !== g || g !== b;
+        });
+    });
+    expect(greys).toEqual([]);
   });
 
   test("in light mode pages keep their light ground under the dark header", async ({
@@ -97,6 +110,73 @@ test.describe("signed in", () => {
     );
 
     expect(body).not.toBe(header);
+  });
+
+  test("every page shares one frame: the header's gutter, one title size, left-aligned", async ({
+    page,
+  }) => {
+    for (const width of [360, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      const frames = [];
+      for (const [label, url] of PAGES) {
+        await page.goto(url);
+        await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+          label,
+          { timeout: 20_000 },
+        );
+        frames.push(
+          await page.evaluate(() => {
+            const header = getComputedStyle(document.querySelector("header")!);
+            const main = document.querySelector("main")!;
+            const title = getComputedStyle(main.querySelector("h1")!);
+            return {
+              gutter: getComputedStyle(main).paddingLeft === header.paddingLeft,
+              left: main.getBoundingClientRect().left,
+              title: [title.fontSize, title.fontWeight],
+              overflow: document.documentElement.scrollWidth > innerWidth,
+            };
+          }),
+        );
+      }
+      const [first] = frames;
+      for (const frame of frames)
+        expect(frame).toEqual({ ...first, gutter: true, overflow: false });
+      expect(first.left).toBe(0);
+    }
+  });
+
+  test("form fields have borders that stand out from their card (3:1)", async ({
+    page,
+  }) => {
+    for (const colorScheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme });
+      await page.goto("/accounts");
+      await page.getByRole("link", { name: "Add an account" }).click();
+      const field = page.getByRole("textbox").first();
+      await expect(field).toBeVisible({ timeout: 20_000 });
+      const [border, ground] = await field.evaluate((el) => {
+        const root = getComputedStyle(document.documentElement);
+        return [
+          getComputedStyle(el).borderTopColor,
+          root.getPropertyValue("--surface").trim(),
+        ];
+      });
+      const luminance = (rgb: number[]) => {
+        const [r, g, b] = rgb.map((v) => {
+          const c = v / 255;
+          return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      };
+      const fromCss = (rgb: string) =>
+        rgb.match(/\d+/g)!.slice(0, 3).map(Number);
+      const fromHex = (hex: string) =>
+        [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      const [a, b] = [luminance(fromCss(border)), luminance(fromHex(ground))];
+      expect((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)).toBeGreaterThan(
+        3,
+      );
+    }
   });
 
   test("every page shows who is signed in and offers sign out", async ({

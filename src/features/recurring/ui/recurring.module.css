@@ -1,6 +1,6 @@
 .page {
-  max-width: 86rem;
-  margin-inline: auto;
+  max-width: var(--page-wide);
+  padding: var(--page-top) var(--gutter) 3rem;
 }
 .heading,
 .cardHead {
@@ -23,7 +23,7 @@
 .add {
   border: 1px solid var(--line);
   background: var(--surface);
-  border-radius: 0.65rem;
+  border-radius: var(--radius-card);
   padding: 1rem;
 }
 .summary h2 {
@@ -68,8 +68,8 @@
 .field select,
 .field input {
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 0.3rem;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius-control);
   padding: 0.5rem;
   width: 100%;
   min-width: 0;
@@ -77,9 +77,12 @@
 .page button {
   background: var(--tint);
   border: 1px solid var(--line);
-  border-radius: 0.35rem;
-  padding: 0.45rem 0.7rem;
+  border-radius: var(--radius-control);
+  padding: 0.5rem 1rem;
   cursor: pointer;
+}
+.page button:hover:not(:disabled) {
+  border-color: var(--ink-soft);
 }
 .page button:disabled {
   cursor: wait;
@@ -101,7 +104,7 @@
 .badge {
   background: var(--tint);
   padding: 0.15rem 0.45rem;
-  border-radius: 0.35rem;
+  border-radius: var(--radius-control);
   font-size: 0.75rem;
 }
 .metrics {
