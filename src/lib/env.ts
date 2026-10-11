@@ -44,6 +44,11 @@ const envSchema = z
      */
     AGENT_SERVICE_TOKEN: optionalText.pipe(z.string().min(32).optional()),
     /**
+     * The agent worker's origin, where the app posts texts for it to send
+     * (ADR-032). Optional: without it nothing is sent and the app says so.
+     */
+    AGENT_WORKER_URL: optionalText.pipe(z.url().optional()),
+    /**
      * The number users text, shown on the Settings card (ADR-051). Optional:
      * on Photon's shared pool there may be no single number. E.164 format.
      */

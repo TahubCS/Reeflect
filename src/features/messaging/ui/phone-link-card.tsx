@@ -85,9 +85,11 @@ export function PhoneLinkCard({ workspaceId, state, agentPhone }: Props) {
   const approve = () =>
     run(async () => {
       setCode(null);
-      return (await approveLinkAction(workspaceId))
-        ? null
-        : "That request is no longer valid. Get a new code.";
+      const { linked, texted } = await approveLinkAction(workspaceId);
+      if (!linked) return "That request is no longer valid. Get a new code.";
+      return texted
+        ? "Linked. We sent a text to your phone to confirm."
+        : `Linked. Text ${APP_NAME} anything to start.`;
     });
 
   const reject = () =>

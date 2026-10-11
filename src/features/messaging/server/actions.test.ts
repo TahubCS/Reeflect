@@ -28,6 +28,9 @@ vi.mock("@/lib/auth/session", () => ({
   getSession: () => Promise.resolve(signedIn.session),
 }));
 vi.mock("next/cache", () => ({ refresh: vi.fn() }));
+// The worker is replaced: what it is asked to send is checked here.
+const worker = vi.hoisted(() => ({ sendToPhone: vi.fn() }));
+vi.mock("./notify", () => worker);
 
 const userIds: string[] = [];
 const workspaceIds: string[] = [];
@@ -53,6 +56,7 @@ async function expectNotFound(promise: Promise<unknown>): Promise<void> {
 
 beforeEach(() => {
   signedIn.session = null;
+  worker.sendToPhone.mockReset().mockResolvedValue(true);
 });
 
 afterAll(async () => {
@@ -78,11 +82,21 @@ describe("phone link actions", () => {
       code: created.code,
     });
 
-    expect(await approveLinkAction(me.workspaceId)).toBe(true);
+    expect(await approveLinkAction(me.workspaceId)).toEqual({
+      linked: true,
+      texted: true,
+    });
     expect(await findIdentity("imessage", handle)).toMatchObject({
       userId: me.userId,
       workspaceId: me.workspaceId,
     });
+    // The phone that was approved is told, once, with no figure in the text.
+    expect(worker.sendToPhone).toHaveBeenCalledTimes(1);
+    const [platform, spaceId, text] = worker.sendToPhone.mock.calls[0]!;
+    expect([platform, spaceId]).toEqual(["imessage", "space"]);
+    expect(text).toMatch(/linked/i);
+    expect(text).toMatch(/STOP/);
+    expect(text).not.toMatch(/\d/);
 
     await setProactiveOptInAction(me.workspaceId, true);
     expect(await getLinkState(me.userId)).toMatchObject({
@@ -108,8 +122,33 @@ describe("phone link actions", () => {
 
     await rejectLinkAction(me.workspaceId);
 
-    expect(await approveLinkAction(me.workspaceId)).toBe(false);
+    expect(await approveLinkAction(me.workspaceId)).toEqual({
+      linked: false,
+      texted: false,
+    });
     expect(await findIdentity("imessage", handle)).toBeNull();
+    expect(worker.sendToPhone).not.toHaveBeenCalled();
+  });
+
+  it("keeps the link when the confirmation text cannot be sent", async () => {
+    const me = await newUser();
+    const handle = newPhone();
+    signedIn.session = { user: { id: me.userId } };
+    const created = await createLinkCodeAction(me.workspaceId);
+    if (!created.ok) throw new Error("expected a code");
+    await claimLinkCode({
+      platform: "imessage",
+      handle,
+      spaceId: "space",
+      code: created.code,
+    });
+    worker.sendToPhone.mockResolvedValue(false);
+
+    expect(await approveLinkAction(me.workspaceId)).toEqual({
+      linked: true,
+      texted: false,
+    });
+    expect(await findIdentity("imessage", handle)).not.toBeNull();
   });
 
   it("rejects a value that is not a boolean", async () => {

@@ -88,6 +88,7 @@ Rules:
 | ADR-059 | Agent replies: one request with labels, and a chain of models (refines ADR-019, ADR-040) | Proposed |
 | ADR-060 | Monthly budget interactions and recorded actual spending (refines ADR-015) | Accepted |
 | ADR-061 | Paydays found in deposits, confirmed like recurring payments (refines ADR-058) | Proposed |
+| ADR-062 | A text that confirms what the user just did is not a proactive message (refines ADR-038) | Proposed |
 | ADR-082 | Sample years in the developers' own accounts (exception to ADR-049) | Accepted |
 | ADR-083 | Ask the user to categorize large uncategorized payments (refines ADR-055, ADR-057) | Proposed |
 | ADR-084 | Reserved ADR and handoff numbers for each developer | Accepted |
@@ -1372,6 +1373,16 @@ Rules:
     balances). The model is given only label names such as `{cash_total}`
     and plain-word notes, never an amount, count, date or account name. It
     writes the sentences; code fills the labels in.
+  - **The days until payday come from the calendar (added 2026-10-11).**
+    When a payday is confirmed (ADR-061), the agent also has the
+    figures in the calendar's headline (ADR-042): what is due before
+    that payday, what is left after it, and the per-day amount. They
+    are worked out by the calendar's own `summarize` on the same data
+    the dashboard loads (`loadCashflowData`), so a reply and the
+    website cannot disagree. These are exact, not monthly averages.
+    For "how am I doing?" the reply leads with them. With no payday
+    confirmed, the reply says where to confirm one, as the website
+    does.
   - **Two checks on every draft, the same for every model:** no digit
     outside a label, and only labels that have a value. A draft that fails,
     or is too long for a text, is dropped and the reply is built by code
@@ -1404,7 +1415,8 @@ Rules:
   the model the figures (breaks ADR-019).
 - **Consequences:**
   - The agent's figures match the Insights page, since both use
-    `workspaceMeasures`.
+    `workspaceMeasures`, and the calendar's headline, since both use
+    `summarize`.
   - Follow-up questions ("and last month?") do not work yet.
   - **The activity figures are monthly averages, not totals:** the last 30
     days scaled to an average month, so a reply can be a few dollars away
@@ -1739,6 +1751,40 @@ Rules:
     here. Adding an "Education" preset is a separate decision.
   - Tests: which payments qualify (threshold, transfers excluded, the 90
     days), each answer, and that an answered question stays answered.
+
+### ADR-062: A text that confirms what the user just did is not a proactive message (refines ADR-038)
+
+- **Status:** Proposed (2026-10-11)
+- **Owner to confirm:** Muhammad Tahub Khatri
+- **Context:** A phone that texts `LINK` is told to press Approve on the
+  website. When the user pressed it, the website said "Connected" and the
+  phone heard nothing, so the person could not tell whether it had worked.
+  The worker could only reply to a text, and approval happens on the
+  website. ADR-038 covers texts Reeflect sends first, but it was written for
+  alerts and reminders: opt-in, quiet hours and three a day.
+- **Decision:**
+  - When the user does something on the website that changes what their
+    phone can do, the phone is told once, straight away. The first case is
+    approving a link: "You're linked to Reeflect. Text me "how am I doing?"
+    any time. Text STOP to unlink."
+  - Such a text is **not** a proactive message under ADR-038: no opt-in is
+    needed, and quiet hours and the daily cap do not apply. The user asked
+    for it by acting, seconds earlier, with the phone in their hand.
+  - It goes only to the conversation the action is about, and holds no
+    amounts and no financial data.
+  - It is sent through the worker's `POST /send` (ADR-032), built here.
+    The app waits up to 5 seconds. If it cannot be sent, what the user did
+    still holds, and the website says what to do instead ("Text Reeflect
+    anything to start").
+  - Alerts, reminders and recaps stay under ADR-038.
+- **Alternatives considered:** saying nothing (the problem); telling the
+  phone on its next text (the person has no reason to send one); treating
+  it as proactive (a user who did not opt in to alerts would never learn
+  the link worked).
+- **Consequences:** The app needs `AGENT_WORKER_URL`. The worker's `/send`
+  exists before F-26, which will reuse it. Refusing a request ("Not me")
+  and Disconnect from the website still tell the phone nothing; they can
+  use the same path.
 
 ### ADR-084: Reserved ADR and handoff numbers for each developer
 

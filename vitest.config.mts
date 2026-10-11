@@ -28,6 +28,9 @@ export default defineConfig({
       BETTER_AUTH_SECRET: "test-only-not-a-real-secret-0123456789",
       BETTER_AUTH_URL: "http://localhost:3000",
       AGENT_SERVICE_TOKEN: "test-only-agent-service-token-0123456789",
+      // No worker, whatever the environment sets (CI names one): no unit
+      // test asks a worker to text anyone.
+      AGENT_WORKER_URL: "",
       // No Gemini key, whatever the environment sets (CI has a dummy one):
       // the agent then answers with replies built by code, and no unit
       // test can call Google (ADR-059).

@@ -47,6 +47,47 @@ async function recurringFor(workspaceId: string) {
   }
 }
 
+export type CashflowLoad = {
+  data: CashflowData;
+  today: IsoDate;
+  accounts: Awaited<ReturnType<typeof listAccounts>>;
+  /** Recurring payments waiting for the person to confirm them (ADR-058). */
+  suggestions: number;
+};
+
+/**
+ * The calendar's data for one workspace, as of today in the app's time
+ * zone. It checks no session: the caller has already established that the
+ * reader may see `workspaceId` (the dashboard through membership, the agent
+ * through a verified phone link, ADR-034). Both get the same figures.
+ */
+export async function loadCashflowData(
+  workspaceId: string,
+  now: Date = new Date(),
+): Promise<CashflowLoad> {
+  const today = isoDateIn(now, DEFAULT_TIME_ZONE);
+  const window = dashboardWindow(today);
+  const [accounts, transactions, plans, recurring] = await Promise.all([
+    listAccounts(workspaceId),
+    listTransactionsBetween(workspaceId, window.from, window.to),
+    listPlansBetween(workspaceId, window.from, window.to),
+    recurringFor(workspaceId),
+  ]);
+  // Plans join after the opening balance is worked out, so it never counts
+  // one (ADR-102).
+  const real = toCashflowData({ accounts, transactions, today });
+  return {
+    data: {
+      ...real,
+      entries: [...real.entries, ...plansToEntries(plans, accounts)],
+      recurring: recurring ? toRecurring(recurring.payments, accounts) : [],
+    },
+    today,
+    accounts,
+    suggestions: recurring?.summary.candidates ?? 0,
+  };
+}
+
 /**
  * Everything the calendar home screen shows, for one workspace (F-12). Any
  * member may read it (ARCH-04); only editors get the day panel's form.
@@ -57,29 +98,17 @@ export async function loadDashboard(workspaceId: unknown): Promise<Dashboard> {
   const canEdit = roleAtLeast(access.role, "editor");
   if (canEdit) await ensureCategories(access.workspaceId);
 
-  const today = isoDateIn(new Date(), DEFAULT_TIME_ZONE);
-  const window = dashboardWindow(today);
-  const [accounts, transactions, plans, categories, linkState, recurring] =
+  const [{ data, today, accounts, suggestions }, categories, linkState] =
     await Promise.all([
-      listAccounts(access.workspaceId),
-      listTransactionsBetween(access.workspaceId, window.from, window.to),
-      listPlansBetween(access.workspaceId, window.from, window.to),
+      loadCashflowData(access.workspaceId),
       listCategories(access.workspaceId),
       // The session is non-null here: requireWorkspaceAccess refused otherwise.
       getLinkState(session!.user.id),
-      recurringFor(access.workspaceId),
     ]);
 
-  // Plans join after the opening balance is worked out, so it never counts
-  // one (ADR-102).
-  const real = toCashflowData({ accounts, transactions, today });
   return {
     workspaceId: access.workspaceId,
-    data: {
-      ...real,
-      entries: [...real.entries, ...plansToEntries(plans, accounts)],
-      recurring: recurring ? toRecurring(recurring.payments, accounts) : [],
-    },
+    data,
     today,
     accounts: accounts.map(({ id, nickname, type }) => ({
       id,
@@ -91,6 +120,6 @@ export async function loadDashboard(workspaceId: unknown): Promise<Dashboard> {
       .map(({ id, name }) => ({ id, name })),
     canEdit,
     linkState,
-    suggestions: recurring?.summary.candidates ?? 0,
+    suggestions,
   };
 }

@@ -3,6 +3,7 @@
 import { refresh } from "next/cache";
 import { notFound } from "next/navigation";
 import { z } from "zod";
+import { APP_NAME } from "@/config/app";
 import { ownPersonalWorkspace } from "./access";
 import {
   type NewLinkCode,
@@ -12,6 +13,7 @@ import {
   revokeForUser,
   setProactiveOptIn,
 } from "./link";
+import { sendToPhone } from "./notify";
 
 // Server actions for the Settings card (ARCH-04). Each one works on the
 // signed-in user's own phone link; the client supplies only the workspace
@@ -32,12 +34,30 @@ export async function createLinkCodeAction(
   return result;
 }
 
-/** False when the request had expired or the phone was linked elsewhere. */
-export async function approveLinkAction(workspaceId: string): Promise<boolean> {
+/**
+ * What the phone is told once it is linked. It confirms what the user just
+ * did, so it is not a proactive message (ADR-062); it carries no amounts.
+ */
+const LINKED_TEXT = `You're linked to ${APP_NAME}. Text me "how am I doing?" any time. Text STOP to unlink.`;
+
+export type ApproveResult = {
+  /** False when the request had expired or the phone was linked elsewhere. */
+  linked: boolean;
+  /** Whether the phone was sent its confirmation. The link holds either way. */
+  texted: boolean;
+};
+
+export async function approveLinkAction(
+  workspaceId: string,
+): Promise<ApproveResult> {
   const own = await requireOwnPersonalWorkspace(workspaceId);
-  const linked = await approveLink(own.userId, own.workspaceId);
+  const phone = await approveLink(own.userId, own.workspaceId);
+  // Awaited: a serverless function stops once the action returns.
+  const texted =
+    phone !== null &&
+    (await sendToPhone(phone.platform, phone.spaceId, LINKED_TEXT));
   refresh();
-  return linked;
+  return { linked: phone !== null, texted };
 }
 
 export async function rejectLinkAction(workspaceId: string): Promise<void> {

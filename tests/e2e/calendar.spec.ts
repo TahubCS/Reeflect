@@ -445,3 +445,64 @@ test("a viewer sees plans but cannot plan, confirm or remove", async ({
     0,
   );
 });
+
+// F-25 with ADR-042: the agent answers "how am I doing?" with the figure in
+// the calendar's headline. The phone's texts are posted to /api/agent/turn
+// as the worker would send them; no model is called under test (ADR-059).
+test("a text gets the same per-day figure as the calendar's headline", async ({
+  browser,
+  baseURL,
+}) => {
+  const page = await newUserPage(browser, baseURL);
+  await page.goto("/dashboard");
+  await expect(page).toHaveURL(/\/w\/[^/]+\/dashboard$/);
+  const workspaceId = new URL(page.url()).pathname.split("/")[2]!;
+  await seedHistory(workspaceId);
+
+  await page.goto("/subscriptions");
+  for (const name of ["acme payroll", "stream service"]) {
+    const card = page.getByRole("article", { name, exact: true });
+    await card
+      .getByRole("button", { name: "Confirm recurring payment" })
+      .click();
+    await expect(card).toContainText("Tracking");
+  }
+
+  await openDashboard(page);
+  await expect(headline(page)).toContainText("a day until payday.");
+  const perDay = (await headline(page).textContent())!.match(
+    /\$[\d,]+\.\d\d/,
+  )![0];
+
+  const handle = `+1${String(Math.floor(Math.random() * 1e10)).padStart(10, "0")}`;
+  const text = async (message: string) => {
+    const response = await page.request.post("/api/agent/turn", {
+      headers: {
+        authorization: "Bearer e2e-only-agent-service-token-0123456789",
+      },
+      data: {
+        platform: "imessage",
+        handle,
+        spaceId: `any;-;${handle}`,
+        messageId: crypto.randomUUID(),
+        text: message,
+      },
+    });
+    expect(response.status()).toBe(200);
+    return ((await response.json()) as { reply: string }).reply;
+  };
+
+  await page.goto("/settings");
+  await hydrated(page, "main button");
+  await page.getByRole("button", { name: "Connect iMessage" }).click();
+  const instruction = page.getByText(/^LINK \d{3} \d{3}$/);
+  await expect(instruction).toBeVisible();
+  await text((await instruction.textContent())!);
+  await page.getByRole("button", { name: "Approve" }).click();
+  await expect(page.getByText(/^Connected: phone ending/)).toBeVisible();
+
+  const reply = await text("how am I doing?");
+  expect(reply).toContain("You have $2,000.00 in checking and savings.");
+  expect(reply).toContain(`That leaves ${perDay} a day until then.`);
+  expect(reply).toContain("14 days away");
+});

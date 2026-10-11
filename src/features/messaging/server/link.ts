@@ -213,17 +213,21 @@ export async function claimLinkCode(
   return "failed";
 }
 
+/** The conversation a phone linked from: where to text it. */
+export type LinkedPhone = { platform: Platform; spaceId: string };
+
 /**
  * The user approved the phone waiting on their code: create the identity in
  * `workspaceId` (their Personal workspace, resolved by the caller) and spend
- * the code. False when there is no live request, or when the phone or the
- * user was linked elsewhere in the meantime.
+ * the code. Returns the phone's conversation, or null when there is no live
+ * request, or when the phone or the user was linked elsewhere in the
+ * meantime.
  */
 export async function approveLink(
   userId: string,
   workspaceId: string,
   now: Date = new Date(),
-): Promise<boolean> {
+): Promise<LinkedPhone | null> {
   return db.transaction(async (tx) => {
     const [request] = await tx
       .select({
@@ -243,7 +247,7 @@ export async function approveLink(
       request.handle === null ||
       request.spaceId === null
     ) {
-      return false;
+      return null;
     }
 
     await tx
@@ -265,7 +269,9 @@ export async function approveLink(
       })
       .onConflictDoNothing()
       .returning({ id: messagingIdentity.id });
-    return created.length > 0;
+    return created.length > 0
+      ? { platform: request.platform, spaceId: request.spaceId }
+      : null;
   });
 }
 

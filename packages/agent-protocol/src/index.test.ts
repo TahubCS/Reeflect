@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { PLATFORMS, turnRequestSchema, turnResponseSchema } from "./index";
+import {
+  PLATFORMS,
+  sendRequestSchema,
+  turnRequestSchema,
+  turnResponseSchema,
+} from "./index";
 
 const valid = {
   platform: "imessage",
@@ -45,6 +50,38 @@ describe("turnRequestSchema", () => {
     ];
     for (const input of bad) {
       expect(turnRequestSchema.safeParse(input).success).toBe(false);
+    }
+  });
+});
+
+describe("sendRequestSchema", () => {
+  const send = {
+    platform: "imessage",
+    spaceId: "any;-;+15551234567",
+    text: "You're linked.",
+  };
+
+  it("accepts a well-formed request and trims the text", () => {
+    expect(sendRequestSchema.parse(send)).toEqual(send);
+    expect(sendRequestSchema.parse({ ...send, text: " Hi \n" }).text).toBe(
+      "Hi",
+    );
+  });
+
+  it("rejects missing, mistyped and oversized fields", () => {
+    const bad: unknown[] = [
+      {},
+      null,
+      { ...send, platform: "telegram" },
+      { ...send, spaceId: "" },
+      { ...send, spaceId: "x".repeat(201) },
+      { ...send, text: "" },
+      { ...send, text: "   " },
+      { ...send, text: 42 },
+      { ...send, text: "x".repeat(1001) },
+    ];
+    for (const input of bad) {
+      expect(sendRequestSchema.safeParse(input).success).toBe(false);
     }
   });
 });
