@@ -62,6 +62,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-26 Subscription alerts | C | Unassigned | — | Not started |
 | F-27 Log spending by text | C | Muhammad Tahub Khatri | `feat/agent-log-spending` | Built (HO-071, ADR-064): log, ask when unsure, UNDO. The account question is remembered and answered in the next text (HO-073, ADR-065). Not built: money in, days before yesterday, receipts |
 | F-28 Category and balance questions | C | Muhammad Tahub Khatri | `feat/agent-questions` | Built (HO-072, ADR-059): this month's spending and budgets by category, the next payments before payday, each account's balance. Not built: any period other than this month so far |
+| F-33 Quiet hours settings | B + C | Simon Ormond | `feat/quiet-hours` | Built (HO-096, ADR-104 Proposed): Settings → Notifications and by text, with UNDO. Nothing sends proactive texts yet |
 | F-32 Agent worker | C | Muhammad Tahub Khatri | `feat/agent-worker` | Done, replies only (HO-039, PR #17); live on Render (HO-049) |
 | F-22 Bill reminders (P1) | A + C | Unassigned | — | Not started |
 | F-15 Gemini summary on the website (P1, ADR-045) | C | Unassigned | — | Not started |
@@ -3808,6 +3809,52 @@ recommendation, not a decision.
   answer sent that way is lost (found while planning; not fixed).
 - The full unit run is not clean on this machine while another agent's
   worktree is active.
+
+## HO-096: F-33, quiet hours on the website and by text (ADR-104)
+
+- **Date:** 2026-10-11 (America/New_York)
+- **Author:** Simon Ormond with Claude Code
+- **Branch / PR:** `feat/quiet-hours` / not opened
+
+### What changed
+- **Schema change:** migration 0016 adds `notification_setting`, one row
+  per user (no row = 9 PM–9 AM). A check keeps both minutes in 0–1439 and
+  different. Applied to the local Docker database only.
+- `messaging/domain/quiet-hours.ts`: `isQuiet` (ranges across midnight),
+  `nextAllowedSend` (keeps the end time on the wall clock across daylight
+  saving), formatting and time-input helpers. Exported from messaging's
+  `index.ts` for the job tick that will send proactive texts.
+- `messaging/server/notifications.ts`: get, set from the website, set by
+  text (keeps the old hours) and undo. `setQuietHoursAction` is in the
+  isolation matrix.
+- Settings shows a Notifications card under Messages: the current hours in
+  words and two time fields. The "Not built yet" note now lists only F-19.
+- The agent reads "quiet hours …" texts before logging
+  (`agent/domain/quiet-hours-command.ts`, code only): "11pm to 7am",
+  "11 PM - 7 AM", "23:00 to 07:00", midnight/noon. Unclear input gets an
+  example; "quiet hours?" tells the current ones.
+- ADR-104 (Proposed): per-user storage, Eastern time until zones exist,
+  and UNDO takes back whichever came last within 24 hours, a quiet-hours
+  text change or a text-logged spending. `latestTextTransaction` now
+  returns `createdAt` for that comparison.
+- Playwright: `quiet-hours.spec.ts`. `agent-link.spec.ts` now reads the
+  Messages card's status, since the page has two.
+- Merged `main` after F-28 and ADR-065: main's 0015 is `agent_pending_log`,
+  so this migration was regenerated as 0016. In `runAgentTurn`, quiet-hours
+  texts are read before an open "which account?" question, and UNDO clears
+  that question as for any UNDO before choosing what to take back.
+
+### What's next
+- Run `pnpm db:migrate:to branch` / `production` for 0016 once the PR is
+  approved.
+- The job tick (F-22, F-26) must call `nextAllowedSend` before sending.
+
+### Open problems
+- Quiet hours are in Eastern time for everyone (ADR-104).
+- F-29 (`feat/agent-receipt-photos`, HO-074) also plans migration 0016:
+  whichever merges second regenerates its migration.
+- Turning off each proactive type separately (ADR-038) is not built; the
+  single opt-in on the Messages card is the only switch.
 
 ## HO-078: UI rework: header counts and Sync, month row, charge rhythm, shorter transactions list
 

@@ -121,9 +121,9 @@ test("a phone links only after the website approves it", async ({
     page.getByText(`Connected: phone ending ${handle.slice(-4)}`),
   ).toBeVisible();
   // Both sides are told it worked: the page, and the phone by one text.
-  await expect(page.getByRole("status")).toHaveText(
-    "Linked. We sent a text to your phone to confirm.",
-  );
+  await expect(
+    page.getByRole("region", { name: "Messages" }).getByRole("status"),
+  ).toHaveText("Linked. We sent a text to your phone to confirm.");
   const sent = await textsSentTo(request, handle);
   expect(sent).toHaveLength(1);
   expect(sent[0]).toContain("You're linked");
@@ -139,7 +139,9 @@ test("Not me refuses the phone", async ({ browser, baseURL, request }) => {
 
   await page.getByRole("button", { name: "Not me" }).click();
 
-  await expect(page.getByRole("status")).toHaveText(
+  await expect(
+    page.getByRole("region", { name: "Messages" }).getByRole("status"),
+  ).toHaveText(
     "Request refused. Nothing was linked, and we texted that phone to say so.",
   );
   await expect(
@@ -192,9 +194,9 @@ test("the opt-in is off until chosen, and Disconnect unlinks", async ({
     page.getByRole("button", { name: "Connect iMessage" }),
   ).toBeVisible();
   // Both sides are told: the page, and the phone by one more text.
-  await expect(page.getByRole("status")).toHaveText(
-    "Phone disconnected. We sent it a text to confirm.",
-  );
+  await expect(
+    page.getByRole("region", { name: "Messages" }).getByRole("status"),
+  ).toHaveText("Phone disconnected. We sent it a text to confirm.");
   const sent = await textsSentTo(request, handle);
   expect(sent).toHaveLength(2);
   expect(sent[0]).toContain("You're linked");

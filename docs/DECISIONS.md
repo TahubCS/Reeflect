@@ -96,6 +96,7 @@ Rules:
 | ADR-084 | Reserved ADR and handoff numbers for each developer | Accepted |
 | ADR-102 | Planned transactions are kept apart from the ledger (refines ADR-042, ADR-050) | Proposed |
 | ADR-103 | Built-in category keywords when no saved rule matches (refines ADR-013) | Proposed |
+| ADR-104 | Quiet hours per user, in Eastern time; UNDO takes back the latest text change (refines ADR-038, ADR-064) | Proposed |
 
 ---
 
@@ -2038,6 +2039,42 @@ Rules:
   rules are next applied (any rule change or `applyCategoryRules`). A
   workspace has at most `MAX_RULES` saved rules plus the built-in ones, so
   the engine accepts up to 2,000 rules.
+
+---
+
+### ADR-104: Quiet hours per user, in Eastern time; UNDO takes back the latest text change (refines ADR-038, ADR-064)
+
+- **Status:** Proposed (2026-10-11)
+- **Context:** ADR-038 lets users set quiet hours on the website and by
+  text, and the text confirmation says "Reply UNDO to go back". ADR-064
+  already gives UNDO a meaning: remove the latest spending logged by text.
+  ADR-038 also says "the workspace time zone", but nothing stores a time
+  zone yet; every "today" in the app uses `DEFAULT_TIME_ZONE`.
+- **Decision:**
+  - Quiet hours are stored per user in `notification_setting`, not per
+    phone, so they survive unlinking and linking again. No row means the
+    default, 9 PM to 9 AM. They are minutes after midnight; a database
+    check keeps both in range and different.
+  - They are read in `DEFAULT_TIME_ZONE` (Eastern) until users or
+    workspaces have a time zone; the website and the agent say "Eastern
+    time". `nextAllowedSend` keeps the end time on the wall clock across
+    daylight saving changes.
+  - A text that mentions "quiet hours" is read by code before logging,
+    which would otherwise read its times as amounts. With no times it
+    tells the person their current hours. Without AM or PM, only the
+    24-hour form ("23:00", "07:00") is accepted; anything else gets an
+    example and changes nothing.
+  - **UNDO takes back whichever came last within 24 hours**: the latest
+    quiet-hours change made by text or the latest spending logged by text.
+    A quiet-hours change can be undone once. A change on the website clears
+    the text change's UNDO.
+- **Alternatives considered:** No UNDO for quiet hours (simpler, but
+  ADR-038's reply promises it); a separate word such as "UNDO QUIET" (one
+  more thing to remember).
+- **Consequences:** Adds migration 0016. The job tick (F-22, F-26) must call
+  `nextAllowedSend` with the user's quiet hours before sending. A user
+  outside Eastern time gets quiet hours in Eastern time until time zones
+  are stored.
 
 ---
 

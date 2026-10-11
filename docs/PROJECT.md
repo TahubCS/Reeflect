@@ -113,7 +113,7 @@ Priorities follow ADR-043. Lanes: A = Data, B = Web, C = Agent.
 | F-30 | Weekly recap text | Later | C | Sunday evening summary with the week-ahead image. | ADR-038 |
 | F-31 | Household group chat | Later | C | The agent in a family group chat answers about the household calendar only. | ADR-034 |
 | F-32 | Agent worker | P0 | C | Long-running Spectrum process on Render that relays messages between iMessage and the Next.js brain. | ADR-032 |
-| F-33 | Quiet hours settings | P0 | B + C | Users set quiet hours on the website (Settings → Notifications) or by texting "Reeflect, register new quiet hours 11PM to 7 AM". Default 9 PM–9 AM. | ADR-038 |
+| F-33 | Quiet hours settings | P0 | B + C | Users set quiet hours on the website (Settings → Notifications) or by texting "Reeflect, register new quiet hours 11PM to 7 AM"; UNDO takes a text change back. Default 9 PM–9 AM, Eastern time for now. Built (HO-096). | ADR-038, ADR-104 |
 | F-34 | Judge demo ("Try it") | P0 | C | Demo mode only: a judge scans a QR code, texts TRY, and is linked for 2 hours to a sandbox judge workspace. | ADR-034 |
 | F-35 | Compare with people like you | Later | A + B | On Insights: your spending by category and where you stand, next to sample people with similar take-home pay or everyone, for the last 30 days, 3 months or year. Labelled "Sample". Built (HO-043). | ADR-049, ADR-056 |
 | F-36 | Retirement question | Later | B | An action-required item: is money going into a retirement plan through your employer, your own account, or not right now. Retirement and investing count as saving. | ADR-055 |

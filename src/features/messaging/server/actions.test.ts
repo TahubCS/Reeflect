@@ -13,8 +13,10 @@ import {
   disconnectAction,
   rejectLinkAction,
   setProactiveOptInAction,
+  setQuietHoursAction,
 } from "./actions";
 import { claimLinkCode, findIdentity, getLinkState } from "./link";
+import { getQuietHours } from "./notifications";
 
 // Integration tests against the Docker database (TEST-05). The session and
 // Next's router refresh are the only parts replaced. Calls from a
@@ -214,6 +216,7 @@ describe("phone link actions", () => {
     () => rejectLinkAction(workspaceId),
     () => disconnectAction(workspaceId),
     () => setProactiveOptInAction(workspaceId, true),
+    () => setQuietHoursAction(workspaceId, "23:00", "07:00"),
   ];
 
   it("is not found for a workspace the user owns that is not their Personal one", async () => {
@@ -246,5 +249,46 @@ describe("phone link actions", () => {
     signedIn.session = { user: { id: me.userId } };
 
     await expectNotFound(createLinkCodeAction("../etc"));
+  });
+});
+
+describe("setQuietHoursAction", () => {
+  it("saves the signed-in user's quiet hours, with or without a phone", async () => {
+    const me = await newUser();
+    signedIn.session = { user: { id: me.userId } };
+
+    expect(await setQuietHoursAction(me.workspaceId, "23:00", "07:00")).toEqual(
+      { ok: true },
+    );
+    expect(await getQuietHours(me.userId)).toEqual({
+      startMinute: 23 * 60,
+      endMinute: 7 * 60,
+    });
+    // Saving sends nothing to a phone.
+    expect(worker.sendToPhone).not.toHaveBeenCalled();
+  });
+
+  it("refuses equal or malformed times and changes nothing", async () => {
+    const me = await newUser();
+    signedIn.session = { user: { id: me.userId } };
+    await setQuietHoursAction(me.workspaceId, "22:00", "06:00");
+
+    expect(await setQuietHoursAction(me.workspaceId, "09:00", "09:00")).toEqual(
+      { ok: false, error: "same" },
+    );
+    expect(await setQuietHoursAction(me.workspaceId, "25:00", "06:00")).toEqual(
+      { ok: false, error: "invalid" },
+    );
+    expect(await setQuietHoursAction(me.workspaceId, "", "06:00")).toEqual({
+      ok: false,
+      error: "invalid",
+    });
+    await expect(
+      setQuietHoursAction(me.workspaceId, "x".repeat(100), "06:00"),
+    ).rejects.toThrow();
+    expect(await getQuietHours(me.userId)).toEqual({
+      startMinute: 22 * 60,
+      endMinute: 6 * 60,
+    });
   });
 });
