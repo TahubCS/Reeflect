@@ -1,5 +1,21 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ACCOUNT_ENTRY_POINTS } from "@/features/accounts/server/entry-points";
+import { CATEGORIZATION_ENTRY_POINTS } from "@/features/categorization/server/entry-points";
+import {
+  createRule,
+  ensureCategories,
+  listCategories,
+  listRules,
+} from "@/features/categorization/server/repository";
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db/client";
+import { uuidv7 } from "@/lib/db/id";
+import {
+  category,
+  categoryRule,
+  importBatch,
+  transaction,
+} from "@/lib/db/schema";
 import {
   createAccount,
   listAccounts,
@@ -8,13 +24,7 @@ import { IMPORT_ENTRY_POINTS } from "@/features/imports/server/entry-points";
 import { listPreviews } from "@/features/imports/server/repository";
 import { MESSAGING_ENTRY_POINTS } from "@/features/messaging/server/entry-points";
 import { TRANSACTION_ENTRY_POINTS } from "@/features/transactions/server/entry-points";
-import {
-  createTransaction,
-  listTransactions,
-} from "@/features/transactions/server/repository";
-import { db } from "@/lib/db/client";
-import { uuidv7 } from "@/lib/db/id";
-import { importBatch } from "@/lib/db/schema";
+import { createTransaction } from "@/features/transactions/server/repository";
 import { cents } from "@/lib/money";
 import {
   fixtures,
@@ -33,6 +43,7 @@ const ENTRY_POINTS: EntryPoint[] = [
   ...IMPORT_ENTRY_POINTS,
   ...MESSAGING_ENTRY_POINTS,
   ...TRANSACTION_ENTRY_POINTS,
+  ...CATEGORIZATION_ENTRY_POINTS,
 ];
 
 const getSession = vi.hoisted(() => vi.fn());
@@ -58,7 +69,18 @@ async function outcome(entry: EntryPoint, target: EntryPointTarget) {
 async function snapshotB() {
   return {
     accounts: await listAccounts(b.workspaceId),
-    transactions: await listTransactions(b.workspaceId),
+    categories: await db
+      .select()
+      .from(category)
+      .where(eq(category.workspaceId, b.workspaceId)),
+    rules: await db
+      .select()
+      .from(categoryRule)
+      .where(eq(categoryRule.workspaceId, b.workspaceId)),
+    transactions: await db
+      .select()
+      .from(transaction)
+      .where(eq(transaction.workspaceId, b.workspaceId)),
     previews: await listPreviews(b.workspaceId),
   };
 }
@@ -71,6 +93,15 @@ async function newTarget(workspaceId: string): Promise<EntryPointTarget> {
     maskLast4: null,
     balanceCents: null,
   });
+  await ensureCategories(workspaceId);
+  const categoryId = (await listCategories(workspaceId))[0]!.id;
+  await createRule(workspaceId, {
+    categoryId,
+    pattern: "Isolation target",
+    matchType: "contains",
+    priority: 100,
+  });
+  const ruleId = (await listRules(workspaceId))[0]!.id;
   const transactionId = await createTransaction(workspaceId, {
     description: "Isolation target",
     isTransfer: false,
@@ -107,6 +138,8 @@ async function newTarget(workspaceId: string): Promise<EntryPointTarget> {
     accountId,
     transactionId: transactionId!,
     importBatchId,
+    categoryId,
+    ruleId,
   };
 }
 
@@ -149,6 +182,9 @@ describe.each(ENTRY_POINTS)("$name", (entry) => {
       transactionId: b.transactionId,
       importBatchId: b.importBatchId,
     });
+    await outcome(entry, { ...a, categoryId: b.categoryId });
+    await outcome(entry, { ...a, ruleId: b.ruleId });
+    await outcome(entry, { ...b, workspaceId: a.workspaceId });
 
     expect(await snapshotB()).toEqual(before);
   });

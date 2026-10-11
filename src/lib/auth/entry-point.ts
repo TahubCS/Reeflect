@@ -8,6 +8,8 @@ export type EntryPointTarget = {
   transactionId: string;
   /** A previewed statement import on `accountId`. */
   importBatchId: string;
+  categoryId: string;
+  ruleId: string;
 };
 
 /**

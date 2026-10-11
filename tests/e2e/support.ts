@@ -40,14 +40,21 @@ async function emailsTo(address: string): Promise<OutboxEmail[]> {
     files
       .filter((file) => file.endsWith(".json"))
       .sort()
-      .map(
-        async (file) =>
-          JSON.parse(
-            await readFile(join(OUTBOX_DIR, file), "utf8"),
-          ) as OutboxEmail,
-      ),
+      .map(async (file) => {
+        const contents = await readFile(join(OUTBOX_DIR, file), "utf8");
+        try {
+          return JSON.parse(contents) as OutboxEmail;
+        } catch (error) {
+          // Parallel signups can observe a file before writeFile finishes.
+          // The next emailedLink poll reads it again once it is complete.
+          if (error instanceof SyntaxError) return null;
+          throw error;
+        }
+      }),
   );
-  return emails.filter((email) => email.to === address);
+  return emails.filter(
+    (email): email is OutboxEmail => email !== null && email.to === address,
+  );
 }
 
 /**

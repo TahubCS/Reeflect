@@ -6,6 +6,7 @@ import {
   bigint,
   boolean,
   date,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -16,6 +17,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { uuidv7 } from "../id";
 import { organization, user } from "./auth";
+import { category } from "./categorization";
 
 const timestamptz = (name: string) => timestamp(name, { withTimezone: true });
 const money = (name: string) => bigint(name, { mode: "number" });
@@ -135,7 +137,6 @@ export const importBatch = pgTable(
   ],
 );
 
-// `category_id` (ARCH-03) arrives with the category table it references.
 export const transaction = pgTable(
   "transaction",
   {
@@ -152,6 +153,9 @@ export const transaction = pgTable(
     amountCents: money("amount_cents").notNull(),
     descriptionRaw: text("description_raw").notNull(),
     merchantNormalized: text("merchant_normalized"),
+    categoryId: text("category_id"),
+    /** Manual choices, including Uncategorized, must survive rule changes. */
+    categoryIsManual: boolean("category_is_manual").notNull().default(false),
     status: text("status", { enum: ["pending", "posted"] })
       .notNull()
       .default("posted"),
@@ -187,5 +191,10 @@ export const transaction = pgTable(
       table.financialAccountId,
       table.fingerprint,
     ),
+    foreignKey({
+      name: "transaction_workspace_category_fk",
+      columns: [table.workspaceId, table.categoryId],
+      foreignColumns: [category.workspaceId, category.id],
+    }),
   ],
 );

@@ -40,8 +40,15 @@
     {
       "idx": 5,
       "version": "7",
-      "when": 1791681833796,
-      "tag": "0005_import_batch",
+      "when": 1791679415537,
+      "tag": "0005_categorization",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791687774339,
+      "tag": "0006_import_batch",
       "breakpoints": true
     }
   ]
