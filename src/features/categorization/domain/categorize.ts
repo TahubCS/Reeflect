@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { normalizeMerchant } from "./normalize-merchant";
-import { containsWords } from "./starter-rules";
+import { hasWordsInRow, splitWords } from "./starter-rules";
 
 const identifier = z.string().trim().min(1).max(128);
 
@@ -62,8 +62,29 @@ export type CategorizationResult =
   | { success: true; data: Categorization }
   | { success: false; error: z.ZodError };
 
-function matches(merchant: string, rule: CategoryRule): boolean {
-  const pattern = normalizeMerchant(rule.pattern);
+/** A rule with its pattern normalized once, not once per row. */
+type CompiledRule = {
+  rule: CategoryRule;
+  pattern: string;
+  /** The pattern's words, for `word` rules only. */
+  words: string[];
+};
+
+const compile = (rules: readonly CategoryRule[]): CompiledRule[] =>
+  rules.map((rule) => {
+    const pattern = normalizeMerchant(rule.pattern);
+    return {
+      rule,
+      pattern,
+      words: rule.matchType === "word" ? splitWords(pattern) : [],
+    };
+  });
+
+function matches(
+  merchant: string,
+  merchantWords: () => string[],
+  { rule, pattern, words }: CompiledRule,
+): boolean {
   switch (rule.matchType) {
     case "contains":
       return merchant.includes(pattern);
@@ -72,8 +93,42 @@ function matches(merchant: string, rule: CategoryRule): boolean {
     case "exact":
       return merchant === pattern;
     case "word":
-      return containsWords(merchant, pattern);
+      return hasWordsInRow(merchantWords(), words);
   }
+}
+
+/** The winning rule for a normalized merchant: highest priority, then lowest id. */
+function winningRule(
+  merchant: string,
+  rules: readonly CompiledRule[],
+): CategoryRule | undefined {
+  let merchantWords: string[] | undefined;
+  const wordsOf = () => (merchantWords ??= splitWords(merchant));
+  let winner: CategoryRule | undefined;
+  for (const compiled of rules) {
+    const { rule } = compiled;
+    // A rule that cannot win is not worth matching.
+    if (
+      winner &&
+      (rule.priority < winner.priority ||
+        (rule.priority === winner.priority && rule.id > winner.id))
+    )
+      continue;
+    if (matches(merchant, wordsOf, compiled)) winner = rule;
+  }
+  return winner;
+}
+
+function categorization(
+  merchantNormalized: string,
+  winner: CategoryRule | undefined,
+): Categorization {
+  return {
+    merchantNormalized,
+    categoryId: winner?.categoryId ?? null,
+    matchedRuleId: winner?.id ?? null,
+    origin: winner ? "rule" : "uncategorized",
+  };
 }
 
 /**
@@ -99,26 +154,12 @@ export function categorizeTransaction(input: unknown): CategorizationResult {
     };
   }
 
-  let winner: CategoryRule | undefined;
-  for (const rule of rules) {
-    if (!matches(merchantNormalized, rule)) continue;
-    if (
-      !winner ||
-      rule.priority > winner.priority ||
-      (rule.priority === winner.priority && rule.id < winner.id)
-    ) {
-      winner = rule;
-    }
-  }
-
   return {
     success: true,
-    data: {
+    data: categorization(
       merchantNormalized,
-      categoryId: winner?.categoryId ?? null,
-      matchedRuleId: winner?.id ?? null,
-      origin: winner ? "rule" : "uncategorized",
-    },
+      winningRule(merchantNormalized, compile(rules)),
+    ),
   };
 }
 
@@ -130,21 +171,59 @@ export type StoredCategorization = {
 };
 
 /**
+ * Each rule list `classifyStored` has seen, checked and compiled once: callers
+ * classify many rows against one list (a month of budgets, a page of
+ * transactions), and checking a few hundred rules per row is what made that
+ * slow. Null marks a list that failed the check. Keyed by the array, so it
+ * goes when the list does; callers never change a list once they pass it.
+ */
+const compiledLists = new WeakMap<
+  readonly CategoryRule[],
+  CompiledRule[] | null
+>();
+
+function compiledList(rules: readonly CategoryRule[]): CompiledRule[] | null {
+  let compiled = compiledLists.get(rules);
+  if (compiled === undefined) {
+    const checked = categorizationInputSchema.safeParse({
+      descriptionRaw: "",
+      rules,
+    });
+    compiled = checked.success ? compile(checked.data.rules) : null;
+    compiledLists.set(rules, compiled);
+  }
+  return compiled;
+}
+
+/** A description the engine accepts; longer ones fall back below. */
+const MAX_DESCRIPTION = 2_000;
+
+/**
  * The effective category of a stored row: its manual choice, else the
  * winning rule. Shared by every read of categories (the Transactions page,
- * Insights, batch rollups) so they always agree.
+ * Insights, batch rollups) so they always agree. Same answer as
+ * `categorizeTransaction`, with the rules checked once per list.
  */
 export function classifyStored(
   row: StoredCategorization,
   rules: CategoryRule[],
 ): Categorization {
-  const result = categorizeTransaction({
-    descriptionRaw: row.descriptionRaw,
-    rules,
-    manualOverride: row.categoryIsManual,
-    manualCategoryId: row.categoryIsManual ? row.categoryId : null,
-  });
-  if (result.success) return result.data;
+  const compiled = compiledList(rules);
+  if (compiled !== null && row.descriptionRaw.length <= MAX_DESCRIPTION) {
+    const merchantNormalized = normalizeMerchant(row.descriptionRaw);
+    if (row.categoryIsManual) {
+      return {
+        merchantNormalized,
+        categoryId: row.categoryId,
+        matchedRuleId: null,
+        origin: "manual",
+      };
+    }
+    return categorization(
+      merchantNormalized,
+      winningRule(merchantNormalized, compiled),
+    );
+  }
   // Historical/imported descriptions may exceed the form's bounds. Preserve
   // manual choices and leave automatic results uncategorized, without guessing.
   return {

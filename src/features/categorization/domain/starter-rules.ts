@@ -229,23 +229,30 @@ export const STARTER_KEYWORDS: Readonly<
 /** Below any priority a saved rule may have (forms allow −1,000,000 up). */
 const STARTER_PRIORITY = -2_000_000;
 
-/** The words of a normalized name or keyword, ignoring punctuation. */
-export function words(text: string): string[] {
-  return normalizeMerchant(text)
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter((word) => word.length > 0);
+/** The words of text that is already normalized, ignoring punctuation. */
+export function splitWords(normalized: string): string[] {
+  return normalized.split(/[^\p{L}\p{N}]+/u).filter((word) => word.length > 0);
 }
 
-/** True when `keyword`'s words appear in `merchant`'s words, in a row. */
-export function containsWords(merchant: string, keyword: string): boolean {
-  const haystack = words(merchant);
-  const needle = words(keyword);
+/** The words of a name or keyword, ignoring case and punctuation. */
+export const words = (text: string): string[] =>
+  splitWords(normalizeMerchant(text));
+
+/** True when `needle`'s words appear in `haystack`'s words, in a row. */
+export function hasWordsInRow(
+  haystack: readonly string[],
+  needle: readonly string[],
+): boolean {
   if (needle.length === 0) return false;
   for (let start = 0; start + needle.length <= haystack.length; start += 1) {
     if (needle.every((word, i) => haystack[start + i] === word)) return true;
   }
   return false;
 }
+
+/** True when `keyword`'s words appear in `merchant`'s words, in a row. */
+export const containsWords = (merchant: string, keyword: string): boolean =>
+  hasWordsInRow(words(merchant), words(keyword));
 
 /**
  * The built-in keywords as rules for one workspace, pointing at its preset
