@@ -47,6 +47,9 @@ export default defineConfig({
       AGENT_PHONE_NUMBER: "",
       // No Resend key, so emails go to .email-outbox/ and tests follow the
       // links there (ADR-052). Empty values win over .env.local.
+      // No Gemini key, so the agent's replies are the ones built by code and
+      // tests never call Google (ADR-059). Empty wins over .env.local.
+      GEMINI_API_KEY: "",
       RESEND_API_KEY: "",
       EMAIL_FROM: "",
       // The Neon `storage-tests` branch's bucket, never production's
