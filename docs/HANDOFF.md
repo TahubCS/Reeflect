@@ -4527,6 +4527,67 @@ rows", transactions 2 "show more" in steps of 20, plus a view-only list.
 - A model that names a category in its own words leaves that name in the
   stored draft.
 
+## HO-123: One page frame, one title, readable fields and the same controls on every page
+
+- **Date:** 2026-10-11 (UTC)
+- **Author:** Muhammad Tahub Khatri with Claude Code
+- **Branch / PR:** `fix/ui-page-frame` / PR linked from the branch
+
+### What changed
+- A UI audit (four review agents plus the Web Interface Guidelines) found
+  pages that looked like different apps. This PR fixes the CSS-only part.
+- **Dark greys** (left over from HO-119; PR #45 merged before this commit
+  was pushed): `--surface`, `--surface-soft`, `--line`, `--tint` and
+  `--ink-soft` are neutral, not blue-grey, and the dark `--head-tint`
+  override is gone.
+- **Page frame:** new tokens `--gutter`, `--page-top`, `--page-narrow`
+  (48rem: Accounts, Transactions), `--page-medium` (60rem: Import,
+  Insights) and `--page-wide` (72rem: Bills, Recurring, Budgets,
+  Categorization, Transfers). Every page is left-aligned under the header
+  with the header's gutter. Budgets had no side padding at all (text
+  touched the screen edge on phones); Bills and Recurring were centred at
+  86rem with a 1rem top.
+- **Titles:** the bare `h1` rule (dashboard headline, 3rem) applied to
+  every page. It is now `.hero h1`; `main h1` is the shared page title
+  (2.5rem, 650). Seven copies of that rule in modules are gone. Budgets'
+  1.4rem section heading uses the global h2.
+- **Fields:** new `--field-line` (`#767676` light, `#707070` dark) for
+  every input and select border: 3:1 or better on every ground (WCAG
+  1.4.11). `--line` was about 1.3:1.
+- **Focus:** per-page focus rings (green on Bills, purple on Budgets and
+  Insights, a 3px offset on Transfers) are gone; the global ink ring
+  applies. The header's tab ring is drawn inside the tab, because the
+  sideways-scrolling row clipped it.
+- **Controls:** `--radius-control` (8px) and `--radius-card` (12px)
+  replace 8px, 10px, 12px, 14px, 0.65rem, 0.4rem, 0.35rem and 0.3rem.
+  Buttons in Bills, Recurring, Budgets and Transfers use 0.5rem 1rem
+  padding like the rest. Every primary button lightens on hover and
+  outlined ones take the tint. The selected Bills tab is filled with ink
+  (it was 1.04:1 against the page). The settings switch lost a blue
+  literal shadow.
+- `tests/e2e/app-nav.spec.ts`: every page has the header's gutter, the
+  same title size, no sideways scroll at 360 and 1440px; a field border is
+  3:1 against its card in both themes; the dark greys are neutral.
+
+### Verified
+- `pnpm lint`, `typecheck`, `format:check`, `docs:check` and `build`
+  pass.
+- `pnpm test:unit`: 2702 pass; 8 fail only because this container has no
+  Neon `storage-tests` credentials (TEST-05), and `scripts/db/verify.test.ts`
+  timed out once in the full run and passes on its own.
+- Playwright was not run (Muhammad runs it); the screenshots in
+  `docs/screenshots/` regenerate when their specs run.
+
+### What's next
+- The same audit has two more PRs: accessibility fixes
+  (`fix/ui-a11y`) and confirmations and broken links
+  (`fix/ui-confirmations`).
+- Buttons are still defined per feature; one shared button class needs TSX
+  changes in every feature and was left for later.
+
+### Open problems
+- Not checked visually in a browser in this session.
+
 ## HO-122: Confirm before deleting or disconnecting; fix links on a filtered new transaction
 
 - **Date:** 2026-10-11 (UTC)

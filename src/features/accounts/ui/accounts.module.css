@@ -2,8 +2,8 @@
    (ADR-046), so it follows the light and dark themes. */
 
 .page {
-  max-width: 48rem;
-  padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1rem, 3vw, 3.5rem) 3rem;
+  max-width: var(--page-narrow);
+  padding: var(--page-top) var(--gutter) 3rem;
 }
 
 .heading {
@@ -12,13 +12,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-}
-
-.page h1 {
-  font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
-  font-weight: 650;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
 }
 
 .lede {
@@ -32,7 +25,7 @@
   margin-top: 1.5rem;
   padding: 1rem;
   border: 1px dashed var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   color: var(--ink-soft);
 }
 
@@ -53,7 +46,7 @@
   padding: 0;
   list-style: none;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background: var(--surface);
 }
 
@@ -134,8 +127,8 @@
 .field select {
   width: 100%;
   padding: 0.5rem 0.625rem;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--ink);
 }
@@ -172,7 +165,7 @@
 .danger {
   display: inline-block;
   padding: 0.5rem 1rem;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
@@ -212,6 +205,16 @@
 .confirm {
   padding: 1rem;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background: var(--surface);
+}
+
+/* Hover: ink buttons lighten a little, outlined ones pick up the tint. */
+.primary:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.secondary:hover:not(:disabled),
+.danger:hover:not(:disabled) {
+  background: var(--tint);
 }

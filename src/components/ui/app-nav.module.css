@@ -26,6 +26,12 @@
   color: var(--head-ink);
 }
 
+/* The row scrolls sideways, which clips anything outside it: draw the
+   focus ring inside the tab so it is never cut off. */
+.link:focus-visible {
+  outline-offset: -2px;
+}
+
 .link[aria-current="page"] {
   box-shadow: inset 0 -2px 0 var(--head-ink);
   color: var(--head-ink);

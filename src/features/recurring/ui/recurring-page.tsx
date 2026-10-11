@@ -243,7 +243,7 @@ export function RecurringPage({
   const pageHref = (page: number) =>
     `?${new URLSearchParams({ kind: query.kind, state: query.state, intent: query.intent, ...(query.account ? { account: query.account } : {}), page: String(page) })}`;
   return (
-    <main className={`page ${styles.page}`}>
+    <main className={styles.page}>
       {/* The header's count on Recurring payments follows this page. */}
       <NavRefresh token={summary.candidates} />
       <div className={styles.heading}>
