@@ -64,6 +64,9 @@ export function Agenda({
                   {item.unconfirmed && (
                     <span className="cell-card"> · not confirmed</span>
                   )}
+                  {item.recurringId && cancelPlans.has(item.recurringId) && (
+                    <span className="cell-card"> · planning to cancel</span>
+                  )}
                 </span>
                 <span
                   className={

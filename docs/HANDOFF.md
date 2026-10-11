@@ -4587,3 +4587,49 @@ rows", transactions 2 "show more" in steps of 20, plus a view-only list.
 
 ### Open problems
 - Not checked visually in a browser in this session.
+
+## HO-124: Accessibility fixes from the UI audit: calendar, header, phones
+
+- **Date:** 2026-10-11 (UTC)
+- **Author:** Muhammad Tahub Khatri with Claude Code
+- **Branch / PR:** `fix/ui-a11y` / PR linked from the branch
+
+### What changed
+- **Quiet days:** with a filter on, days with nothing of that kind faded
+  to opacity 0.35, which dropped their numbers to about 2:1 on buttons
+  that still work. They now keep full opacity with `--ink-soft` and a
+  lighter weight (7:1 or better).
+- **Planning to cancel:** a subscription the person plans to cancel was
+  only a strikethrough. The day cell's label (`describeDay`, now exported
+  from `month-grid.tsx`) and the list view both say "planning to cancel"
+  (ADR-042: every visual state has words).
+- **Day panel:** it stuck at `top: 1rem`, under the sticky header. New
+  `--header-h` token (7rem): the panel sticks below the header, is never
+  taller than the window and scrolls inside itself. `scroll-padding-top`
+  uses the same token.
+- **Phones:** the three sums sat in three 100px columns and a five-digit
+  balance overlapped the next one at 360px; at 40rem and below each sum is
+  a row. The balance line's label opens to the left past the middle (was
+  70%), so it no longer runs off a narrow screen.
+- **Skip link:** "Skip to content" is the first Tab stop on every
+  signed-in page and jumps past the header's dozen controls.
+- **Links:** links without a class took the browser's default blue (fails
+  contrast on the dark ground). They now take the text colour around them.
+- Tests: `month-grid.test.ts` (Vitest) for `describeDay`;
+  `calendar.spec.ts` checks quiet days, the cancel label, 360px and the
+  panel under the header; `skip-link.spec.ts` for the skip link.
+
+### Verified
+- `pnpm lint`, `typecheck`, `format:check`, `docs:check` and `build`
+  pass. `pnpm test:unit`: everything passes except the Neon storage tests,
+  which need `storage-tests` credentials this container does not have
+  (TEST-05).
+- Playwright was not run (Muhammad runs it).
+
+### What's next
+- The day panel's × still removes an entry at once; confirmations are in
+  `fix/ui-confirmations`.
+
+### Open problems
+- `--header-h` is an estimate of the header's height, not measured. If the
+  header grows (a third row), raise it.
