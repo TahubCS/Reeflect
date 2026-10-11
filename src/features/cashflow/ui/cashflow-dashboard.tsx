@@ -95,7 +95,11 @@ export function CashflowDashboard({
   canEdit,
   linkState,
   suggestions,
-}: Dashboard) {
+  summaryPanel,
+}: Dashboard & {
+  /** The summary panel (F-15), from its own feature; shown under the headline. */
+  summaryPanel?: ReactNode;
+}) {
   const [view, setView] = useState<YearMonth>(monthOf(today));
   const [selected, setSelected] = useState<IsoDate>(today);
   const [hovered, setHovered] = useState<IsoDate | null>(null);
@@ -240,6 +244,8 @@ export function CashflowDashboard({
               </div>
             </dl>
           </section>
+
+          {summaryPanel}
 
           <section className="calendar" aria-labelledby="month-heading">
             <div className="calendar-head">

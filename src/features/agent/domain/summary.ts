@@ -6,6 +6,7 @@ import {
   add,
   formatCents,
   negate,
+  times,
 } from "@/lib/money";
 
 // What the agent knows about one person when they ask how they are doing
@@ -70,6 +71,8 @@ export const LABELS = {
     "about what their subscriptions cost a month (a monthly average)",
   subscription_count:
     "how many different subscriptions they paid; the value already includes the word, so write the label alone, as in 'you pay for {subscription_count}'",
+  subscription_yearly:
+    "about what their subscriptions come to over a year at that monthly rate; use it only as 'about {subscription_yearly} a year'",
   payday_date:
     "the date of their next confirmed payday, written out; use it as 'your next payday on {payday_date}'",
   days_until_payday:
@@ -96,6 +99,8 @@ export const LABELS = {
     "how many recurring payments the website found and is waiting for them to confirm; the value already includes the words, so write the label alone, as in '{suggestions_waiting} to review'",
   month_spent:
     "exactly what they have spent in total so far this month, as on the website's Budgets page",
+  over_budget_count:
+    "how many categories are past their budget so far this month; the value already says 'past budget', so write the label alone, as in 'you have {over_budget_count} this month'",
   top_category_1_name: "the category they spent the most on",
   top_category_1_amount:
     "about what they spend in that category a month (a monthly average)",
@@ -127,6 +132,16 @@ export const MONTHLY_LABELS: ReadonlySet<Label> = new Set<Label>([
 ]);
 
 /**
+ * Labels whose value is a monthly average scaled to a year (F-15). A reply
+ * that uses one must say it is "a year" (see `completeDraft`).
+ */
+export const YEARLY_LABELS: ReadonlySet<Label> = new Set<Label>([
+  "subscription_yearly",
+]);
+
+const MONTHS_IN_YEAR = 12;
+
+/**
  * Whether a label is a figure for this month so far (the Budgets page's
  * own, F-28), not an average. A reply that uses one must say "this month"
  * (see `completeDraft`).
@@ -134,6 +149,7 @@ export const MONTHLY_LABELS: ReadonlySet<Label> = new Set<Label>([
 export function isMonthToDate(label: string): boolean {
   return (
     label === "month_spent" ||
+    label === "over_budget_count" ||
     /^category_[0-9]+_(spent|budget|left|over)$/.test(label)
   );
 }
@@ -394,6 +410,17 @@ export function buildFacts(input: FactsInput): Facts {
     categories: month ? monthFacts(month, described) : [],
     accounts: accountFacts(accounts, described),
   };
+  const overBudget = asked.categories.filter(
+    (category) => category.budget === "over",
+  ).length;
+  if (overBudget > 0) {
+    // The value says what is counted, so a sentence cannot lose it.
+    values.over_budget_count = counted(
+      overBudget,
+      "category past budget",
+      "categories past budget",
+    );
+  }
 
   if (measures === null) {
     return { state: "no_activity", values, ...asked, owes, gap: null, payday };
@@ -409,6 +436,9 @@ export function buildFacts(input: FactsInput): Facts {
   if (measures.bills > 0) values.bills = formatCents(measures.bills);
   if (measures.subscriptionCount > 0) {
     values.subscription_cost = formatCents(measures.subscriptionCost);
+    values.subscription_yearly = formatCents(
+      times(measures.subscriptionCost, MONTHS_IN_YEAR),
+    );
     values.subscription_count = counted(
       measures.subscriptionCount,
       "subscription",

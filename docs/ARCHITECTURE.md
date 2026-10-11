@@ -153,6 +153,7 @@ have `updated_at`.
 | `agent_pending_log` | identity_id (PK, FK to `messaging_identity`), workspace_id, amount_cents, description, day (`today`/`yesterday`), account_ids (text[]), asked_at, kind (`account`/`receipt`), category_id (FK to `category`, set null), message_id | Built in 0015 (ADR-065); `kind`, `category_id` and `message_id` added in 0017 for a receipt photo's proposal, which is not a transaction until the person says yes (ADR-067). The one "which account?" a phone has open; replaced by the next question and ignored 10 minutes after `asked_at`. Both FKs cascade |
 | `notification_setting` | user_id (PK), quiet_start_minute, quiet_end_minute, previous_start_minute, previous_end_minute, changed_by_text_at, subscription_alerts, bill_reminders, updated_at | Built in 0016 (ADR-104). Per user, so it survives relinking; no row means 9 PM–9 AM and both alert types on. A check keeps both minutes in 0–1439 and different. The previous values let UNDO reverse a text change for 24 hours. The two switches arrived in 0018 (ADR-105) |
 | `proactive_message` | id, user_id, identity_id, workspace_id, kind (`subscription_alert`, `bill_reminder`), subject_key, status (`queued`, `sent`, `cancelled`, `failed`), not_before, attempts, sent_at, created_at | Built in 0018 (ADR-105). Unique (workspace_id, kind, subject_key): one text per subscription (its payment key) or per bill cycle (payment key and scheduled date). No amounts and no text are stored. Cascades with the user, the phone link and the workspace |
+| `summary_write` | id, workspace_id, user_id, written_on (the day in the app's time zone), draft (jsonb: a summary and suggestions with labels, never an amount; null when no model answered), created_at | Built in 0019 (ADR-068). One row for each request to have Gemini write the dashboard summary: the rows are each person's daily limit, and the newest draft is what the workspace sees that day. Rows from earlier days are removed at the next request |
 | `nessie_link` | workspace_id (PK), nessie_customer_id, last_synced_at | One sandbox customer per workspace (ADR-033) |
 | `outbound_message` | id, messaging_identity_id, kind (`subscription_alert`/`bill_reminder`/`weekly_recap`), dedupe_key, scheduled_for, sent_at, status | Unique dedupe_key; enforces quiet hours and daily cap (ADR-038) |
 | `audit_event` | id, workspace_id (nullable), actor_user_id, action, target_type, target_id, created_at, ip_hash | No financial details |
@@ -273,7 +274,7 @@ preserving the balance line, including transfers posted on different days.
 
 ## ARCH-07: AI layer
 
-Governed by: ADR-019, ADR-045, ADR-059
+Governed by: ADR-019, ADR-045, ADR-059, ADR-068
 
 - `src/lib/ai/google.ts`: the only file that imports the `@google/genai`
   SDK. One stateless request (`store: false`) to Gemini's Interactions API.
@@ -298,9 +299,14 @@ Governed by: ADR-019, ADR-045, ADR-059
 - "Ask Reeflect" exposes read-only tools (for example
   `getCategorySpend(workspaceId, month, categoryId)`) that call the same
   repository functions as the UI, with the same authorization.
-- The website summary panel (ADR-045) sends code-computed aggregates to
-  Gemini, fills the placeholders in its reply, runs the digit scan, and falls
-  back to a fixed template with the same figures.
+- The website summary panel (`src/features/summary`, ADR-045, ADR-068) is
+  on the dashboard. It opens with a summary built by code from the agent's
+  `getSummary`. On a click, `generateLongText` (the chain with 8 seconds for
+  each model) sends Gemini the labels and a JSON shape; code checks every
+  sentence as it checks a text reply, fills the labels in, and falls back to
+  the code-built panel with the same figures. Each person may ask five
+  times a day. The draft is kept in label form in `summary_write` and
+  filled again with current figures on each page load that day.
 
 ## ARCH-08: Security controls
 

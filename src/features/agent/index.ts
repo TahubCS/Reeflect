@@ -8,3 +8,5 @@ export {
 export { platformAllowed } from "./server/platform";
 export { runAgentTurn } from "./server/runAgentTurn";
 export { hasServiceToken } from "./server/service-token";
+// For the website's summary panel (F-15), which reads the same figures.
+export { getSummary } from "./server/tools/getSummary";
