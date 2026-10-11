@@ -81,7 +81,7 @@ Planned features (each a folder in `src/features/`):
 batch generator, ADR-049).
 
 Built so far: `accounts` (F-03: add, edit and delete accounts; HO-030),
-`auth` (sign-in and sign-up forms), `cashflow` (the calendar, on sample
+`auth` (sign-in, sign-up, email verification and password reset, ADR-052), `cashflow` (the calendar, on sample
 data), `landing` (the home page) and `synthetic`. `accounts` and
 `synthetic` have an `index.ts`; `accounts` is the first feature with a
 `server/` folder, and its server actions are the pattern to copy.
@@ -266,6 +266,8 @@ Governed by: ADR-006, ADR-007, ADR-010, ADR-012, ADR-019, ADR-025
 | `BETTER_AUTH_SECRET` | Better Auth | Yes |
 | `BETTER_AUTH_URL` | Better Auth | No |
 | `BETTER_AUTH_API_KEY` | Better Auth Infrastructure dashboard (`dash()` plugin, ADR-047); optional, the plugin is left out without it | Yes |
+| `RESEND_API_KEY` | `lib/email` (ADR-052); required when `VERCEL` is set; without it emails go to the local `.email-outbox/` | Yes |
+| `EMAIL_FROM` | `lib/email`: sender on the Resend-verified domain (ADR-052); required when `VERCEL` is set | No |
 | `ENCRYPTION_KEY` | `lib/security/crypto.ts` (32 bytes, base64) | Yes |
 | `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_ENV` | Plaid client | Yes (secret) |
 | `GEMINI_API_KEY` | `lib/ai` (Google Gemini API) | Yes |

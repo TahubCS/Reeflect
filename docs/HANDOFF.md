@@ -40,13 +40,13 @@ Update this table when work is assigned or finished. Features are listed in
 | Feature / bug | Lane | Assigned to | Branch | Status |
 |---|---|---|---|---|
 | Scaffold (Next.js, pnpm workspace, Drizzle, Better Auth, CI, lefthook) | All | Unassigned | — | Next.js, CI, Drizzle and Better Auth done (HO-017, HO-018). Not done: lefthook, the `agent-worker/` and `packages/` workspace packages |
-| F-01 Sign up / sign in | B | Unassigned | — | Done (HO-018, HO-020, HO-021, HO-027) |
+| F-01 Sign up / sign in | B | Simon Ormond | `feat/email-verification-resend` | Done (HO-018, HO-020, HO-021, HO-027); email verification and password reset through Resend (HO-034, ADR-052 Proposed) |
 | F-02 Personal workspace | B | Simon Ormond | `feat/personal-workspace` | Personal workspace and `/w/[workspaceId]` done (HO-027); household later |
 | F-03 Financial accounts | A | Simon Ormond | `feat/financial-accounts` | Done: manual accounts, list, edit, delete (HO-030) |
 | F-04 Manual transactions | A | Simon Ormond | `feat/manual-transactions` | Built: add, edit, delete, list by day, account filter (HO-031); ADR-050 Proposed |
 | F-05 CSV import | A | Unassigned | — | Not started |
 | F-06 PDF statement import (P0, ADR-044) | A | Unassigned | — | Not started |
-| F-08 Categorization | A | Codex | `feat/transaction-categorization` | Engine done (HO-034); full flow in progress on PR #12 |
+| F-08 Categorization | A | Codex | `feat/transaction-categorization` | Engine done (HO-035); full flow in progress on PR #12 |
 | F-09 Monthly budgets (P1) | A | Unassigned | — | Not started |
 | F-10 Subscriptions (detection P0, marks P1) | A | Unassigned | — | Not started |
 | F-12 Calendar home screen | B | Unassigned | — | Scaffolded on sample data (HO-019) |
@@ -1483,9 +1483,59 @@ recommendation, not a decision.
 - No automated test guards this. Next's `@next/playwright` `instant()`
   helper could, at the cost of a new dev dependency.
 
+## HO-034: Email verification and password reset through Resend (ADR-052)
+
+- **Date:** 2026-10-10 20:30 (EDT)
+- **Author:** Simon Ormond with Claude (Claude Code)
+- **Branch / PR:** `feat/email-verification-resend` / not opened
+
+### What changed
+- **ADR-052 (Proposed):** Resend for email; new users must confirm their
+  email before they can sign in. **The team should confirm it.**
+- **Migration `0004_verify_existing_users`** (renumbered from 0003 after
+  merging main, whose `0003_phone_linking` came first) (custom SQL, no schema change)
+  marks every user present when it runs as verified.
+- **`src/lib/email/`:** templates (greeting and link only; names are
+  HTML-escaped), `deliver` (Resend, or `.email-outbox/` JSON files without
+  a key; logs user id and message id only, never throws) and
+  `sendAfterResponse` (Next's `after()`, so response time doesn't reveal
+  whether an address has an account).
+- **Env:** `RESEND_API_KEY`, `EMAIL_FROM`; both required when `VERCEL` is
+  set, optional elsewhere; a key without `EMAIL_FROM` is refused.
+  Playwright sets both empty.
+- **Better Auth:** `requireEmailVerification`, `sendOnSignUp`,
+  `sendOnSignIn`, `autoSignInAfterVerification`, one-hour links,
+  `sendResetPassword`, `revokeSessionsOnPasswordReset`.
+- **UI:** sign-up ends on "Check your inbox" (with "Send the link again");
+  sign-in explains an unverified account and links to "Forgot your
+  password?"; new pages `/forgot-password`, `/reset-password`,
+  `/email-verified` (redirects to the calendar, or explains a bad link).
+  `Field` moved to `src/features/auth/ui/field.tsx`.
+- **Tests:** Vitest for templates, sender, env, auth config, the migration
+  and the new form parsing. E2E: every API sign-up goes through
+  `signUpVerified` in `tests/e2e/support.ts`, which follows the link from
+  the outbox; new specs for unverified sign-in, resend, reset, unknown
+  address and bad links. `pnpm test:unit` (535) and `pnpm test:e2e` (54)
+  pass.
+
+### What's next
+- **Deploy order:** set `RESEND_API_KEY` and `EMAIL_FROM` on Vercel
+  (Production and Preview), merge, run `pnpm db:migrate:to production`,
+  **then** deploy. Deploying first would lock out existing users until the
+  migration runs.
+- Send one real email from a preview deployment to check Resend's DNS and
+  the sender name.
+
+### Open problems
+- ADR-052 is Proposed, not Accepted.
+- `.email-outbox/` is never cleaned up; delete it by hand when it grows.
+- Signing up with an address that already has an account shows "Check your
+  inbox" and sends nothing (Better Auth's enumeration protection). An
+  "already have an account" email would need `onExistingUserSignUp`.
+
 ---
 
-## HO-034: Isolated categorization engine (F-08, ADR-013)
+## HO-035: Isolated categorization engine (F-08, ADR-013)
 
 - **Date:** 2026-10-10 19:18 (EDT)
 - **Author:** Codex
@@ -1531,7 +1581,7 @@ recommendation, not a decision.
 
 ---
 
-## HO-035: Categorization engine prepared for commit and PR
+## HO-036: Categorization engine prepared for commit and PR
 
 - **Date:** 2026-10-10 19:31 (EDT)
 - **Author:** Codex
@@ -1541,7 +1591,7 @@ recommendation, not a decision.
 - The user explicitly requested committing the engine and opening a PR.
 - Re-fetched main: the branch's base still matches `02c5154`; no main updates
   need merging. Reviewed the feature and documentation scope for the commit.
-- Application code is unchanged since HO-034's successful verification.
+- Application code is unchanged since HO-035's successful verification.
 
 ### What's next
 - Commit and publish this branch, then open the engine PR into main. The PR
@@ -1550,5 +1600,5 @@ recommendation, not a decision.
 - Review the PR and integrate category persistence and a caller in later work.
 
 ### Open problems
-- The full F-08 persistence and user-facing integration dependencies in HO-034
+- The full F-08 persistence and user-facing integration dependencies in HO-035
   remain. This PR contains the isolated engine milestone.

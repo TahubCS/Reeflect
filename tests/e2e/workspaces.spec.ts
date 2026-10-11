@@ -1,5 +1,5 @@
 import { type Browser, type Page, expect, test } from "@playwright/test";
-import { SIGNED_IN_STATE, ownClientAddress } from "./support";
+import { SIGNED_IN_STATE, signUpVerified } from "./support";
 
 // F-02, the Personal part of TEST-07's workspaces suite (ADR-007). Household
 // workspaces, invites and switching arrive later.
@@ -12,15 +12,10 @@ async function newSignedInPage(
   baseURL: string | undefined,
 ): Promise<Page> {
   const context = await browser.newContext();
-  const response = await context.request.post("/api/auth/sign-up/email", {
-    headers: { origin: baseURL ?? "", ...ownClientAddress() },
-    data: {
-      name: "Workspace Tester",
-      email: `e2e-workspace-${crypto.randomUUID()}@example.test`,
-      password: "correct-horse-battery-staple",
-    },
+  await signUpVerified(context.request, baseURL, {
+    name: "Workspace Tester",
+    email: `e2e-workspace-${crypto.randomUUID()}@example.test`,
   });
-  expect(response.status()).toBe(200);
   return context.newPage();
 }
 
