@@ -1,14 +1,21 @@
 import type { Metadata } from "next";
-import { PagePlaceholder } from "@/components/ui/page-placeholder";
+import { Suspense } from "react";
+import { PageLoading } from "@/components/ui/page-loading";
+import { BudgetsPage, loadBudgets } from "@/features/budgets";
 
 export const metadata: Metadata = { title: "Budgets" };
 
-export default function BudgetsPage() {
+type Props = PageProps<"/w/[workspaceId]/budgets">;
+async function MonthlyBudgets({ params, searchParams }: Props) {
+  const { workspaceId } = await params;
+  const query = await searchParams;
+  const data = await loadBudgets(workspaceId, query.month);
+  return <BudgetsPage key={`${data.workspaceId}:${data.month}`} data={data} />;
+}
+export default function BudgetsRoute(props: Props) {
   return (
-    <PagePlaceholder
-      title="Budgets"
-      purpose="A monthly budget for each category and how much of it is left."
-      features="F-09"
-    />
+    <Suspense fallback={<PageLoading />}>
+      <MonthlyBudgets {...props} />
+    </Suspense>
   );
 }

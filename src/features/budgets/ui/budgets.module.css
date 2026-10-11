@@ -1,0 +1,199 @@
+.page {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 2rem 0 4rem;
+}
+.header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.page h1 {
+  margin: 0 0 0.5rem;
+  font-size: clamp(2rem, 4vw, 3rem);
+}
+.page h2 {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1.4rem;
+}
+.page h3 {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+}
+.page p {
+  line-height: 1.6;
+}
+.page a {
+  color: var(--sub);
+  text-underline-offset: 0.2em;
+}
+.monthNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.monthForm {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin: 1.5rem 0;
+}
+.monthForm input,
+.form input {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  padding: 0.7rem;
+  min-width: 0;
+}
+.page button {
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--tint);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  min-height: 44px;
+}
+.page button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+.page :is(a, button, input):focus-visible {
+  outline: 2px solid var(--sub);
+  outline-offset: 3px;
+}
+.note {
+  color: var(--ink-soft);
+  font-size: 0.93rem;
+}
+.summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+.summary > div {
+  padding: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  display: grid;
+  gap: 0.5rem;
+}
+.summary span {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+.summary strong {
+  font-size: 1.6rem;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.empty,
+.copy,
+.explanation {
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin: 1rem 0;
+  background: var(--surface-soft);
+}
+.copy p {
+  margin-top: 0;
+}
+.categories {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+.card {
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.figures {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+.figures dt {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.figures dd {
+  margin: 0.3rem 0 0;
+  font-variant-numeric: tabular-nums;
+}
+.progress {
+  height: 6px;
+  border-radius: 6px;
+  background: var(--line);
+  overflow: hidden;
+  margin: 1rem 0;
+}
+.progress span {
+  display: block;
+  height: 100%;
+  background: var(--sub);
+}
+.controls {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.form {
+  display: grid;
+  gap: 0.5rem;
+}
+.form label {
+  font-size: 0.9rem;
+}
+.inputRow {
+  display: flex;
+  gap: 0.6rem;
+}
+.inputRow input {
+  width: 100%;
+  flex: 1;
+}
+.inputRow button {
+  flex-shrink: 0;
+}
+.form p,
+.operation p {
+  margin: 0.4rem 0;
+  font-size: 0.9rem;
+}
+.operation button {
+  background: var(--surface-soft);
+}
+@media (max-width: 800px) {
+  .summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 580px) {
+  .categories {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .page {
+    padding-top: 1.25rem;
+  }
+  .inputRow {
+    flex-wrap: wrap;
+  }
+  .inputRow input {
+    flex-basis: 100%;
+  }
+}
