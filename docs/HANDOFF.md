@@ -60,7 +60,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-24 Phone linking | C | Muhammad Tahub Khatri | `feat/photon-agent` | Built (HO-032); the phone is texted when the link is approved (HO-061, ADR-062) |
 | F-25 "How am I doing?" + week-ahead image | C | Muhammad Tahub Khatri | `feat/agent-payday-answer` | Answers built (HO-050, HO-061): balances, the last 30 days, and what is owed before payday with the calendar's per-day figure. The image is not built |
 | F-26 Subscription alerts | C | Unassigned | — | Not started |
-| F-27 Log spending by text | C | Muhammad Tahub Khatri | `feat/agent-log-spending` | Built (HO-064, ADR-063): log, ask when unsure, UNDO. Not built: money in, days before yesterday, receipts |
+| F-27 Log spending by text | C | Muhammad Tahub Khatri | `feat/agent-log-spending` | Built (HO-071, ADR-064): log, ask when unsure, UNDO. Not built: money in, days before yesterday, receipts |
 | F-28 Category and balance questions | C | Unassigned | — | Not started |
 | F-32 Agent worker | C | Muhammad Tahub Khatri | `feat/agent-worker` | Done, replies only (HO-039, PR #17); live on Render (HO-049) |
 | F-22 Bill reminders (P1) | A + C | Unassigned | — | Not started |
@@ -3275,11 +3275,287 @@ recommendation, not a decision.
   indicator shows and each text logs one `typing indicator refused` line.
   Read its `code` in Render's log to find out why.
 
-## HO-064: F-27, log spending by text (ADR-063)
+## HO-068: Review the remaining navbar scope and propose complete Bills work
+
+- **Date:** 2026-10-11 04:19 (EDT)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `chore/bills-feature-plan` / not opened
+
+### What changed
+
+- User requested a thorough Bills plan. Reviewed freshly fetched main
+  `516a5b6` (merged PR #28); its CI and CodeQL passed. Bills is the only
+  navbar placeholder, while Settings quiet hours/deletion and other product
+  integrations remain unfinished.
+- Inspected all navbar routes and the relevant recurring, cashflow, account,
+  transaction, messaging/worker/protocol, schema, decision and testing paths.
+  Wrote [BILLS_PLAN.md](BILLS_PLAN.md) with evidence, cycle-specific amounts,
+  due-date provenance, payment/partial state, ownership, calendar dedupe,
+  in-app reminders and the dependencies for full F-22 iMessage delivery.
+- The proposed refinement to ADR-030's payment amount rule requires acceptance
+  before schema/implementation work. Variable invoice amounts should not be
+  judged paid/unpaid solely against the old historical amount band.
+- Plan includes additive migrations, real upgrade/data-preservation checks,
+  `pnpm db:migrate` after implementation, verification on the app's actual
+  database and scoped coordination with Simon/Jacob. No app/schema changes,
+  migrations, production writes or messages were made during this review.
+
+### What's next
+
+- User reviews and approves implementation scope and the proposed product
+  decisions. Start `feat/bills` from current main after approval; full F-22
+  includes Settings notification controls and worker delivery dependencies.
+- Recheck team ownership and numbers on main, and verify the proactive sender
+  before promising automatic iMessage reminders.
+
+### Open problems
+
+- Full F-22 depends on presently missing scheduler/outbox/quiet-hours/sender
+  code; Nessie/Plaid lender sources are separate unfinished integrations.
+
+## HO-064: Narrow Bills to the complete web page and leave messaging to Claude
+
+- **Date:** 2026-10-11 08:35 (UTC)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `chore/bills-feature-plan` / not opened
+
+### What changed
+
+- User explicitly narrowed the requested plan to the complete Bills web page
+  and assigned all iMessage work to Claude. This scope supersedes the broader
+  reminder-delivery proposal recorded in HO-068.
+- Rechecked main at `516a5b6` and the recurring public APIs/schema. Rewrote
+  [BILLS_PLAN.md](BILLS_PLAN.md) around current-cycle invoices, payment evidence,
+  partial/manual settlement, history, due-soon web notices and account-specific
+  cash comparison. Detection remains pattern-based under ADR-058.
+- Defined excluded paths for agent, messaging, worker, protocol, AI, reminders,
+  jobs and notification settings. Dashboard, Insights and mock-data work stay
+  with Simon/Jacob. New Bills code plus additive schema is the primary scope;
+  only a narrow recurring transaction API is proposed for atomic saves.
+- Preserved the user's instruction to run `pnpm db:migrate` after implementation
+  and verify actual deployment schema. No runtime/schema changes, migrations,
+  production writes, commits, PRs or messages were made in this planning session.
+
+### What's next
+
+- User reviews the revised web-only plan. After implementation approval, start
+  `feat/bills` from fresh main and record the new web cycle/payment decisions.
+- Keep all agent paths out of the diff; verify shared migrations/docs numbering
+  and complete domain, database and browser checks before publishing.
+
+### Open problems
+
+- No blocker for planning. Unpushed teammate work is not visible in Git; shared
+  schema/API changes still need reconciliation during implementation. Calendar
+  invoice synchronization and scheduled reminders are deliberately separate work.
+
+## HO-065: Rebase the Bills proposal on main's new planned transactions
+
+- **Date:** 2026-10-11 08:37 (UTC)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `chore/bills-feature-plan` / not opened
+
+### What changed
+
+- Main advanced during the review to `ed5e195` (merged PR #29). Fast-forwarded
+  the planning worktree while preserving HO-068 and HO-064, then checked the
+  new planned-transactions schema, governing decisions and handoff entry.
+- Updated [BILLS_PLAN.md](BILLS_PLAN.md) to keep Simon's one-off plans outside
+  Bills, use only posted ledger evidence and generate new migrations after
+  main's `0013` checkpoint. The Bills cash comparison covers bills explicitly;
+  it does not replace the calendar's spending headline or count all plans.
+- Latest-main CodeQL passed; CI was still running at review time. Updated
+  plan documentation passed `pnpm docs:check`. The only local edits remain
+  the Bills plan and appended handoff records; no application implementation
+  or migration was performed.
+
+### What's next
+
+- User reviews the web-only plan, then implementation can begin on fresh main.
+- Keep the agent/messaging exclusions from HO-064 and verify main's full CI
+  result before taking it as the implementation baseline.
+
+### Open problems
+
+- Latest-main CI is pending; unpushed teammate work remains invisible to Git.
+
+## HO-066: Complete Bills web invoices, payment evidence and history
+
+- **Date:** 2026-10-11 09:42 (UTC)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `feat/bills` / not opened; implementation approved, publishing awaits permission
+
+### What changed
+
+- Implemented the approved web-only plan: Bills list/detail, manual add/edit,
+  current invoice corrections, explicit posted-payment links, partial/full
+  payment, manual marks and undo, autopay/debt annotations, stop/restore,
+  due-soon/review views, account/date filters and bounded history/candidate pages.
+- Added ownership-constrained `bill_details`, `bill_cycle`, `bill_payment` and
+  migration `0014_bills_web`. Stable scheduled dates preserve month-end anchors;
+  unknown amounts differ from zero. Deleted/changed evidence returns to review
+  instead of preserving a falsely paid amount. No ledger or balance writes.
+- Reused recurring's public detector/types. Added transaction composition and
+  optional lifecycle kind guards; existing recurring callers retain behavior.
+  Atomic schedule/invoice saves share the workspace lock, and stale revisions
+  cannot overwrite newer values. Reads use one repeatable snapshot.
+- Updated to main `66552da` (PR #32). Kept Claude's agent changes unchanged.
+  Renumbered the unpublished planning handoffs to HO-068/064/065 around main's
+  HO-061/062. ADR-063 records only the approved web invoice semantics. No agent,
+  messaging, worker, protocol, jobs, Dashboard or Insights changes in this patch.
+- Added domain/forms, real PostgreSQL, action/load and ownership-matrix tests,
+  plus six production-browser Bills flows and phone/desktop theme screenshots.
+  Browser testing caught and fixed request-time date access and the filter label.
+- Updated plan, feature/API README, architecture, product/testing docs and the
+  optional web demo. Restored other features' screenshots regenerated by tests.
+
+### Verification
+
+- Lint, formatting, typechecks (app and worker), docs checks and bundle scan pass.
+  The unchanged `pnpm build` passes in a local Node container with the enforced
+  HTTPS proxy/CA; shell Turbopack workers cannot bind sockets in this runtime.
+- Locally testable full Vitest run: **1,736 passed**, 108 files; coverage thresholds
+  pass (95.78% lines, 91.48% branches overall; Bills domain 100% lines/95.09%
+  branches). Four existing Neon storage-dependent files were explicitly excluded.
+  The earlier unrestricted run passed 1,762 tests; storage-dependent cases timed
+  out with the blocked endpoint. No exclusions or threshold changes in source.
+- Final targeted Bills run: **75 passed**, including detected variable-bill
+  confirmation/restore, rollback, stale links and preserved financial records.
+- Playwright: **104 passed**, including all six Bills flows, existing recurring,
+  accounts, transactions, calendar, budgets, auth, agent and Insights regressions.
+  Only the two storage-dependent CSV/PDF browser files were excluded. For this
+  local run storage was deliberately unconfigured; ignored test credentials were
+  restored afterward. Dedicated Bills run: six flows plus setup passed.
+- Fresh migration and populated main→Bills upgrade pass on isolated local PG.
+  Seven existing tables retain identical rows (accounts, transactions, recurring,
+  categories, budgets, plans and workspace); repeated migration is safe. All 15
+  checkpoints and all three new tables are present. Drizzle reports no schema
+  changes after generation. Final requested `pnpm db:migrate` passed locally.
+
+### What's next
+
+- Obtain explicit permission for commit/push/PR: proposed message
+  `feat(bills): complete web invoice and payment tracking`. Never publish to main.
+- Resume in a fresh workspace applying the saved Neon rules, then rerun the
+  four storage-dependent unit files and the CSV/PDF browser suites. Verify the
+  intended production endpoint without printing secrets and run the final
+  `pnpm db:migrate` there before deploying the page.
+- Re-fetch main before publication; independently owned agent work may advance
+  shared docs. Keep ADR/handoff/migration IDs unique. Dashboard invoice sync and
+  all scheduled reminders/agent delivery remain separate work.
+
+### Open problems
+
+- Production migration has **not** run. Current runtime still enforces revision
+  37: no Neon HTTPS hosts and empty TCP grants, despite the user saving the new
+  allow-list. Storage CONNECT returns HTTP 403. This session cannot apply the
+  configuration draft; do not bypass policy or call local migration production.
+- Existing main's one-second categorization benchmark exceeded its limit during
+  concurrent build load; the complete bounded-concurrency rerun passed. No
+  categorization code/test or unrelated feature changes were made to hide it.
+
+## HO-067: Publish the approved Bills web feature
+
+- **Date:** 2026-10-11 05:47 (America/New_York)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `feat/bills` / opening after the authorized commit
+
+### What changed
+
+- The user explicitly authorized committing, merging main, resolving conflicts
+  and opening the PR. This supersedes HO-066's pending publication permission.
+- Fetched main: it remains `66552da`, the tested implementation baseline.
+  Bills' local checks and migration verification are recorded in HO-066.
+- Corrected the plan's obsolete pre-implementation status. The PR will include
+  migration `0014_bills_web`, screenshots and the verification limitations.
+
+### What's next
+
+- Review the PR and its CI results. Apply the additive migration to the verified
+  production target before deploying Bills, then check the authenticated page.
+- Rerun the existing Neon storage-dependent unit and CSV/PDF browser suites
+  once this runtime has the required HTTPS and PostgreSQL network grants.
+
+### Open problems
+
+- Runtime revision 38 still omits Neon HTTPS hosts and has no TCP grants.
+  Production migration and remote storage verification remain pending; local
+  migration success is not production verification. Agent code is unchanged.
+
+## HO-069: Resolve the Bills PR's handoff conflict with main
+
+- **Date:** 2026-10-11 09:51 (UTC)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `feat/bills` / [PR #34](https://github.com/TahubCS/Reeflect/pull/34)
+
+### What changed
+
+- Merged main `dcd7cfd` (PR #33). Preserved main's agent handoff and all its
+  implementation files without additional edits.
+- Main and Bills had both appended HO-063. Kept main's entry number and moved
+  the Bills planning entry to HO-068, updating its Bills-side references.
+  Preserved every other handoff entry; this resolves the append conflict and
+  the duplicate number that would otherwise fail `pnpm docs:check`.
+- Bills' schema and application implementation are unchanged by the resolution.
+- Docs checks, all 27 docs-check tests, app/worker typechecks and formatting
+  pass after the merge. Main's handoff is preserved verbatim and the PR diff
+  contains no authored agent or messaging changes.
+
+### What's next
+
+- Review PR #34 and its CI results. Production rollout and storage verification
+  prerequisites remain as recorded in HO-066 and HO-067.
+
+### Open problems
+
+- Production migration and Neon storage-dependent checks remain pending network
+  access. This handoff repair does not change those verification limits.
+
+## HO-070: Make the categorization batch regression reliable in CI
+
+- **Date:** 2026-10-11 10:01 (UTC)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `feat/bills` / [PR #34](https://github.com/TahubCS/Reeflect/pull/34)
+
+### What changed
+
+- The supplied CI log had 1,790 passing tests and one failure: the existing
+  categorization batch test took 1,067.63 ms against a 1,000 ms wall-clock limit.
+  Its isolated covered run took 606 ms. CI subsequently passed on `90126dc`,
+  confirming that the timing assertion varied with runner load.
+- Replaced the deadline with a deterministic regression: classify 20,000 mixed
+  rows with the expected saved/built-in/manual/unknown categories and validate
+  the rule list exactly once. Also verify independent validation and results
+  for new and invalid lists. No categorization implementation change.
+- Preserved the original timing workload as an opt-in synthetic benchmark in
+  `tests/benchmarks/categorization.bench.ts`; documented its command in TESTING.
+  Five warm runs took 117–129 ms locally without coverage instrumentation.
+- Local checks: 182 categorization domain tests pass (100% lines, 92.94%
+  branches); 1,741 locally runnable unit tests pass across 108 files with all
+  coverage thresholds met; lint, formatting, typechecks and docs checks pass.
+  Only the four previously blocked storage files were omitted locally; no CI
+  exclusion, coverage threshold or app/agent/migration changes were made.
+- CI on the preceding head `90126dc` passed lint/typecheck, unit (including
+  Neon storage), E2E and security, plus CodeQL:
+  [CI run](https://github.com/TahubCS/Reeflect/actions/runs/38129966263).
+  This supersedes the remote-storage verification blocker in HO-067/069.
+
+### What's next
+
+- Push this test repair and verify its full PR CI run. Review PR #34, verify the
+  production database target, and apply migration 0014 before deploying Bills.
+
+### Open problems
+
+- Production migration has not run; this local runtime still lacks Neon network
+  grants. Local database and successful CI storage tests do not apply production
+  schema. No new migration is introduced by this test repair.
+
+## HO-071: F-27, log spending by text (ADR-064)
 
 - **Date:** 2026-10-11 07:40 (EDT)
 - **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
-- **Branch / PR:** `feat/agent-log-spending` (uncommitted) / not opened
+- **Branch / PR:** `feat/agent-log-spending` / not opened
 
 ### What changed
 - A linked phone can text "12 lunch". Code reads it (`parseLog` in
@@ -3287,7 +3563,7 @@ recommendation, not a decision.
   `source: "text"`, and replies with what was saved and "Text UNDO to
   remove it". The calendar already showed text rows as "texted in".
 - **When it is not sure it saves nothing and says what is missing**
-  (ADR-063, Proposed): no amount, an amount in words, nothing to call it,
+  (ADR-064, Proposed): no amount, an amount in words, nothing to call it,
   several amounts, too many decimals, "2k", over $9,999.99, another
   currency, money coming in, a day other than today or yesterday.
   Questions and everything else go to the normal answer, unchanged.
@@ -3313,14 +3589,12 @@ recommendation, not a decision.
 - Parser table: 160 texts. Database tests for saving, accounts, category,
   budget line, UNDO, limits and failures. `agent-log.spec.ts` in Playwright
   (2 flows).
-- `pnpm lint`, `format:check`, `typecheck`, `docs:check`, `build`,
-  `scan:bundle`: pass. `pnpm test:unit`: 1822 pass; of the 13 that failed,
-  8 are the storage tests that need `.env.storage-tests`, 4 are
-  timing-sensitive tests that pass when run alone (`budgets-migration`,
-  `starter-rules`), and 1 is `recurring/server/repository.test.ts`, which
-  fails on unmodified `main` too. `pnpm test:e2e`: 108 of 109 pass; the
-  one that failed (`categorization.spec.ts`, "empty and paginated
-  states") passed twice when run alone.
+- **After merging `main` (PR #34, Bills):** `pnpm lint`, `format:check`,
+  `typecheck`, `docs:check`, `build`, `scan:bundle` pass. `pnpm test:unit`:
+  1943 pass; the 8 that fail are the storage tests that need
+  `.env.storage-tests`. `pnpm test:e2e`: all 115 pass.
+- Main's Bills work had already taken ADR-063 and HO-064 to HO-070, so
+  this decision is **ADR-064** and this entry HO-071.
 - Real Gemini on the test model with made-up purchases: "luch", "grocries",
   "ubr", "cofee", "netflx" and others were sorted sensibly; nonsense and an
   attempt to make it answer off the list both gave "none".

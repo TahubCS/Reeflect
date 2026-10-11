@@ -1,6 +1,6 @@
 import { type Cents, cents, parseDollars } from "@/lib/money";
 
-// Reads a text as "log this spending" (F-27, ADR-063). Code decides, and
+// Reads a text as "log this spending" (F-27, ADR-064). Code decides, and
 // when it is not sure it asks: nothing here guesses an amount (ADR-035).
 // Pure: no I/O, no model.
 

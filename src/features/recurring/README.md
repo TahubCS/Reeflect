@@ -159,3 +159,15 @@ external object transport are faked there; main's separate Neon storage tests
 still require the `storage-tests` endpoint and credentials.
 Run the checks in `AGENTS.md`; final results and migration checks are in the
 latest recurring-payment entry in [HANDOFF](../../../docs/HANDOFF.md).
+
+
+## Web Bills composition (ADR-063)
+
+Bills keeps invoice facts separately. `savePaymentInTransaction` composes a
+canonical schedule save inside an authorized transaction already holding the
+workspace advisory lock; `listRecurringPayments` optionally uses that same
+executor for a consistent snapshot. Default recurring calls keep their existing
+behavior. `confirmPattern` and `setPaymentDisposition` accept an optional kind
+guard, checked inside the write lock, so Bills actions cannot affect a non-bill.
+See the [Bills README](../bills/README.md). No detector, ledger, reminder or agent
+behavior changes through this API.

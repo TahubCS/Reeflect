@@ -2,6 +2,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ACCOUNT_ENTRY_POINTS } from "@/features/accounts/server/entry-points";
 import { CASHFLOW_ENTRY_POINTS } from "@/features/cashflow/server/entry-points";
 import { BUDGET_ENTRY_POINTS } from "@/features/budgets/server/entry-points";
+import { BILL_ENTRY_POINTS } from "@/features/bills/server/entry-points";
+import { saveBill } from "@/features/bills";
 import { CATEGORIZATION_ENTRY_POINTS } from "@/features/categorization/server/entry-points";
 import {
   createRule,
@@ -16,6 +18,9 @@ import {
   category,
   categoryRule,
   budget,
+  billDetails,
+  billCycle,
+  billPayment,
   importBatch,
   plannedTransaction,
   recurringSeries,
@@ -56,12 +61,17 @@ const ENTRY_POINTS: EntryPoint[] = [
   ...RECURRING_ENTRY_POINTS,
   ...CASHFLOW_ENTRY_POINTS,
   ...BUDGET_ENTRY_POINTS,
+  ...BILL_ENTRY_POINTS,
 ];
 
 const getSession = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/auth/session", () => ({ getSession }));
 // The calendar's actions refresh the page in place, which needs a request.
 vi.mock("next/cache", () => ({ refresh: vi.fn() }));
+// This matrix checks database ownership. Its synthetic preview has no stored
+// CSV, so authorized cleanup must not contact object storage. Actual storage
+// writes/cleanup are exercised by the separate storage/import suites.
+vi.mock("@/lib/storage", () => ({ statementStore: () => null }));
 
 const f = fixtures();
 let userA: string;
@@ -84,6 +94,21 @@ async function snapshotB(executor: Pick<typeof db, "select"> = db) {
   // SQL row order is unspecified without ORDER BY. Compare every column in
   // a stable order so planner changes cannot look like unauthorized writes.
   return {
+    billDetails: await executor
+      .select()
+      .from(billDetails)
+      .where(eq(billDetails.workspaceId, b.workspaceId))
+      .orderBy(billDetails.id),
+    billCycles: await executor
+      .select()
+      .from(billCycle)
+      .where(eq(billCycle.workspaceId, b.workspaceId))
+      .orderBy(billCycle.id),
+    billPayments: await executor
+      .select()
+      .from(billPayment)
+      .where(eq(billPayment.workspaceId, b.workspaceId))
+      .orderBy(billPayment.id),
     accounts: await listAccounts(b.workspaceId),
     budgets: await executor
       .select()
@@ -153,6 +178,21 @@ async function newTarget(workspaceId: string): Promise<EntryPointTarget> {
     amountCents: cents(-700),
     description: "Isolation target",
     categoryId: null,
+  });
+  await saveBill(workspaceId, {
+    accountId,
+    merchant: "isolation target",
+    name: "Isolation target",
+    kind: "bill",
+    amountMode: "variable",
+    amountCents: 500,
+    unit: "months",
+    every: 1,
+    nextOn: "2026-01-10",
+    useHistory: false,
+    autopay: false,
+    liabilityAccountId: null,
+    invoiceCents: 500,
   });
   const importBatchId = uuidv7();
   await db.insert(importBatch).values({

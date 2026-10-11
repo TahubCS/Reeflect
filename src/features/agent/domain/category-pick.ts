@@ -1,5 +1,5 @@
 // What a model is asked when the saved rules and built-in keywords found no
-// category for spending logged by text (F-27, ADR-063), and how its answer
+// category for spending logged by text (F-27, ADR-064), and how its answer
 // is checked. A model may classify (ADR-019); code makes sure the answer is
 // one of the workspace's own category names. It is never given an amount,
 // an account or any figure. Pure.

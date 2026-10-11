@@ -258,7 +258,7 @@ src/
     api/                    route handlers: auth, health; Plaid webhooks,
                             agent turn and job tick (planned)
   features/                 one folder per feature, owned by whoever is assigned
-    <feature>/              built so far: accounts, agent, auth, budgets,
+    <feature>/              built so far: accounts, agent, auth, bills, budgets,
                             cashflow, categorization, imports, insights,
                             landing, messaging, plans, recurring,
                             synthetic, transactions

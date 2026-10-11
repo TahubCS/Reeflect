@@ -45,7 +45,7 @@ export async function runAgentTurn(turn: TurnRequest): Promise<string> {
   const identity = await findIdentity(turn.platform, turn.handle);
   if (!identity) return REPLIES.signUp;
 
-  // Logging and UNDO are read and carried out by code (F-27, ADR-063).
+  // Logging and UNDO are read and carried out by code (F-27, ADR-064).
   // Anything that is not clearly about logging goes on to the answer.
   const log = parseLog(turn.text);
   if (log.type !== "none") {

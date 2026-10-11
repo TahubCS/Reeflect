@@ -105,35 +105,38 @@ async function ledger(
 export async function listRecurringPayments(
   workspaceId: string,
   now = new Date(),
+  executor?: Executor,
 ) {
-  return db.transaction(
-    async (tx) => {
-      const today = todayIn(now);
-      // One transaction uses one PG connection; run its queries sequentially.
-      const charges = await ledger(tx, workspaceId, today);
-      const saved = await tx
-        .select()
-        .from(recurringSeries)
-        .where(eq(recurringSeries.workspaceId, workspaceId))
-        .orderBy(asc(recurringSeries.id))
-        .limit(MAX_SERIES + 1);
-      const accounts = await tx
-        .select({ id: financialAccount.id, name: financialAccount.nickname })
-        .from(financialAccount)
-        .where(eq(financialAccount.workspaceId, workspaceId))
-        .orderBy(asc(financialAccount.nickname));
-      if (saved.length > MAX_SERIES)
-        throw new Error("Recurring series limit exceeded");
-      const payments = buildPayments(charges, saved as SavedPayment[], today);
-      return {
-        today,
-        payments,
-        summary: summarizePayments(payments),
-        accounts,
-      };
-    },
-    { isolationLevel: "repeatable read", accessMode: "read only" },
-  );
+  const read = async (tx: Executor) => {
+    const today = todayIn(now);
+    // One transaction uses one PG connection; run its queries sequentially.
+    const charges = await ledger(tx, workspaceId, today);
+    const saved = await tx
+      .select()
+      .from(recurringSeries)
+      .where(eq(recurringSeries.workspaceId, workspaceId))
+      .orderBy(asc(recurringSeries.id))
+      .limit(MAX_SERIES + 1);
+    const accounts = await tx
+      .select({ id: financialAccount.id, name: financialAccount.nickname })
+      .from(financialAccount)
+      .where(eq(financialAccount.workspaceId, workspaceId))
+      .orderBy(asc(financialAccount.nickname));
+    if (saved.length > MAX_SERIES)
+      throw new Error("Recurring series limit exceeded");
+    const payments = buildPayments(charges, saved as SavedPayment[], today);
+    return {
+      today,
+      payments,
+      summary: summarizePayments(payments),
+      accounts,
+    };
+  };
+  if (executor) return read(executor);
+  return db.transaction(read, {
+    isolationLevel: "repeatable read",
+    accessMode: "read only",
+  });
 }
 export async function listSubscriptions(workspaceId: string, now = new Date()) {
   return (await listRecurringPayments(workspaceId, now)).payments.filter(
@@ -278,6 +281,7 @@ export async function confirmPattern(
   accountId: string,
   merchant: string,
   now = new Date(),
+  requiredKind?: SavedPayment["kind"],
 ): Promise<WriteResult> {
   targetSchema.parse({ accountId, merchant });
   return locked(workspaceId, async (tx) => {
@@ -291,6 +295,15 @@ export async function confirmPattern(
     );
     if (!pattern) return "not_found";
     const existing = await getSaved(tx, workspaceId, accountId, merchant);
+    if (requiredKind && (existing?.kind ?? pattern.kind) !== requiredKind)
+      return "not_found";
+    if (
+      requiredKind &&
+      existing?.decision === "candidate" &&
+      !existing.manual &&
+      pattern.kind !== requiredKind
+    )
+      return "not_found";
     if (existing)
       await tx
         .update(recurringSeries)
@@ -333,40 +346,54 @@ export async function savePayment(
   editing = false,
 ): Promise<WriteResult> {
   paymentInputSchema.parse(input);
-  return locked(workspaceId, async (tx) => {
-    if (!(await accountExists(tx, workspaceId, input.accountId)))
-      return "not_found";
-    const existing = await getSaved(
-      tx,
-      workspaceId,
-      input.accountId,
-      input.merchant,
-    );
-    if (editing && !existing) return "not_found";
-    if (!editing && existing?.decision === "confirmed") return "duplicate";
-    const { useHistory, ...fields } = input;
-    const values = {
-      ...fields,
-      amountCents: useHistory ? null : input.amountCents,
-      decision: "confirmed" as const,
-      manual: true,
-      baselineAmountCents: input.amountCents,
-    };
-    if (existing)
-      await tx
-        .update(recurringSeries)
-        .set({
-          ...values,
-          userIntent:
-            input.kind === "subscription" ? existing.userIntent : "none",
-        })
-        .where(owned(workspaceId, input.accountId, input.merchant));
-    else {
-      if (await atLimit(tx, workspaceId)) return "limit";
-      await tx.insert(recurringSeries).values({ ...values, workspaceId });
-    }
-    return "ok";
-  });
+  return locked(workspaceId, (tx) =>
+    savePaymentInTransaction(tx, workspaceId, input, editing),
+  );
+}
+
+/** Caller owns the transaction and takes the recurring workspace lock (seed 53).
+ * Allows web invoice metadata to commit atomically with the canonical schedule.
+ * Existing standalone callers continue to use savePayment.
+ */
+export async function savePaymentInTransaction(
+  tx: Executor,
+  workspaceId: string,
+  input: PaymentInput,
+  editing = false,
+): Promise<WriteResult> {
+  paymentInputSchema.parse(input);
+  if (!(await accountExists(tx, workspaceId, input.accountId)))
+    return "not_found";
+  const existing = await getSaved(
+    tx,
+    workspaceId,
+    input.accountId,
+    input.merchant,
+  );
+  if (editing && !existing) return "not_found";
+  if (!editing && existing?.decision === "confirmed") return "duplicate";
+  const { useHistory, ...fields } = input;
+  const values = {
+    ...fields,
+    amountCents: useHistory ? null : input.amountCents,
+    decision: "confirmed" as const,
+    manual: true,
+    baselineAmountCents: input.amountCents,
+  };
+  if (existing)
+    await tx
+      .update(recurringSeries)
+      .set({
+        ...values,
+        userIntent:
+          input.kind === "subscription" ? existing.userIntent : "none",
+      })
+      .where(owned(workspaceId, input.accountId, input.merchant));
+  else {
+    if (await atLimit(tx, workspaceId)) return "limit";
+    await tx.insert(recurringSeries).values({ ...values, workspaceId });
+  }
+  return "ok";
 }
 
 export async function setPaymentIntent(
@@ -395,11 +422,13 @@ export async function setPaymentDisposition(
   merchant: string,
   disposition: "dismiss" | "restore" | "remove",
   now = new Date(),
+  requiredKind?: SavedPayment["kind"],
 ): Promise<WriteResult> {
   targetSchema.parse({ accountId, merchant });
   dispositionSchema.parse(disposition);
   return locked(workspaceId, async (tx) => {
     const row = await getSaved(tx, workspaceId, accountId, merchant);
+    if (row && requiredKind && row.kind !== requiredKind) return "not_found";
     if (!row) {
       if (
         disposition !== "dismiss" ||
@@ -414,6 +443,7 @@ export async function setPaymentDisposition(
           candidate.accountId === accountId && candidate.merchant === merchant,
       );
       if (!pattern) return "not_found";
+      if (requiredKind && pattern.kind !== requiredKind) return "not_found";
       if (await atLimit(tx, workspaceId)) return "limit";
       await tx.insert(recurringSeries).values({
         workspaceId,

@@ -89,7 +89,7 @@ Rules:
 | ADR-060 | Monthly budget interactions and recorded actual spending (refines ADR-015) | Accepted |
 | ADR-061 | Paydays found in deposits, confirmed like recurring payments (refines ADR-058) | Proposed |
 | ADR-062 | A text that confirms what the user just did is not a proactive message (refines ADR-038) | Proposed |
-| ADR-063 | Logging spending by text: code decides, asks when unsure, never guesses (refines ADR-035, ADR-040) | Proposed |
+| ADR-064 | Logging spending by text: code decides, asks when unsure, never guesses (refines ADR-035, ADR-040) | Proposed |
 | ADR-082 | Sample years in the developers' own accounts (exception to ADR-049) | Accepted |
 | ADR-083 | Ask the user to categorize large uncategorized payments (refines ADR-055, ADR-057) | Proposed |
 | ADR-084 | Reserved ADR and handoff numbers for each developer | Accepted |
@@ -1794,7 +1794,7 @@ Rules:
 - **Consequences:** The app needs `AGENT_WORKER_URL`. The worker's `/send`
   exists before F-26, which will reuse it.
 
-### ADR-063: Logging spending by text: code decides, asks when unsure, never guesses (refines ADR-035, ADR-040)
+### ADR-064: Logging spending by text: code decides, asks when unsure, never guesses (refines ADR-035, ADR-040)
 
 - **Status:** Proposed (2026-10-11)
 - **Owner to confirm:** Muhammad Tahub Khatri
@@ -2005,3 +2005,48 @@ Rules:
   on recorded coverage and transfer marks. Apply migration 0010 to the intended
   deployment database before deploying the new page. Agent budget replies
   remain separate work.
+
+
+### ADR-063: Web Bills tracks invoices and explicit payment evidence
+
+- **Date:** 2026-10-11
+- **Status:** Accepted
+- **Owner:** Muhammad Tahub Khatri
+- **Context:** The user approved the revised web-only Bills plan and requested
+  implementation. Recurring patterns describe typical payments; variable
+  invoices need their own amount, due date and explicit payment state. Claude
+  owns the agent, Simon the dashboard and Jacob Insights/mock data.
+- **Decision:**
+  - Implement the complete Bills website only. Keep ADR-058's pattern detector
+    and canonical recurring schedules, with no new merchant or amount rules.
+  - Store current invoices separately from long-term estimates. Unknown differs
+    from zero. Keep a stable scheduled-date identity and original month-end
+    anchor; correcting a due date changes one invoice, not another obligation.
+  - Project at most 90 days on read, using America/New_York as elsewhere in the
+    app. Predictions are expected dates; explicit invoice dates are due dates.
+    Do not manufacture past unpaid obligations from imported history.
+  - Require explicit user confirmation to link owned posted outflows by payment
+    account, normalized payee and neighboring-cycle window. Do not allocate a
+    transaction twice. Sum valid partial payments in cents; show overpayment
+    without allocating excess. Pending/future rows and refunds are not proof.
+  - Permit explicitly configured debt repayment transfers without reclassifying
+    them as spending. Autopay is an annotation. Manual paid marks are reversible
+    and separate from posted evidence; an invoice correction clears an old mark.
+    Changed/deleted evidence requires review and contributes no copied amount.
+  - Compare recorded checking/savings cash with open cash-funded bills over
+    30 days plus unresolved user-dated past invoices. Separate known invoices
+    from estimates, show balance dates and account filters, and state that
+    everyday spending and one-off plans are outside these totals.
+  - Viewers read, editors/owners write. Preserve history when stopping/restoring
+    tracking or converting kind. Use ownership constraints, atomic transactions,
+    revisions and bounded reads/writes. Never mutate transactions or balances.
+- **Alternatives considered:** treating an estimated charge as an invoice;
+  applying a fixed amount tolerance to variable utilities; automatic settlement
+  from a nearby charge; creating years of historical unpaid invoices; extending
+  into the independently owned dashboard and message delivery.
+- **Consequences:** Migration 0014 adds bill details, cycles and evidence. The
+  Bills page has its own error/retry boundary and tests. This decision applies
+  to the web invoice experience; ADR-030's automated reminder matching and
+  delivery are unchanged. No worker, messaging, AI, cron, job, notification
+  preferences or dashboard integration is implemented here. Those integrations
+  must explicitly adopt these invoice semantics if they consume the public API.

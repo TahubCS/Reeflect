@@ -7,7 +7,7 @@ import {
 } from "../../domain/category-pick";
 
 /**
- * A category for `description` from a model, or null (F-27, ADR-063). Never
+ * A category for `description` from a model, or null (F-27, ADR-064). Never
  * throws: with no key, no answer, or an answer that is not on the list, the
  * purchase simply stays uncategorized.
  */

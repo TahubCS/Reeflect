@@ -29,7 +29,7 @@ import {
 import { pickCategory } from "./pickCategory";
 
 // Saves spending a linked phone texted, and takes it back on UNDO (F-27,
-// ADR-063). The workspace comes from the verified link (ADR-034), the
+// ADR-064). The workspace comes from the verified link (ADR-034), the
 // amount from the person's own digits (ADR-035), and every reply is built
 // by code. A model is asked for one thing only: a category name, after the
 // transaction is already saved.

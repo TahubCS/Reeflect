@@ -1,7 +1,7 @@
 import { type Browser, type Page, expect, test } from "@playwright/test";
 import { hydrated, signUpVerified } from "./support";
 
-// F-27 (ADR-063): spending logged by text shows on the calendar, and UNDO
+// F-27 (ADR-064): spending logged by text shows on the calendar, and UNDO
 // takes it back. The phone's texts are posted to /api/agent/turn as the
 // worker would send them, with the service token from playwright.config.ts.
 // No model is called under test (ADR-059), so categories come from the rules.
