@@ -59,13 +59,13 @@ Update this table when work is assigned or finished. Features are listed in
 | F-23 Nessie import and sync | A | Unassigned | — | Not started |
 | F-24 Phone linking | C | Muhammad Tahub Khatri | `feat/photon-agent` | Built (HO-032); the phone is texted when the link is approved (HO-061, ADR-062) |
 | F-25 "How am I doing?" + week-ahead image | C | Muhammad Tahub Khatri | `feat/agent-payday-answer` | Answers built (HO-050, HO-061): balances, the last 30 days, and what is owed before payday with the calendar's per-day figure. The image is not built |
-| F-26 Subscription alerts | C | Unassigned | — | Not started |
+| F-26 Subscription alerts | C | Simon Ormond | `feat/proactive-alerts` | Built (HO-097, ADR-105 Proposed): texted without amounts; DETAILS, KEEP, CANCEL, IGNORE |
 | F-27 Log spending by text | C | Muhammad Tahub Khatri | `feat/agent-log-spending` | Built (HO-071, ADR-064): log, ask when unsure, UNDO. The account question is remembered and answered in the next text (HO-073, ADR-065). Not built: money in, days before yesterday, receipts |
 | F-28 Category and balance questions | C | Muhammad Tahub Khatri | `feat/agent-questions` | Built (HO-072, ADR-059): this month's spending and budgets by category, the next payments before payday, each account's balance. Not built: any period other than this month so far |
 | F-29 Receipt photos | C | Muhammad Tahub Khatri | `feat/agent-receipt-photos` | Built behind `AGENT_RECEIPT_PHOTOS`, off by default (HO-115, ADR-067). Not tried on a real phone |
-| F-33 Quiet hours settings | B + C | Simon Ormond | `feat/quiet-hours` | Built (HO-096, ADR-104 Proposed): Settings → Notifications and by text, with UNDO. Nothing sends proactive texts yet |
+| F-33 Quiet hours settings | B + C | Simon Ormond | `feat/quiet-hours` | Built (HO-096, ADR-104 Proposed): Settings → Notifications and by text, with UNDO. The alerts tick honours them (HO-097) |
 | F-32 Agent worker | C | Muhammad Tahub Khatri | `feat/agent-worker` | Done, replies only (HO-039, PR #17); live on Render (HO-049) |
-| F-22 Bill reminders (P1) | A + C | Unassigned | — | Not started |
+| F-22 Bill reminders (P1) | A + C | Simon Ormond | `feat/proactive-alerts` | iMessage reminders built (HO-097, ADR-105 Proposed) on the web Bills cycles (ADR-063); DETAILS gives the amount and the low-balance line |
 | F-15 Gemini summary on the website (P1, ADR-045) | C | Unassigned | — | Not started |
 | F-35 Compare with people like you (Later, ADR-056) | A + B | Jacob Heminway | `feat/insights` | Built: the Insights page, stored sample figures and `pnpm batch rollup` (HO-043); ADR-056 and ADR-057 Proposed |
 | F-36 Retirement question (Later, ADR-055) | B | Jacob Heminway | `feat/insights` | Planned; generator models the answers (HO-041) |
@@ -4073,6 +4073,93 @@ rows", transactions 2 "show more" in steps of 20, plus a view-only list.
   over 3 MB is refused; a receipt from another day is saved as today.
 - A merchant whose name holds a digit ("7-Eleven") is saved as "Receipt".
 
+## HO-097: F-22 and F-26, subscription alerts and bill reminders by text (ADR-105)
+
+- **Date:** 2026-10-11 (America/New_York)
+- **Author:** Simon Ormond with Claude Code
+- **Branch / PR:** `feat/proactive-alerts` / not opened
+
+### What changed
+- **Schema change:** migration 0018 adds `proactive_message` (one row per
+  subscription or bill cycle, unique per workspace, kind and subject; no
+  amounts or text stored) and two switches on `notification_setting`,
+  `subscription_alerts` and `bill_reminders` (both on by default). Applied
+  to the local Docker database only.
+- New feature `src/features/alerts/`:
+  - `domain/`: alert copy with no amounts (a name holding a digit or `$`
+    becomes a generic word), the cap of three a day and the next-try time
+    (`timing.ts`, across midnight and daylight saving), the KEEP / CANCEL /
+    IGNORE / DETAILS parser, and the DETAILS answers, which carry ADR-030's
+    low-balance line.
+  - `server/`: the outbox (`outbox.ts`: one row locked at a time with
+    `skip locked`), what each text is about read fresh from recurring and
+    Bills (`subjects.ts`), the checks before sending (`deliver.ts`), the
+    tick (`tick.ts`) and the replies (`replies.ts`).
+- Subscription alerts go out for **suggestions** (kind `subscription`,
+  `candidate`, active). KEEP or CANCEL confirms the suggestion and sets the
+  mark; IGNORE dismisses it. A reply answers only the most recent alert
+  sent to that phone in the last 72 hours.
+- Bill reminders: confirmed bill cycles from `readBills` due within 7 days
+  and not settled. A bill paid after it was queued is cancelled at send
+  time.
+- `POST /api/jobs/tick` (service token) and `GET` for Vercel Cron
+  (`CRON_SECRET`, new optional env var; `vercel.json` runs it daily at
+  14:00 UTC). With no `CRON_SECRET`, `GET` is always 404. This is checked
+  first because `hasServiceToken` would otherwise fall back to the worker
+  token.
+- The worker posts the tick every 5 minutes (`agent-worker/src/tick.ts`).
+  It skips a tick while the last one is still running.
+- `runAgentTurn` reads alert replies after quiet hours and before the open
+  account question.
+- Settings → Notifications has two checkboxes: "New subscriptions it
+  finds" and "Bills due within a week". `setAlertTypesAction` is in the
+  isolation matrix.
+- `messaging/client.ts` (pure quiet-hours helpers) is new. Messaging's
+  `index.ts` now exports `sendToPhone` and `getAlertTypes`.
+- Merged `main` after F-29 (receipt photos): main's 0017 is
+  `agent_pending_receipt`, so this migration was regenerated as 0018. In
+  `runAgentTurn`, alert replies come after a photo and quiet hours, before
+  the open question (an account answer or a receipt's yes / no).
+- Docs updated:
+  - ADR-105 (Proposed)
+  - ARCHITECTURE: the tables, the env row, ARCH-12 "Reminders by text" and
+    ARCH-13
+  - PROJECT: the F-22 and F-26 rows
+  - PITCH: the DETAILS demo steps and the lock-screen answer
+  - AGENTS.md section 6
+  - this file's assignments
+
+### Verified
+- `pnpm test:unit`, full run: 133 files, 2295 tests pass, coverage
+  thresholds met.
+- `pnpm lint`, `typecheck`, `format:check`, `docs:check`, `build` and
+  `scan:bundle` pass.
+- `pnpm test:e2e` for `proactive-alerts.spec.ts`, `quiet-hours.spec.ts`
+  and `agent-link.spec.ts`: 13 pass. The full e2e suite was not run.
+
+### What's next
+- Muhammad confirms ADR-105's parts that touch ADR-058 (a text reply
+  confirms a suggestion) and ADR-063 (reminders read Bills cycles).
+- After approval:
+  - run `pnpm db:migrate:to branch` and `production` for 0018
+  - set `CRON_SECRET` on Vercel
+  - redeploy the worker so it starts ticking
+- Try it on a real phone: link, opt in, and see what the lock screen shows
+  for an alert.
+
+### Open problems
+- A user with many suggestions at once gets them three a day, oldest
+  first.
+- Undoing KEEP, CANCEL or IGNORE by text is not built. UNDO still means the
+  last logged spending or quiet-hours change. The Recurring payments page
+  can change all three.
+- The tick reads every opted-in workspace in turn (at most 1000 phones, 50
+  texts per tick). That's fine for the demo but not for many users.
+- A bill reminder shows the date in words ("on Friday, October 16"), so
+  there are digits on the lock screen, but never an amount.
+- The weekly recap and stale Nessie syncs are not on the tick yet.
+- Previews in the iOS lock screen were not tested with a real phone.
+
 ## HO-116: Database readiness preflight and verified cloud Neon access
 
 - **Date:** 2026-10-11 07:43 (EDT)
@@ -4194,7 +4281,7 @@ rows", transactions 2 "show more" in steps of 20, plus a view-only list.
 
 - **Date:** 2026-10-11
 - **Author:** Muhammad Tahub Khatri with Codex
-- **Branch / PR:** `feat/transfer-review` / requested combined PR to `main`
+- **Branch / PR:** `feat/transfer-review` / [PR #44](https://github.com/TahubCS/Reeflect/pull/44)
 
 ### What changed
 - The user requested merging both implementation branches and opening one PR.
@@ -4221,7 +4308,7 @@ rows", transactions 2 "show more" in steps of 20, plus a view-only list.
   checks cannot observe browser fixture writes.
 - The first full unit run passed 2,684/2,685 tests; one real Neon storage
   prefix test exceeded its unchanged 5-second timeout. All four storage tests
-  passed on immediate retry. The final full unit run passes all 2,685 tests
+  passed on immediate retry. Before the final refresh from main, the full unit run passes all 2,685 tests
   in 138 files, including real Neon storage, with unchanged thresholds:
   91.90% lines and 89.09% branches.
 - The first browser run passed 128/131. A categorization fixture reused an
@@ -4229,15 +4316,32 @@ rows", transactions 2 "show more" in steps of 20, plus a view-only list.
   the existing Budgets and transfer fixes. Navigation and planned-spending
   timing failures both pass on focused retry after the unit run finishes;
   all three failed checks plus setup pass in 12.9 seconds with traces.
-  The final full browser run passes all 131 non-external tests in 2.8 minutes,
+  Before the final refresh from main, the full browser run passes all 131 non-external tests in 2.8 minutes,
   including all eight transfer flows, with four workers and the same timeout.
 - Scroll to the top after keyboard focus before full-page transfer screenshots,
   so the sticky header is captured in its normal position. Browser assertions
   and timeouts remain unchanged. Test changes pass lint and formatting.
 
+- PR #44 is open and attached to the chat. Main advanced to `5116fb5` while
+  verification ran, adding proactive alerts and an opaque-header correction.
+  Refreshed main again; only the append-only handoff conflicted. Preserved
+  HO-097 and all of our entries. Main's migration 0018 ran only on the two
+  verified local test databases; no Neon schema or journal writes were made.
+- After that refresh, 544 affected unit/integration checks are verified. A
+  readiness CLI subprocess timed out under concurrent build load (543/544);
+  all 21 readiness tests pass separately in 7.3 seconds with the original
+  timeout. Transfer, transaction, alert, messaging and isolation checks pass.
+- All 33 affected browser checks now pass, including transfer review, alerts,
+  navigation and categorization. Main's new alerts fixture had the same ended
+  pool problem; initialize its pool per group and clear its cleanup IDs.
+  Wait for each clicked navigation link's hydration. Assertions are unchanged.
+- Final lint, formatting, app/worker typechecks, docs, rebuilt production
+  bundle and bundle scan pass. The transfer screenshots include the opaque
+  header from main; unrelated regenerated screenshots are restored.
+
 ### What's next
-- Publish this combined branch as the user requested. GitHub CI and teammate
-  review follow; merge only after the repository's required checks and review.
+- GitHub CI and teammate review; merge only after the repository's required
+  checks and review. No deployment or merge into main was requested.
 
 ### Open problems
 - Published CI and teammate review remain pending. Transfer review

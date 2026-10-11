@@ -98,6 +98,7 @@ Rules:
 | ADR-102 | Planned transactions are kept apart from the ledger (refines ADR-042, ADR-050) | Proposed |
 | ADR-103 | Built-in category keywords when no saved rule matches (refines ADR-013) | Proposed |
 | ADR-104 | Quiet hours per user, in Eastern time; UNDO takes back the latest text change (refines ADR-038, ADR-064) | Proposed |
+| ADR-105 | Subscription alerts and bill reminders by text: DETAILS for amounts, a reply confirms (refines ADR-030, ADR-038, ADR-041, ADR-058, ADR-063) | Proposed |
 
 ---
 
@@ -2167,6 +2168,67 @@ Rules:
   `nextAllowedSend` with the user's quiet hours before sending. A user
   outside Eastern time gets quiet hours in Eastern time until time zones
   are stored.
+
+### ADR-105: Subscription alerts and bill reminders by text: DETAILS for amounts, a reply confirms (refines ADR-030, ADR-038, ADR-041, ADR-058, ADR-063)
+
+- **Status:** Proposed (2026-10-11), from Simon. **Muhammad (owner of F-10
+  and Bills) should confirm** the parts that touch ADR-058 and ADR-063.
+- **Context:** F-26 (subscription alerts) and F-22 (bill reminders) need
+  Reeflect to text first. ADR-038 puts a proactive text's amounts in an
+  attached image card unless a kickoff test showed that iOS lock screens
+  show readable thumbnails; that test was never recorded, and the worker's
+  `/send` is text only. ADR-058 says a detected subscription is only a
+  suggestion until the user confirms it. ADR-041 proposed the worker as
+  the job clock.
+- **Decision:**
+  - **Amounts by DETAILS, no image card.** A proactive text names the
+    subscription or bill and the date but never an amount; a saved name
+    that holds a digit or a currency sign is replaced by a generic word.
+    The user replies DETAILS and gets the amounts as an answer to their
+    own request, which ADR-038 already allows. The bill answer includes
+    ADR-030's low-balance sentence when checking plus savings is below
+    what is left to pay, and says "about" and "estimate" when no invoice
+    amount was entered.
+  - **Subscription alerts go out for suggestions.** A payment that code
+    suggests as a subscription (kind `subscription`, decision `candidate`,
+    active) is texted once. The reply **is** the confirmation ADR-058
+    requires: KEEP confirms it and marks Keep; CANCEL confirms it and marks
+    Planning to cancel (Reeflect never cancels anything); IGNORE or NOT
+    MINE dismisses it. A text reply only ever answers the most recent alert
+    sent to that phone in the last 72 hours, and only whole-message
+    replies count.
+  - **Bill reminders read Bills cycles (ADR-063).** A confirmed bill cycle
+    due within seven days (counting today) that is not `paid`,
+    `marked_paid` or `no_payment_due` is reminded once, using the cycle's
+    due date. The check is repeated just before sending, so a bill paid in
+    between is not reminded. A cycle without an invoice amount is reminded
+    as an estimate.
+  - **Outbox.** `proactive_message` keeps one row per subscription or bill
+    cycle (unique per workspace, kind and subject), with its status and
+    when it may be sent; it stores no amounts and no text. Before sending,
+    the phone must still be linked and opted in, the type switched on,
+    quiet hours over (ADR-104) and fewer than three texts sent to that
+    user since midnight Eastern; otherwise it waits (or is cancelled). A
+    failed send is tried three times, five minutes apart. Each row is
+    locked while it is sent, so two ticks cannot send it twice.
+  - **Each type can be switched off** on Settings → Notifications
+    (`notification_setting.subscription_alerts`, `bill_reminders`, both on
+    by default), as ADR-038 asks. The opt-in on the Messages card still
+    governs both.
+  - **Job clock (makes ADR-041's Proposed part Accepted for this use).**
+    The worker posts `/api/jobs/tick` every five minutes with the service
+    token; Vercel Cron calls it once a day with `CRON_SECRET` as a backup.
+    The route takes no input: it works only on verified, opted-in phones.
+- **Alternatives considered:** The image card (needs image rendering,
+  signed URLs and attachments in the worker, for a privacy gain DETAILS
+  already gives); alerting only after the user confirms on the website
+  (the alert would tell them what they already know); a daily Vercel Cron
+  only (a text held by quiet hours would wait until the next day).
+- **Consequences:** Adds migration 0018 and the `alerts` feature. A user
+  with many suggestions at once receives them three a day. Undoing KEEP,
+  CANCEL or IGNORE by text is not built; the Recurring payments page can
+  change all three. The weekly recap and stale Nessie syncs are not on the
+  tick yet.
 
 ---
 

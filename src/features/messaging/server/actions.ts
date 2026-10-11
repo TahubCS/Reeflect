@@ -15,7 +15,7 @@ import {
   revokeForUser,
   setProactiveOptIn,
 } from "./link";
-import { setQuietHours } from "./notifications";
+import { setAlertTypes, setQuietHours } from "./notifications";
 import { sendToPhone } from "./notify";
 
 // Server actions for the Settings card (ARCH-04). Each one works on the
@@ -119,4 +119,19 @@ export async function setQuietHoursAction(
   await setQuietHours(userId, hours);
   refresh();
   return { ok: true };
+}
+
+const alertTypesSchema = z.object({
+  subscriptionAlerts: z.boolean(),
+  billReminders: z.boolean(),
+});
+
+/** Turns each kind of proactive text on or off (ADR-038, ADR-105). */
+export async function setAlertTypesAction(
+  workspaceId: string,
+  types: { subscriptionAlerts: boolean; billReminders: boolean },
+): Promise<void> {
+  const { userId } = await requireOwnPersonalWorkspace(workspaceId);
+  await setAlertTypes(userId, alertTypesSchema.parse(types));
+  refresh();
 }

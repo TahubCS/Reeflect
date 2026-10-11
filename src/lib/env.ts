@@ -53,6 +53,12 @@ const envSchema = z
      */
     AGENT_WORKER_URL: optionalText.pipe(z.url().optional()),
     /**
+     * Vercel Cron's secret for the daily backup call to `/api/jobs/tick`
+     * (ADR-041, ADR-105). Optional: without it only the worker's service
+     * token reaches the route.
+     */
+    CRON_SECRET: optionalText.pipe(z.string().min(16).optional()),
+    /**
      * The number users text, shown on the Settings card (ADR-051). Optional:
      * on Photon's shared pool there may be no single number. E.164 format.
      */

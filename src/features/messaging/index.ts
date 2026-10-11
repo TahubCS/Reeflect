@@ -18,8 +18,11 @@ export {
   nextAllowedSend,
 } from "./domain/quiet-hours";
 export {
+  type AlertTypes,
+  getAlertTypes,
   getQuietHours,
   quietHoursUndoableAt,
   setQuietHoursByText,
   undoQuietHours,
 } from "./server/notifications";
+export { sendToPhone } from "./server/notify";
