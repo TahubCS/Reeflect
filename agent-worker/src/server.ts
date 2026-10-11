@@ -6,6 +6,7 @@ import {
   createServer,
 } from "node:http";
 import { type SendRequest, sendRequestSchema } from "@reeflect/agent-protocol";
+import { failure } from "./worker.ts";
 
 /** How often the worker calls its own public URL (ADR-041). */
 export const KEEP_AWAKE_MS = 10 * 60 * 1000;
@@ -76,9 +77,7 @@ async function handleSend(
     end(response, 200, "sent");
   } catch (error) {
     // The reason only: never the conversation or the text.
-    console.error("server: send failed", {
-      reason: error instanceof Error ? error.name : "unknown",
-    });
+    console.error("server: send failed", failure(error));
     end(response, 502, "not sent");
   }
 }

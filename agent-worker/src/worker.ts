@@ -4,14 +4,29 @@ import { type IncomingMessage, type IncomingSpace, toTurn } from "./turn.ts";
 
 /** The parts of a Spectrum space the worker uses to answer. */
 export type ReplySpace = IncomingSpace & {
-  /** Runs `fn` with the typing indicator showing, where the platform has one. */
-  responding<T>(fn: () => T | Promise<T>): Promise<T>;
+  /** Show and hide the typing indicator, where the platform has one. */
+  startTyping(): Promise<unknown>;
+  stopTyping(): Promise<unknown>;
   send(content: string): Promise<unknown>;
 };
 
 export type MessageSource = {
   readonly messages: AsyncIterable<readonly [ReplySpace, IncomingMessage]>;
 };
+
+/**
+ * Why something failed, for the log: the error's name and, when the
+ * platform gives one, its code (a fixed word such as `preconditionFailed`).
+ * Never the message, which may hold a phone number.
+ */
+export function failure(error: unknown): { reason: string; code?: string } {
+  const reason = error instanceof Error ? error.name : "unknown";
+  const code =
+    typeof error === "object" && error !== null && "code" in error
+      ? error.code
+      : undefined;
+  return typeof code === "string" ? { reason, code } : { reason };
+}
 
 /**
  * The whole worker (ADR-032): for each text someone sends in a direct chat,
@@ -29,18 +44,27 @@ export async function runWorker(
   for await (const [space, message] of source.messages) {
     const turn = toTurn(space, message);
     if (turn === null) continue;
+    const { messageId } = turn;
 
     const answered = enqueue(space.id, async () => {
-      try {
-        await space.responding(async () => {
-          await space.send(await relayTurn(turn, relay));
+      // The indicator is a nicety: a platform that refuses it must not
+      // cost the person their answer.
+      await space.startTyping().catch((error: unknown) => {
+        console.error("worker: typing indicator refused", {
+          messageId,
+          ...failure(error),
         });
+      });
+      try {
+        await space.send(await relayTurn(turn, relay));
       } catch (error) {
         // Ids only: never the handle or the text.
         console.error("worker: reply not sent", {
-          messageId: turn.messageId,
-          reason: error instanceof Error ? error.name : "unknown",
+          messageId,
+          ...failure(error),
         });
+      } finally {
+        await space.stopTyping().catch(() => {});
       }
     });
     pending.add(answered);

@@ -3195,3 +3195,44 @@ recommendation, not a decision.
   `main` too; it passed in the last full run. The eight storage tests fail
   locally without `.env.storage-tests`, as before.
 - Production was missing migrations `0010` and `0012` when last checked.
+
+## HO-062: Replies were lost when Photon refused the typing indicator
+
+- **Date:** 2026-10-11 05:50 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `fix/agent-reply-without-typing` (uncommitted) / not opened
+
+### What changed
+- Symptom, after PR #30 was deployed: texts to the agent got no answer at
+  all. Render's log showed `worker: reply not sent { reason:
+  'ValidationError' }` for each text, so texts arrived and the answer
+  failed. Photon's client gives that name to an invalid-argument or
+  failed-precondition refusal from Photon's server.
+- The worker answered inside Spectrum's `space.responding`, which turns the
+  typing indicator on first and throws if that is refused, before the
+  reply is tried. `agent-worker/src/worker.ts` now turns the indicator on
+  and off itself, best-effort, and always tries the reply.
+- Failure logs (`worker: typing indicator refused`, `worker: reply not
+  sent`, `server: send failed`) now add Photon's error code, a fixed word
+  such as `preconditionFailed`, beside the error's name. Never the message,
+  which can hold a phone number.
+- Checked while diagnosing: the live app answers `/api/agent/turn`
+  correctly with the worker's token; the worker is up and on the new code;
+  the Photon project credentials are accepted.
+
+### What's next
+- Deploy the worker and text it. If the typing indicator was what Photon
+  refused, replies return. If the reply itself is refused, the log now
+  names the code, which says why (for example a daily or new-contact
+  limit on the free plan).
+
+### Open problems
+- **Not proven yet** which call Photon refused: the old log had only the
+  error's name. The reply path itself is unchanged since it last worked.
+- `server: send failed { reason: 'AuthenticationError' }` appeared once in
+  Render's log. A connection test to a made-up number produces that; it is
+  not known whether a real link confirmation also failed this way. No real
+  confirmation text has been seen to arrive yet.
+- The live site logged database connection timeouts between 5:03 and 5:11
+  (EDT) on session lookups (Vercel runtime logs). Not the agent; check
+  Neon.
