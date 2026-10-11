@@ -3841,13 +3841,24 @@ recommendation, not a decision.
   through 0014; its app-role preflight passes. Direct TCP remains unavailable
   in this cloud workspace; migrations still use TCP.
 
+- After merging main `e75fc63`, the standalone readiness branch passed 25
+  verifier/driver tests plus all 3 unchanged health-helper tests, docs and the
+  migrated local app-role preflight. Main's migration 0015 was applied only to
+  the explicitly identified local test database. Final actual Neon app and
+  named production preflights report READY for the financial contract, with
+  the recovered 0010 checkpoint and two outside journal timestamps reported
+  separately. No production rows, schema or journal were modified.
+
 ### What's next
-- Implement the supplied transfer-review plan separately. The user has now
-  authorized local commits and merging main into both branches; no push, PR
-  or deployment has been requested.
+- Transfer review is implemented and verified on `feat/transfer-review`. The
+  user authorized local commits and merging main into both branches; no push,
+  PR or deployment has been requested.
 - The user reports no teammate overlap in Transactions, Bills linkage or CI
   and approved the focused historical/daily cashflow balance correction. That
   correction and its consumer regressions belong to the transfer branch.
+- A full merged browser run exposed an existing Budgets test pool reused after
+  cleanup. Its isolated test-lifecycle correction is also retained here; no
+  production Budgets behavior or assertions changed.
 
 ### Open problems
 - Readiness checks no write privileges, RLS policies, defaults, arbitrary check
