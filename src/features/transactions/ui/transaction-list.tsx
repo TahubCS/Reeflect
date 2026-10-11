@@ -132,6 +132,11 @@ export function TransactionList({
         )}
       </div>
 
+      <p>
+        <Link href={`${base}/transfers`}>Review transfers</Link> between your
+        own accounts and credit-card repayments.
+      </p>
+
       {accounts.length === 0 ? (
         <p className={styles.empty}>
           Add an account first, then its transactions.{" "}

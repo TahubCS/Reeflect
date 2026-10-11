@@ -62,8 +62,11 @@ async function EditTransaction({ params }: Props) {
           nickname,
           type,
         }))}
-        ledgerEditable={transaction.editableInFull}
-        fixedSummary={`${formatSigned(transaction.amountCents)} on ${transaction.accountNickname}, ${formatDay(transaction.postedOn)}. This transaction was ${SOURCE_NAMES[transaction.source]}, so its account, date and amount stay as they came.`}
+        ledgerEditable={
+          transaction.editableInFull && transaction.transferPairId === null
+        }
+        paired={transaction.transferPairId !== null}
+        fixedSummary={`${formatSigned(transaction.amountCents)} on ${transaction.accountNickname}, ${formatDay(transaction.postedOn)}. ${transaction.transferPairId !== null ? "Remove pairing in Review transfers before changing financial details or its transfer label." : `This transaction was ${SOURCE_NAMES[transaction.source]}, so its account, date and amount stay as they came.`}`}
         today={isoDateIn(new Date(), DEFAULT_TIME_ZONE)}
         submitLabel="Save changes"
         busyLabel="Saving…"

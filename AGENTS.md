@@ -213,6 +213,7 @@ fails if this table and `package.json` differ.
 | `pnpm db:migrate` | Apply migrations (uses `DATABASE_URL_UNPOOLED` when set) |
 | `pnpm db:migrate:to` | Apply migrations to a named database: `local`, `branch` or `production` (ADR-049) |
 | `pnpm db:whoami` | Show which database a target is and which migrations it has; no secrets printed |
+| `pnpm db:verify` | Read-only financial schema and SELECT-access preflight for a named target; no repairs |
 | `pnpm ai:check` | Ask each test model one question with the real `GEMINI_API_KEY` from `.env.local`; prints which answer. `pnpm ai:check users` asks the models that answer users, which spends their small daily allowance (ADR-059). `pnpm ai:check receipt` sends each test model a made-up receipt photo and says whether it read the total (ADR-067) |
 | `pnpm batch` | Synthetic batches: `load`, `list`, `report`, `delete`, `promote`, `rollup`; `give` and `take-back` for developer accounts (`docs/SYNTHETIC.md`) |
 | `pnpm nessie` | Nessie demo customers: `seed` a synthetic year into Nessie, `link` it to a user, `status`, and live `demo` changes (`docs/NESSIE_PLAN.md`) |
@@ -266,7 +267,7 @@ src/
     <feature>/              built so far: accounts, agent, alerts, auth, bills, budgets,
                             cashflow, categorization, imports, insights,
                             landing, messaging, plans, recurring,
-                            synthetic, transactions
+                            synthetic, transactions, transfers
       domain/               pure TypeScript logic, no I/O (most unit tests here)
       server/               repositories, server actions ('server-only')
       ui/                   React components for this feature

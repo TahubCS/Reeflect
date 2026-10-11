@@ -30,6 +30,7 @@ export type TransactionSummary = {
   description: string;
   status: "pending" | "posted";
   isTransfer: boolean;
+  transferPairId: string | null;
   source: DataSource;
   /**
    * Only manual transactions can change account, date, amount or status;

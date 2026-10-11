@@ -86,8 +86,8 @@ export function kindOf(record: {
  * checking and savings accounts, as the Accounts page shows it; the opening
  * balance is worked back from it through this window's transactions up to
  * today. Card rows show as spending without moving that balance. Transfers
- * between the workspace's own accounts (ADR-020) and loan accounts' own rows
- * are left out.
+ * affect the balance line without counting as spending or income (ADR-020).
+ * Loan accounts' own rows are left out.
  */
 export function toCashflowData({
   accounts,
@@ -100,19 +100,18 @@ export function toCashflowData({
 }): CashflowData {
   const byId = new Map(accounts.map((account) => [account.id, account]));
   const window = dashboardWindow(today);
-  const shown = transactions.filter((record) => {
+  const recorded = transactions.filter((record) => {
     const account = byId.get(record.accountId);
     return (
       account !== undefined &&
       account.type !== "loan" &&
-      !record.isTransfer &&
       record.postedOn >= window.from &&
       record.postedOn <= window.to
     );
   });
 
   const thisMonth = monthOf(today);
-  const oldest = shown.reduce<IsoDate | null>(
+  const oldest = recorded.reduce<IsoDate | null>(
     (found, record) =>
       found === null || record.postedOn < found ? record.postedOn : found,
     null,
@@ -123,35 +122,46 @@ export function toCashflowData({
       : thisMonth;
 
   const named = accounts.length > 1;
-  const entries = shown.map((record): Entry => {
-    const account = byId.get(record.accountId)!;
-    return {
-      id: record.id,
-      date: record.postedOn,
-      name: record.description,
-      amount: record.amountCents,
-      kind: kindOf(record),
-      category: record.categoryName ?? UNCATEGORIZED,
-      source: sourceOf(record.source),
-      accountName: named ? account.nickname : undefined,
-      onCard: !isLiquid(account),
-      removable: record.editableInFull,
-    };
-  });
+  const entries = recorded
+    .filter((record) => !record.isTransfer)
+    .map((record): Entry => {
+      const account = byId.get(record.accountId)!;
+      return {
+        id: record.id,
+        date: record.postedOn,
+        name: record.description,
+        amount: record.amountCents,
+        kind: kindOf(record),
+        category: record.categoryName ?? UNCATEGORIZED,
+        source: sourceOf(record.source),
+        accountName: named ? account.nickname : undefined,
+        onCard: !isLiquid(account),
+        removable: record.editableInFull,
+      };
+    });
 
   const balanceToday = sum(
     accounts.filter(isLiquid).map((a) => a.balanceCents),
   );
   const sinceStart = sum(
-    entries
-      .filter((entry) => !entry.onCard && entry.date <= today)
-      .map((entry) => entry.amount),
+    recorded
+      .filter(
+        (record) =>
+          isLiquid(byId.get(record.accountId)!) && record.postedOn <= today,
+      )
+      .map((record) => record.amountCents),
   );
+  const balanceOnly = recorded
+    .filter(
+      (record) => record.isTransfer && isLiquid(byId.get(record.accountId)!),
+    )
+    .map((record) => ({ date: record.postedOn, amount: record.amountCents }));
 
   return {
     start,
     openingBalance: subtract(balanceToday, sinceStart),
     entries,
     recurring: [],
+    ...(balanceOnly.length ? { balanceOnly } : {}),
   };
 }
