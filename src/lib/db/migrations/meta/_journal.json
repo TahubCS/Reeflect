@@ -85,6 +85,13 @@
       "when": 1791700775396,
       "tag": "0011_recurring_income",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791701724202,
+      "tag": "0012_budget_migration_recovery",
+      "breakpoints": true
     }
   ]
 }
