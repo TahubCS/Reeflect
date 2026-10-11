@@ -76,6 +76,7 @@ Rules:
 | ADR-048 | Nessie as it behaves today (refines ADR-033) | Proposed |
 | ADR-049 | Synthetic data batches and the batch-testing branch | Accepted |
 | ADR-050 | Manual transactions and the typed balance | Proposed |
+| ADR-051 | Email through Resend; verified email required | Proposed |
 
 ---
 
@@ -313,6 +314,66 @@ Rules:
   to dash.better-auth.com. No financial data is sent. Confirm with the team,
   and check Better Auth's data handling, before production users sign up.
   Removing it is one plugin and one variable.
+
+### ADR-051: Email through Resend; verified email required
+
+- **Status:** Proposed (2026-10-10), proposed by Simon
+- **Context:** Sign-up (ADR-006) accepts any email address without checking
+  it, and a forgotten password cannot be reset. Both need an email service.
+  The team has verified a sending domain with Resend.
+- **Decision:**
+  - **Provider:** Resend, through the `resend` SDK, called only from a
+    server-only module, `src/lib/email/`. Nothing else imports `resend`.
+  - **Variables:** `RESEND_API_KEY` (secret) and `EMAIL_FROM` (a sender on
+    the verified domain, e.g. `Reeflect <no-reply@…>`; the name comes from
+    `APP_NAME`). Both are required when `VERCEL` is set (production and
+    previews). Elsewhere both are optional.
+  - **Without a key** (local, CI, Playwright), emails are not sent. Each
+    one is written as a JSON file to a gitignored outbox folder
+    (`.email-outbox/`), so Playwright can follow the link inside it. The
+    app never writes the outbox when `VERCEL` is set.
+  - **Verification is required for new users.** Better Auth
+    `requireEmailVerification: true`, `sendOnSignUp: true`,
+    `sendOnSignIn: true` (an unverified user who tries to sign in gets a
+    fresh link), `autoSignInAfterVerification: true`. Links expire after
+    one hour. Sign-up shows "check your inbox" with a button to resend.
+  - **Password reset** by email: `sendResetPassword`, with
+    `revokeSessionsOnPasswordReset: true`. The request page says the same
+    thing whether or not the address has an account.
+  - **Every existing user is verified once:** a custom Drizzle migration
+    runs `UPDATE "user" SET "email_verified" = true`. It applies to the
+    users present when each database migrates, and does nothing afterwards.
+    The migration runs on production **before** the code that requires
+    verification is deployed, so nobody is locked out.
+  - **Sending does not block the response.** Auth callbacks start the send
+    and do not `await` it, so response times do not reveal which addresses
+    have accounts. A failed send is logged with the user id and Resend's
+    error name only.
+  - **What emails may contain:** the app name, a greeting and the link.
+    Never amounts, balances, account names or any other financial data.
+    Never log verification or reset URLs, tokens, or email bodies; log
+    Resend's message id.
+  - Better Auth's built-in rate limits (database storage, ARCH-08) cover
+    the send-verification and reset endpoints.
+- **Alternatives considered:**
+  - No verification: anyone can sign up with someone else's address, and
+    there is no password reset.
+  - Better Auth's email OTP plugin: codes instead of links. More UI to
+    build for the same result.
+  - Postmark or Amazon SES: equivalent, but no domain is set up there.
+- **Consequences:**
+  - A new external vendor. Resend receives users' email addresses and the
+    one-time links; no financial data. The free tier allows 100 emails a
+    day and 3,000 a month, enough for the MVP.
+  - Sign-up no longer signs the user in straight away. The Playwright
+    sign-up flow and `tests/e2e/auth.setup.ts` must verify through the
+    outbox; users seeded for tests are created already verified.
+  - Household invites stay copyable links (ADR-007); emailing invites
+    would be a later ADR.
+  - Docs: ARCHITECTURE's environment table, `.env.example`, `src/lib/env.ts`.
+  - Removing Resend means setting `requireEmailVerification` back to false
+    and dropping one module and two variables. The backfill cannot be
+    undone, and does not need to be.
 
 ### ADR-007: Workspaces and roles
 
