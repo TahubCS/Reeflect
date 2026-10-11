@@ -33,9 +33,15 @@ export const chargeSchema = z.object({
   isTransfer: z.boolean(),
   categoryKey: z.string().nullable(),
   source: z.string().max(32),
+  /** Paydays are read only from checking and savings (ADR-061). */
+  accountType: z
+    .enum(["checking", "savings", "credit_card", "loan"])
+    .optional(),
 });
 export type Charge = z.infer<typeof chargeSchema>;
-export type Kind = "bill" | "subscription";
+export type Kind = "bill" | "subscription" | "income";
+/** Money out of the account, or money into it (ADR-061). */
+export type Direction = "out" | "in";
 export type AmountMode = "fixed" | "variable";
 export type ScheduleUnit = "days" | "months";
 export type Pattern = {
@@ -82,10 +88,18 @@ export function typicalAmounts(charges: readonly Charge[]) {
   };
 }
 
-/** Eligible evidence only. No description truncation or prefix matching. */
+const isLiquid = (charge: Charge) =>
+  charge.accountType === "checking" || charge.accountType === "savings";
+
+/**
+ * Eligible evidence only. No description truncation or prefix matching.
+ * `out` reads charges (ADR-058); `in` reads deposits into checking or savings,
+ * for paydays (ADR-061).
+ */
 export function groupCharges(
   input: readonly Charge[],
   today: string,
+  direction: Direction = "out",
 ): Map<string, Charge[]> {
   dateSchema.parse(today);
   const charges = z.array(chargeSchema).max(MAX_CHARGES).parse(input);
@@ -95,7 +109,9 @@ export function groupCharges(
     if (
       charge.status !== "posted" ||
       charge.isTransfer ||
-      charge.amountCents >= 0 ||
+      (direction === "out"
+        ? charge.amountCents >= 0
+        : charge.amountCents <= 0 || !isLiquid(charge)) ||
       charge.postedOn > today ||
       charge.postedOn < first ||
       charge.descriptionRaw.length > 2000
@@ -116,13 +132,33 @@ export function groupCharges(
   return groups;
 }
 
+/**
+ * Both directions' groups under one key space. A payee that has charges on an
+ * account is not also read as income there (refunds from a shop are not pay),
+ * since one account and payee hold one saved payment (ADR-061).
+ */
+export function groupAll(
+  input: readonly Charge[],
+  today: string,
+): { groups: Map<string, Charge[]>; income: ReadonlySet<string> } {
+  const groups = groupCharges(input, today, "out");
+  const income = new Set<string>();
+  for (const [key, group] of groupCharges(input, today, "in")) {
+    if (groups.has(key)) continue;
+    groups.set(key, group);
+    income.add(key);
+  }
+  return { groups, income };
+}
+
 /** ADR-058: learn timing; amount stability never gates a suggestion. */
 export function findPatterns(
   input: readonly Charge[],
   today: string,
 ): Pattern[] {
   const patterns: Pattern[] = [];
-  for (const [key, group] of groupCharges(input, today)) {
+  const { groups, income } = groupAll(input, today);
+  for (const [key, group] of groups) {
     if (group.length < 3) continue;
     const recent = group.slice(-6);
     const gaps = recent
@@ -166,11 +202,15 @@ export function findPatterns(
     const every = calendar ? monthGaps[0]! : Math.round(intervalDays);
     const amounts = typicalAmounts(group);
     const merchant = normalizeMerchant(last.descriptionRaw);
-    const kind: Kind = recent.some((charge) =>
-      ["housing", "utilities", "transport"].includes(charge.categoryKey ?? ""),
-    )
-      ? "bill"
-      : "subscription";
+    const kind: Kind = income.has(key)
+      ? "income"
+      : recent.some((charge) =>
+            ["housing", "utilities", "transport"].includes(
+              charge.categoryKey ?? "",
+            ),
+          )
+        ? "bill"
+        : "subscription";
     patterns.push({
       key,
       accountId: last.accountId,

@@ -86,6 +86,7 @@ Rules:
 | ADR-058 | Recurring payment patterns, confirmation and variable bills | Accepted |
 | ADR-059 | Agent replies: one request with labels, and a chain of models (refines ADR-019, ADR-040) | Proposed |
 | ADR-060 | Monthly budget interactions and recorded actual spending (refines ADR-015) | Accepted |
+| ADR-061 | Paydays found in deposits, confirmed like recurring payments (refines ADR-058) | Proposed |
 
 ---
 
@@ -1644,6 +1645,44 @@ Rules:
   quarterly/fortnightly patterns, false positives, preserved user choices,
   account isolation and actual-versus-estimated totals. Use a new additive
   recurring-series migration and a public post-import refresh API.
+
+---
+
+### ADR-061: Paydays found in deposits, confirmed like recurring payments (refines ADR-058)
+
+- **Status:** Proposed (2026-10-11), from Simon. **Muhammad (F-10 owner)
+  should confirm it.**
+- **Context:** The calendar's headline needs the next payday (ADR-042, which
+  says recurring income must be detected). ADR-058 finds recurring payments
+  in money going out only. The team chose code, not Gemini, to find paydays.
+- **Decision:**
+  - **Same rules, other direction.** ADR-058's timing rules (three or more
+    dated rows, a learned interval or calendar-month cadence, the same
+    dispersion limits, inactive after two missed intervals) also read posted
+    deposits into **checking and savings**. They become recurring payments
+    of kind `income`, shown as "Payday". Card credits and transfers are not
+    read.
+  - **One account and payee, one payment.** A payee that has charges on an
+    account is not also read as pay there, so a shop's refunds never become
+    a payday.
+  - **Confirmation as before.** A detected payday is a suggestion until the
+    person confirms it on Recurring payments; they can also add one by hand
+    or correct its schedule and amount. Only confirmed, active paydays reach
+    the calendar.
+  - **Pay is not a cost.** Paydays stay out of the recurring cost totals and
+    the payment count; the page shows them as "Expected pay" a month.
+    Keep / planning to cancel applies to subscriptions only.
+  - **The calendar** (F-12) reads confirmed recurring payments: pay, bills
+    and subscriptions fall on their expected dates after today, using F-10's
+    estimated amounts, so the calendar and the Recurring payments page
+    agree. A card's payments do not move the balance line (ADR-024). The
+    headline's next payday is the next confirmed payday.
+- **Consequences:**
+  - Migration `0011_recurring_income` widens `recurring_series.kind`.
+  - A payday needs three deposits before it is suggested; until then the
+    person can add it by hand.
+  - Someone paid irregularly gets no suggestion and the headline shows the
+    balance only, as ADR-042 already allows.
 
 ---
 

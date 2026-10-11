@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   afterAll,
   beforeAll,
@@ -19,13 +19,18 @@ import {
   createTransaction,
   getTransaction,
 } from "@/features/transactions/server/repository";
+import { savePayment } from "@/features/recurring/server/repository";
 import { db } from "@/lib/db/client";
 import { uuidv7 } from "@/lib/db/id";
-import { transaction } from "@/lib/db/schema";
+import { recurringSeries, transaction } from "@/lib/db/schema";
 import { cents } from "@/lib/money";
 import { summarize } from "../domain/cashflow";
 import { fixtures, isNotFound } from "../../../../tests/support/db-fixtures";
-import { addDayEntryAction, removeDayEntryAction } from "./actions";
+import {
+  addDayEntryAction,
+  removeDayEntryAction,
+  setSubscriptionIntentAction,
+} from "./actions";
 import { loadDashboard } from "./load";
 
 // Integration tests against the Docker database (TEST-05); the session and
@@ -294,5 +299,139 @@ describe("removeDayEntryAction", () => {
       true,
     );
     expect(await getTransaction(workspace, id)).not.toBeNull();
+  });
+});
+
+describe("recurring payments on the calendar", () => {
+  const nextMonth = () => {
+    const [y, m] = today().split("-").map(Number) as [number, number];
+    const next = m === 12 ? [y + 1, 1] : [y, m + 1];
+    return `${next[0]}-${String(next[1]).padStart(2, "0")}-05`;
+  };
+  const save = (
+    merchant: string,
+    kind: "subscription" | "income" | "bill",
+    amountCents: number,
+    accountId = checking,
+  ) =>
+    savePayment(workspace, {
+      accountId,
+      merchant,
+      name: merchant,
+      kind,
+      amountMode: "fixed",
+      unit: "months",
+      every: 1,
+      amountCents,
+      nextOn: nextMonth(),
+      useHistory: false,
+    });
+  const intentOf = async (merchant: string) =>
+    (
+      await db
+        .select({ userIntent: recurringSeries.userIntent })
+        .from(recurringSeries)
+        .where(
+          and(
+            eq(recurringSeries.workspaceId, workspace),
+            eq(recurringSeries.merchant, merchant),
+          ),
+        )
+    )[0]?.userIntent;
+
+  beforeAll(async () => {
+    expect(await save("stream service", "subscription", 1599)).toBe("ok");
+    expect(await save("acme payroll", "income", 145000)).toBe("ok");
+    expect(await save("music on card", "subscription", 999, card)).toBe("ok");
+  });
+
+  it("loads confirmed payments with F-10's estimates, signed, and a card's marked", async () => {
+    signedInAs(viewer);
+
+    const { data } = await loadDashboard(workspace);
+    const byName = Object.fromEntries(data.recurring.map((r) => [r.name, r]));
+
+    expect(byName["stream service"]).toMatchObject({
+      kind: "subscription",
+      amount: -1599,
+      nextOn: nextMonth(),
+      onCard: false,
+      target: { accountId: checking, merchant: "stream service" },
+    });
+    expect(byName["acme payroll"]).toMatchObject({
+      kind: "income",
+      amount: 145000,
+    });
+    expect(byName["music on card"]).toMatchObject({ onCard: true });
+    expect(summarize(data, today()).payday?.date).toBe(nextMonth());
+  });
+
+  it("saves planning to cancel and keep, the same choice the Recurring payments page shows", async () => {
+    signedInAs(editor);
+    const target = { accountId: checking, merchant: "stream service" };
+
+    expect(
+      await setSubscriptionIntentAction(workspace, {
+        ...target,
+        intent: "cancel",
+      }),
+    ).toEqual({ ok: true });
+    expect(await intentOf("stream service")).toBe("cancel");
+    expect(refresh).toHaveBeenCalledOnce();
+
+    await setSubscriptionIntentAction(workspace, { ...target, intent: "keep" });
+    expect(await intentOf("stream service")).toBe("keep");
+  });
+
+  it("refuses to mark pay, which is not a subscription", async () => {
+    signedInAs(editor);
+
+    expect(
+      await setSubscriptionIntentAction(workspace, {
+        accountId: checking,
+        merchant: "acme payroll",
+        intent: "cancel",
+      }),
+    ).toEqual({ ok: false, message: "Only subscriptions can be marked." });
+    expect(await intentOf("acme payroll")).toBe("none");
+  });
+
+  it("finds nothing for a viewer, a stranger or a payment that is not saved", async () => {
+    const target = { accountId: checking, merchant: "stream service" };
+    signedInAs(viewer);
+    expect(
+      isNotFound(
+        await thrown(
+          setSubscriptionIntentAction(workspace, {
+            ...target,
+            intent: "cancel",
+          }),
+        ),
+      ),
+    ).toBe(true);
+    signedInAs(stranger);
+    expect(
+      isNotFound(
+        await thrown(
+          setSubscriptionIntentAction(workspace, {
+            ...target,
+            intent: "cancel",
+          }),
+        ),
+      ),
+    ).toBe(true);
+    signedInAs(editor);
+    expect(
+      isNotFound(
+        await thrown(
+          setSubscriptionIntentAction(workspace, {
+            ...target,
+            merchant: "nothing saved",
+            intent: "cancel",
+          }),
+        ),
+      ),
+    ).toBe(true);
+    expect(await intentOf("stream service")).toBe("keep");
   });
 });

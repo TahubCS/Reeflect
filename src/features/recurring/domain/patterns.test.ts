@@ -523,3 +523,137 @@ describe("date and form boundaries", () => {
     expect(parsePaymentForm(new FormData()).success).toBe(false);
   });
 });
+
+describe("paydays (ADR-061)", () => {
+  const pay = (postedOn: string, extra: Partial<Charge> = {}) =>
+    charge(postedOn, 145000, {
+      descriptionRaw: "ACME CORP PAYROLL",
+      accountType: "checking",
+      ...extra,
+    });
+
+  it("finds a payday every two weeks from deposits into checking", () => {
+    const [result] = findPatterns(
+      [
+        pay("2026-08-14"),
+        pay("2026-08-28"),
+        pay("2026-09-11"),
+        pay("2026-09-25"),
+        pay("2026-10-09"),
+      ],
+      TODAY,
+    );
+
+    expect(result).toMatchObject({
+      kind: "income",
+      merchant: "acme corp payroll",
+      unit: "days",
+      every: 14,
+      typical: 145000,
+      nextOn: "2026-10-23",
+    });
+  });
+
+  it("finds a monthly payday on a savings account", () => {
+    const [result] = findPatterns(
+      [
+        pay("2026-07-30", { accountType: "savings" }),
+        pay("2026-08-30", { accountType: "savings" }),
+        pay("2026-09-30", { accountType: "savings" }),
+      ],
+      TODAY,
+    );
+
+    expect(result).toMatchObject({ kind: "income", unit: "months", every: 1 });
+  });
+
+  it("ignores credits on a card and deposits from an unknown account type", () => {
+    const dates = ["2026-08-14", "2026-08-28", "2026-09-11", "2026-09-25"];
+
+    expect(
+      findPatterns(
+        dates.map((d) => pay(d, { accountType: "credit_card" })),
+        TODAY,
+      ),
+    ).toEqual([]);
+    expect(
+      findPatterns(
+        dates.map((d) => pay(d, { accountType: undefined })),
+        TODAY,
+      ),
+    ).toEqual([]);
+  });
+
+  it("does not read irregular repayments as pay", () => {
+    expect(
+      findPatterns(
+        [pay("2026-08-02"), pay("2026-08-09"), pay("2026-09-27")],
+        TODAY,
+      ),
+    ).toEqual([]);
+  });
+
+  it("does not read a shop's refunds as pay when the shop also charges the account", () => {
+    const refunds = [
+      "2026-08-14",
+      "2026-08-28",
+      "2026-09-11",
+      "2026-09-25",
+    ].map((d) => charge(d, 2000, { accountType: "checking" }));
+    const result = findPatterns(
+      [...refunds, charge("2026-09-03", -5000, { accountType: "checking" })],
+      TODAY,
+    );
+
+    expect(result.some((pattern) => pattern.kind === "income")).toBe(false);
+  });
+
+  it("keeps confirmed pay out of costs and reports it as expected pay", () => {
+    const deposits = [pay("2026-08-01"), pay("2026-09-01"), pay("2026-10-01")];
+    const payments = buildPayments(
+      [...deposits, ...monthly()],
+      [
+        saved(),
+        saved({
+          merchant: "acme corp payroll",
+          name: "Pay",
+          kind: "income",
+          baselineAmountCents: 145000,
+        }),
+      ],
+      TODAY,
+    );
+    const payday = payments.find((p) => p.kind === "income")!;
+
+    expect(payday).toMatchObject({
+      active: true,
+      amount: 145000,
+      actual: 145000,
+      userIntent: "none",
+      nextOn: "2026-11-01",
+    });
+    expect(summarizePayments(payments)).toMatchObject({
+      monthly: 1599,
+      count: 1,
+      income: 145000,
+      actual: 1599,
+    });
+  });
+
+  it("accepts Payday as a kind in the form and the filter", () => {
+    expect(querySchema.parse({ kind: "income" }).kind).toBe("income");
+    const form = new FormData();
+    form.set("accountId", ACCOUNT);
+    form.set("merchant", "Acme Corp Payroll");
+    form.set("name", "Pay");
+    form.set("kind", "income");
+    form.set("amountMode", "fixed");
+    form.set("unit", "days");
+    form.set("every", "14");
+    form.set("amount", "1450");
+    form.set("nextOn", "2026-10-23");
+
+    const parsed = parsePaymentForm(form);
+    expect(parsed.success && parsed.data.kind).toBe("income");
+  });
+});
