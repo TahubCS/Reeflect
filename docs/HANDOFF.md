@@ -60,7 +60,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-24 Phone linking | C | Muhammad Tahub Khatri | `feat/photon-agent` | Built (HO-032); the phone is texted when the link is approved (HO-061, ADR-062) |
 | F-25 "How am I doing?" + week-ahead image | C | Muhammad Tahub Khatri | `feat/agent-payday-answer` | Answers built (HO-050, HO-061): balances, the last 30 days, and what is owed before payday with the calendar's per-day figure. The image is not built |
 | F-26 Subscription alerts | C | Unassigned | — | Not started |
-| F-27 Log spending by text | C | Muhammad Tahub Khatri | `feat/agent-log-spending` | Built (HO-071, ADR-064): log, ask when unsure, UNDO. Not built: money in, days before yesterday, receipts |
+| F-27 Log spending by text | C | Muhammad Tahub Khatri | `feat/agent-log-spending` | Built (HO-071, ADR-064): log, ask when unsure, UNDO. The account question is remembered and answered in the next text (HO-072, ADR-065). Not built: money in, days before yesterday, receipts |
 | F-28 Category and balance questions | C | Unassigned | — | Not started |
 | F-32 Agent worker | C | Muhammad Tahub Khatri | `feat/agent-worker` | Done, replies only (HO-039, PR #17); live on Render (HO-049) |
 | F-22 Bill reminders (P1) | A + C | Unassigned | — | Not started |
@@ -3610,4 +3610,58 @@ recommendation, not a decision.
 - On accounts fed by statements or Nessie the stored balance does not move
   (ADR-050), so "how am I doing?" will not drop after a log there.
 - A text delivered again after its log was undone would be logged again.
+- Not tried with a real iMessage yet.
+
+## HO-072: The agent remembers "which account?" so the next text can answer
+
+- **Date:** 2026-10-11 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `fix/agent-log-account-followup` / not opened
+
+### What changed
+- **Found on a real phone:** four texts about one $8.75 purchase logged
+  nothing. Photon was not at fault; the app kept nothing between texts.
+  Three causes, each reproduced against the parser: the answer "it was from
+  my checking account" had no amount and went to the summary; the example
+  the agent told the person to send was over the short form's six words,
+  so it was not read as spending; "from muhammad checking" was not matched.
+- **One open question is remembered** per linked phone for 10 minutes
+  (ADR-065, Proposed): new table `agent_pending_log`, **migration 0015**,
+  repository `src/features/agent/server/pending.ts`.
+- **The question numbers the accounts:** `Which account for $8.75
+  "cloudflare to buy a domain"? Reply with its number or name: 1 Muhammad,
+  2 ... Nothing is logged yet.` The next text may be "1", "Muhammad", or a
+  kind they have one of ("my credit card"). `readAccountAnswer` in
+  `domain/log-account.ts` reads it; `answerPending` in
+  `tools/logSpending.ts` saves through the same code as any log.
+- Two accounts of the kind named, or a number off the list: asked again.
+  New spending or UNDO closes the question; a question in between does not.
+- `chooseAccount` also accepts a kind or "account" after a nickname and a
+  nickname typed without its punctuation.
+- `runAgentTurn` order is now LINK, STOP, the link, the open question,
+  logging, the answer.
+
+### Verified
+- The four real texts reproduced against the parser before the change, and
+  as a conversation in `runAgentTurn.test.ts` after it.
+- `pnpm lint`, `typecheck`, `docs:check`, `build` pass. `format:check`
+  reports only files under the untracked `.claude/worktrees/`.
+- `pnpm test:unit`: 2000 pass, 10 fail, none in the agent: 8 are the
+  storage tests that need `.env.storage-tests`; `scripts/db/
+  budgets-migration.test.ts` failed in the full run and passed alone;
+  `recurring/server/repository.test.ts` compares rows without an order.
+- Playwright: `agent-log.spec.ts` and `agent-link.spec.ts`, 11 pass. The
+  whole `pnpm test:e2e` was not run.
+
+### What's next
+- Apply migration 0015 to the Neon branch and production before deploying
+  (`pnpm db:migrate:to`), then repeat the four texts on the real phone.
+- Next agent plan: F-28, category and balance questions.
+
+### Open problems
+- An answer delivered twice is saved once, but the second copy is read as
+  an ordinary text ("1" gets "What was it for?").
+- A nickname containing a number ("Sample · 360 Checking") cannot be named
+  in the first text; its number in the list works.
+- Expired rows are ignored and replaced, not swept.
 - Not tried with a real iMessage yet.

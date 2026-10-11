@@ -90,6 +90,7 @@ Rules:
 | ADR-061 | Paydays found in deposits, confirmed like recurring payments (refines ADR-058) | Proposed |
 | ADR-062 | A text that confirms what the user just did is not a proactive message (refines ADR-038) | Proposed |
 | ADR-064 | Logging spending by text: code decides, asks when unsure, never guesses (refines ADR-035, ADR-040) | Proposed |
+| ADR-065 | The agent remembers one open question: which account a text's spending is for (refines ADR-064) | Proposed |
 | ADR-082 | Sample years in the developers' own accounts (exception to ADR-049) | Accepted |
 | ADR-083 | Ask the user to categorize large uncategorized payments (refines ADR-055, ADR-057) | Proposed |
 | ADR-084 | Reserved ADR and handoff numbers for each developer | Accepted |
@@ -1856,6 +1857,56 @@ Rules:
     doing?" keeps the statement's balance.
   - A model-picked category does not follow later rule changes.
   - Not built: logging money coming in, days before yesterday, receipts.
+
+### ADR-065: The agent remembers one open question: which account a text's spending is for (refines ADR-064)
+
+- **Status:** Proposed (2026-10-11)
+- **Owner to confirm:** Muhammad Tahub Khatri
+- **Context:** ADR-064 kept no conversation memory. With several accounts
+  the agent asked "which account?" and told the person to send the whole
+  text again. On a real phone that failed three ways: the natural answer
+  ("it was from my checking account") had no amount and got the "how am I
+  doing?" reply; the example the agent gave was longer than the short form
+  allows, so sending it back was not read as spending; and "from muhammad
+  checking" was not matched, because a nickname counted only as the last
+  word. Nothing was logged in four texts.
+- **Decision:**
+  - **One question is remembered per linked phone, for 10 minutes:** the
+    amount, the words, the day, and the accounts that were listed, in
+    `agent_pending_log` (migration 0015). A newer question replaces it.
+    This is the only conversation memory; ADR-064's "no database change"
+    no longer holds.
+  - **The reply numbers the accounts** and says what is waiting. The next
+    text answers with a number, an account's name, or a kind of account
+    they have exactly one of (decided by Muhammad, 2026-10-11). Filler
+    around it is allowed: "it was from my checking account".
+  - **Code reads the answer** (`readAccountAnswer`, pure), strictly: the
+    whole text must be the answer. A question, new spending, or a number
+    written as money is never taken for one, and goes on as any other text.
+  - **An answer that fits no single account** (two checking accounts, a
+    number not on the list) is asked again and nothing is saved.
+  - **New spending or UNDO closes the question.** Other texts leave it open
+    until it expires.
+  - **The spending is saved on the day it was first texted,** through the
+    same code as any other log: the same limits, category and UNDO.
+  - **Account names are matched more loosely in the first text too:** a
+    kind of account or "account" may follow the nickname ("from Everyday
+    checking"), and punctuation in a nickname need not be typed.
+  - The workspace still comes only from the verified link (ADR-034); the
+    question is read and closed by link and workspace together.
+- **Alternatives considered:** keeping no memory and only fixing the
+  example (a short answer would still fail); a model reading the answer
+  (breaks ADR-064: a wrong read writes data); keeping the conversation's
+  history (more stored text than one question needs).
+- **Consequences:**
+  - A phone's last unanswered spending text is stored for up to 10 minutes
+    after it is asked about; older rows are ignored, and replaced by the
+    next question, but not swept.
+  - An answer delivered twice is saved once; the second copy is then read
+    as an ordinary text, so its reply can look out of place.
+  - A nickname that contains a number ("360 Checking") cannot be named in
+    the first text, because the number reads as a second amount; its place
+    in the list works.
 
 ### ADR-084: Reserved ADR and handoff numbers for each developer
 

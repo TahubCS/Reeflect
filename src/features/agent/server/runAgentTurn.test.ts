@@ -155,6 +155,76 @@ describe("runAgentTurn", () => {
     expect(await balance()).toBe(50_000);
   });
 
+  it("remembers what it asked: the account can be answered in the next text", async () => {
+    const me = await newUser();
+    const handle = newPhone();
+    await text(handle, `LINK ${await newCode(me.userId)}`);
+    await approveLink(me.userId, me.workspaceId);
+    const add = (
+      type: "checking" | "credit_card",
+      nickname: string,
+      balance: number,
+    ) =>
+      createAccount(me.workspaceId, {
+        type,
+        institutionName: "Test Bank",
+        nickname,
+        maskLast4: null,
+        balanceCents: cents(balance),
+      });
+    const mine = await add("checking", "Muhammad", 50_000);
+    await add("credit_card", "Sample · Credit Card", -5_000);
+    await add("checking", "Sample · 360 Checking", 10_000);
+    const balance = async () =>
+      (await getAccount(me.workspaceId, mine))!.balanceCents;
+    const QUESTION =
+      'Which account for $8.75 "cloudflare to buy a domain"? Reply with its number or name: 1 Muhammad, 2 Sample · Credit Card, 3 Sample · 360 Checking. Nothing is logged yet.';
+
+    // The conversation a real phone had, which logged nothing at the time.
+    expect(
+      await text(handle, "I spent 8.75 on cloudflare to buy a domain."),
+    ).toBe(QUESTION);
+    // Two checking accounts, so this cannot say which: asked again.
+    expect(await text(handle, "It was from my checking account")).toBe(
+      QUESTION,
+    );
+    // A question in between is answered as usual and does not close it.
+    expect(await text(handle, "how am I doing?")).toMatch(/^You have \$/);
+    expect(await balance()).toBe(50_000);
+    expect(await text(handle, "1")).toContain(
+      'Logged $8.75 for "cloudflare to buy a domain" today on Muhammad',
+    );
+    expect(await balance()).toBe(49_125);
+
+    // Naming the account in the first text needs no question.
+    expect(
+      await text(
+        handle,
+        "I spent 8.75 on cloudflare to buy domain from muhammad checking",
+      ),
+    ).toContain(
+      'Logged $8.75 for "cloudflare to buy domain" today on Muhammad',
+    );
+    expect(await balance()).toBe(48_250);
+
+    // New spending replaces an open question; UNDO closes it.
+    await text(handle, "40 gas");
+    expect(await text(handle, "12 lunch from Muhammad")).toContain(
+      'Logged $12.00 for "lunch"',
+    );
+    expect(await text(handle, "1")).toBe(UNCLEAR_REPLIES.no_description);
+    await text(handle, "40 gas");
+    expect(await text(handle, "undo")).toBe('Removed $12.00 for "lunch".');
+    expect(await text(handle, "1")).toBe(UNCLEAR_REPLIES.no_description);
+    expect(await balance()).toBe(48_250);
+
+    // After STOP the phone is a stranger again, question or not.
+    await text(handle, "40 gas");
+    expect(await text(handle, "STOP")).toBe(REPLIES.stopped);
+    expect(await text(handle, "1")).toBe(REPLIES.signUp);
+    expect(await balance()).toBe(48_250);
+  });
+
   it("puts no digits in any fixed reply", () => {
     for (const reply of Object.values(REPLIES)) {
       expect(reply).not.toMatch(/\d/);
