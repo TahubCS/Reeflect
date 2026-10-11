@@ -439,7 +439,7 @@ export function BillsPage({ data }: { data: BillsView }) {
         c.dueOn <= shiftDays(data.today, 7),
     ).length;
   return (
-    <main className={`page ${styles.page}`}>
+    <main className={styles.page}>
       <header className={styles.heading}>
         <div>
           <h1>Bills</h1>
