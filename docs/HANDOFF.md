@@ -9,7 +9,9 @@ bottom.
 - **End of every session:** append a new entry using the template below, even
   if work is unfinished or the session ended early.
 - Entries are numbered HO-001, HO-002, … and never edited after being written
-  (add a new entry to correct an old one).
+  (add a new entry to correct an old one). New entries take a number from
+  your own block (AGENTS.md section 9, "Reserved numbers"), so numbers are
+  not in date order; the newest entry is still the one at the bottom.
 - Keep each entry short and factual. Link PRs, issues, and ADRs instead of
   repeating them.
 
@@ -2775,3 +2777,124 @@ recommendation, not a decision.
   requests on the four strong models plus 500 on `gemini-3.5-flash-lite`.
 - Allowances are per key, so a teammate using the same key for local work
   shares the test model's 500 a day.
+
+---
+
+## HO-075: A sample year in the developers' own accounts (ADR-082)
+
+- **Date:** 2026-10-11 (EDT)
+- **Author:** Jacob Heminway with Claude (Claude Code)
+- **Branch / PR:** `feat/dev-sample-data` / not opened
+
+### What changed
+- **Production batch:** the 100-person, one-year batch from the
+  batch-testing branch (`01a128e5-…`) was promoted to production. The
+  promote first failed because production lacked migration 0008
+  (`insight_sample`); Jacob migrated production and reran it.
+- **ADR-082 (Accepted):** the hackathon exception to ADR-049. The three
+  developers may get one spec person's year in their own Personal
+  workspace; the Nessie demo customer is the only other exception.
+- **`pnpm batch give <spec.json> --user <personKey>=<userId> …`**
+  (`scripts/batch/cli.ts`, `giveToUser` in `store.ts`): in one transaction
+  per user, it finds the Personal workspace, adds missing preset categories
+  (keeps renamed ones), adds rules for patterns the user doesn't have, and
+  writes the person's accounts ("Sample · …", `source = 'synthetic'`) and
+  transactions. There's no `synthetic_workspace` marker, so the comparison
+  group stays the 100. It refuses a second give unless `--replace` is set.
+- **`pnpm batch take-back --user <userId> [--yes]`** removes the sample
+  accounts; their transactions cascade.
+- **Refactor:** `rows.ts` now exposes `presetCategoryRows` and
+  `personRows`; `buildRows` uses them, with the same output as before.
+- **Docs:** SYNTHETIC.md "Developer accounts", the `pnpm batch` row in
+  AGENTS.md.
+- **Tests:** `parseUserMap` and `personRows` in `prepare.test.ts`; give,
+  replace, take-back and a missing workspace in `store.test.ts`. The batch
+  tests (34) pass. In the full `pnpm test:unit` run, 1,304 pass and 8 fail;
+  all 8 need `.env.storage-tests`, which this machine doesn't have. The
+  local Docker database was migrated to 0009 first. Lint, typecheck,
+  format and docs:check pass. No Playwright test: this is a CLI with no UI.
+
+### What's next
+- `scripts/batch/specs/devs.json` is written: 9 people, one per developer
+  per pay level (`jacob-low|mid|high`, `simon-…`, `muhammad-…`), Oct 2025
+  for 13 months, checked with seed `devs-1`. Give each developer one level
+  in production, and swap levels later with `--replace`. The 5 remaining
+  warnings come from the car purchases paid from savings.
+- Commit and open a PR once Jacob says so.
+
+### Open problems
+- Production reads and writes from the agent are blocked by the
+  permission classifier; a person runs the production commands.
+- The batch CLI still prints only "Failed (Error)" for database errors.
+  The Postgres code is on `error.cause` (drizzle 0.45); fixing that is
+  still to do.
+
+## HO-076: Fuller developer histories; ask about large uncategorized payments
+
+- **Date:** 2026-10-11 (EDT)
+- **Author:** Jacob Heminway with Claude (Claude Code)
+- **Branch / PR:** `feat/dev-sample-data` / not opened
+
+### What changed
+- **Renumbered:** PRs #22–#24 took ADR-059 to ADR-061 and HO-049 to
+  HO-054 while this branch was open. Its entries moved into Jacob's
+  reserved blocks (AGENTS.md section 9): ADR-082 and ADR-083, HO-075 and
+  HO-076.
+- **`devs.json` revised:** every developer has a savings account with a
+  monthly transfer, and spends in most preset categories (health, personal
+  care, entertainment, shopping, gifts, travel). Rent, food and utilities
+  moved toward the 100-person batch's students. Jacob gets financial aid
+  refunds in January and August, and jacob-high pays into a Roth IRA;
+  simon-high moves $40 a month to a brokerage. Checked with seeds devs-1,
+  other-7, x3, x4, q9 and z2: checking never goes below $0, and pay stays
+  in the student band. Simon's three levels still warn "spends more than
+  comes in" because of the car he bought outright; that is intended. Spec
+  events can't be charged to savings, so the car purchases come out of
+  checking.
+- **`scripts/batch/specs/README.md`:** the exact give, swap, count and
+  take-back commands, with the three user ids.
+- **ADR-083 (Proposed):** a large uncategorized payment becomes an
+  optional question in the "Needs your answer" list from ADR-055.
+- **Simon saw no sample accounts.** Nothing in the app hides synthetic
+  accounts, so the give most likely never reached production (the CLI's
+  default target is the batch-testing branch) or Simon looked at another
+  workspace. The README's read-only `take-back` command (no `--yes`)
+  counts them.
+
+### What's next
+- Run the production give from the README with `--replace`.
+- Open the PR once the merge of main is committed.
+- ADR-083 needs an owner, and the "Needs your answer" list needs building.
+
+### Open problems
+- The batch CLI still prints only "Failed (Error)" for database errors.
+
+## HO-077: Reserved ADR and handoff numbers; main merged into the dev-data branch
+
+- **Date:** 2026-10-11 (EDT)
+- **Author:** Jacob Heminway with Claude (Claude Code)
+- **Branch / PR:** `feat/dev-sample-data` / not opened
+
+### What changed
+- **ADR-084 (Accepted):** each developer numbers new ADRs and handoff
+  entries from a block of 20 in AGENTS.md section 9 ("Reserved numbers"):
+  Muhammad ADRs 062–081 and HOs 055–074, Jacob ADRs 082–101 and HOs
+  075–094, Simon ADRs 102–121 and HOs 095–114. The rules in DECISIONS.md and HANDOFF.md point there.
+- **`pnpm docs:check`** reads the table (`reservedBlocks`): unused numbers
+  inside a block are fine, a number above the shared range in no block
+  fails, and gaps in the shared numbers still fail. Tests in
+  `scripts/docs-check.test.ts`.
+- **Merged main (#22 to #24) into this branch.** The conflicts in
+  AGENTS.md, DECISIONS.md and HANDOFF.md were additions on both sides; main's
+  entries kept their numbers and this branch's moved to ADR-082, ADR-083,
+  HO-075 and HO-076, with the citations in `scripts/batch` and the docs
+  updated to match.
+
+### What's next
+- Simon and Muhammad: take numbers from your own blocks from now on. Any
+  open branch that already used an ADR number above 061 or an HO
+  number above 054 outside its own block moves into it before merging.
+- Open the PR for `feat/dev-sample-data`.
+
+### Open problems
+- None new.

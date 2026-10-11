@@ -20,8 +20,9 @@ by ADR-042) and ADR-039 (free-tier Gemini limits, replaced by ADR-040).
 Rules:
 - From here on, never edit the Decision of an Accepted ADR. Write a new ADR
   that supersedes it and change only the old one's status line.
-- New ADRs take the next free number after the highest in the Index. Use the
-  template at the bottom.
+- New ADRs take the lowest unused number in your own block (AGENTS.md
+  section 9, "Reserved numbers"); list them in the Index in number order.
+  Use the template at the bottom.
 - When the team confirms a Proposed ADR, change its status to Accepted and add
   the date.
 
@@ -87,6 +88,9 @@ Rules:
 | ADR-059 | Agent replies: one request with labels, and a chain of models (refines ADR-019, ADR-040) | Proposed |
 | ADR-060 | Monthly budget interactions and recorded actual spending (refines ADR-015) | Accepted |
 | ADR-061 | Paydays found in deposits, confirmed like recurring payments (refines ADR-058) | Proposed |
+| ADR-082 | Sample years in the developers' own accounts (exception to ADR-049) | Accepted |
+| ADR-083 | Ask the user to categorize large uncategorized payments (refines ADR-055, ADR-057) | Proposed |
+| ADR-084 | Reserved ADR and handoff numbers for each developer | Accepted |
 
 ---
 
@@ -1683,6 +1687,79 @@ Rules:
     person can add it by hand.
   - Someone paid irregularly gets no suggestion and the headline shows the
     balance only, as ADR-042 already allows.
+
+### ADR-082: Sample years in the developers' own accounts (exception to ADR-049)
+
+- **Status:** Accepted (2026-10-11)
+- **Context:** To test Insights against the sample people, the three
+  developers need a year of history in the accounts they sign in with.
+  ADR-049 keeps synthetic data out of real users' accounts.
+- **Decision:** For the hackathon, `pnpm batch give` may write one spec
+  person's year into a named developer's Personal workspace: sample
+  accounts (`source = 'synthetic'`, nickname starting "Sample · ") and
+  their transactions, plus any missing preset categories and rules. It adds
+  no `synthetic_workspace` marker, so those workspaces stay out of the
+  comparison group (ADR-056). `pnpm batch take-back` removes the sample
+  accounts and their transactions. The only other exception is the Nessie
+  demo customer that judges and developers use (ADR-048). Nobody else's
+  account gets synthetic data.
+- **Consequences:** The developers' own figures in Insights include sample
+  rows, labelled by their accounts. Take the data back before using these
+  accounts for anything real. Categories and rules that were added stay.
+
+### ADR-083: Ask the user to categorize large uncategorized payments (refines ADR-055, ADR-057)
+
+- **Status:** Proposed
+- **Context:** Some large payments match no rule and no preset: a car
+  down payment, a car bought outright, tuition installments, a one-off
+  repair. They are left in "Uncategorized", which is right (code can't
+  know what they were), but one of them can be most of a month's
+  spending, and Insights then says less than it could.
+- **Decision:** A large uncategorized payment becomes an open question in
+  the "Needs your answer" list that ADR-055 introduced for the retirement
+  question, on Insights and in Settings: "What was this payment for?"
+  - **Which payments.** Money out, uncategorized, not a transfer or a card
+    payment (ADR-020), posted in the last 90 days, and either $250 or more
+    or at least half of the workspace's typical monthly income. Code
+    picks them; a model never does.
+  - **Answers.** Any category in the workspace (choosing one is a manual
+    categorization, with the option to apply it to the merchant as a rule,
+    ADR-013), or "Leave it uncategorized". Both are complete answers, and
+    the question does not come back for that transaction.
+  - **Tone (ADR-042).** Neutral words, optional, no red, no badge that
+    counts up, no reminders by text.
+- **Consequences:**
+  - Needs a place to remember "left uncategorized" per transaction (a
+    column or a small table, so a migration, ARCH-03).
+  - The "Needs your answer" list has to exist; it was designed in ADR-055
+    but is not built yet.
+  - Education (tuition) has no preset, so tuition would always show up
+    here. Adding an "Education" preset is a separate decision.
+  - Tests: which payments qualify (threshold, transfers excluded, the 90
+    days), each answer, and that an answered question stays answered.
+
+### ADR-084: Reserved ADR and handoff numbers for each developer
+
+- **Status:** Accepted (2026-10-11)
+- **Context:** All three developers took "the next number" for ADRs and
+  handoff entries. With several branches open at once, two branches took
+  the same numbers, and every merge of main meant renumbering and resolving
+  conflicts in DECISIONS.md and HANDOFF.md.
+- **Decision:** Each developer gets their own block of 20 ADR numbers and
+  20 HO numbers, listed in AGENTS.md section 9 ("Reserved numbers"), and
+  numbers new entries from it. Numbers up to ADR-061 and HO-054 stay as
+  they are. Gaps inside a block are allowed. A full block gets the next 20
+  numbers after the highest block, added to the table in their own commit.
+  ARCH and TEST numbers stay shared. `pnpm docs:check` reads the table:
+  it allows the unused numbers in a block and fails on an ADR or HO number
+  above the shared range that is in no block.
+- **Alternatives considered:** Renumbering at merge time, which is what
+  kept happening. Dates or initials in the ids (HO-JH-3), which would break
+  the existing citations and the docs check's number rules.
+- **Consequences:** HO numbers are no longer in date order; the newest
+  entry is the one at the bottom. The Index stays in number order, so two
+  branches can still both add index rows next to each other, but the
+  conflict is two additions and no renumbering.
 
 ---
 
