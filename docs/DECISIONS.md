@@ -1368,10 +1368,14 @@ Rules:
     outside a label, and only labels that have a value. A draft that fails,
     or is too long for a text, is dropped and the reply is built by code
     from the same figures.
-  - **A chain of at most six models,** tried in order: `gemini-3.8-flash`,
-    `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-3.5-flash`,
-    `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`. `GEMINI_MODELS`
-    overrides the list. A model that fails is skipped and left alone for
+  - **A chain of at most six models,** tried in order. The deployed app
+    uses the users' chain: `gemini-3.8-flash`, `gemini-3.7-flash`,
+    `gemini-3.6-flash`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`.
+    Everything else (local development, `pnpm ai:check`) uses a test
+    chain that shares no model with it, `gemini-3.1-flash-lite`, because
+    each model has its own daily allowance and trying things out must
+    not use up what users' texts need. `GEMINI_MODELS` overrides either
+    chain. A model that fails is skipped and left alone for
     five minutes (an hour for a name the API does not know). About 4
     seconds per attempt and 14 in total; after that the code-built reply is
     sent. A reply the model did not finish counts as a failure.
@@ -1384,7 +1388,8 @@ Rules:
     rule that only a billing-enabled key may see real users' data is set
     aside until billing is sorted out. What reaches the model is the
     person's own message and label names.
-  - `pnpm ai:check` asks each model in the chain one test question with the
+  - `pnpm ai:check` asks each test model (`pnpm ai:check users`: each of
+    the users' models) one test question with the
     real key and reports which answer.
 - **Alternatives considered:** Gemini's tool-calling loop (two requests per
   text for one lookup); one model with no chain (20 answers a day); giving

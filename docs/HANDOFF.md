@@ -2485,3 +2485,43 @@ recommendation, not a decision.
 - The model chain's "leave it alone" memory is per server instance.
 - ADR-019's rule about which kind of key may see real users' text is set
   aside for now (ADR-059).
+
+---
+
+## HO-051: Separate Gemini models for users and for testing
+
+- **Date:** 2026-10-11 02:30 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `chore/agent-dev-models` (uncommitted) / not opened
+
+### What changed
+- **Why:** each Gemini model has its own daily allowance on our key, and the
+  four strongest allow only 20 requests a day each. Checking the chain and
+  the prompt by hand during F-25 used about nine of those on
+  `gemini-3.8-flash` and `gemini-3.7-flash` and more on `gemini-3.6-flash`.
+  The automated tests were not the cause: Vitest and Playwright set the key
+  to empty and never call Google.
+- **Two chains in `src/lib/ai/models.ts`** (ADR-059 updated):
+  - `USER_MODELS`, for the deployed app: `gemini-3.8-flash`,
+    `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-3.5-flash`,
+    `gemini-3.5-flash-lite`.
+  - `TEST_MODELS`, for everything else: `gemini-3.1-flash-lite` (500
+    requests a day). It shares no model with the users' chain, and a test
+    keeps it that way.
+- The app picks by whether it is deployed (`VERCEL` is set).
+  `GEMINI_MODELS` still overrides either chain.
+- **`pnpm ai:check`** now checks the test chain. `pnpm ai:check users`
+  checks the users' chain and says that it spends their allowance.
+- Tried: the Gemma models (14,400 requests a day) refuse the agent's request
+  with a 400, so they are not used.
+
+### What's next
+- With `pnpm dev` and the real key, local answers now come from
+  `gemini-3.1-flash-lite`; to try a users' model locally, set
+  `GEMINI_MODELS` in `.env.local` for that session.
+
+### Open problems
+- The users' chain lost its sixth model, so its daily capacity is 80
+  requests on the four strong models plus 500 on `gemini-3.5-flash-lite`.
+- Allowances are per key, so a teammate using the same key for local work
+  shares the test model's 500 a day.

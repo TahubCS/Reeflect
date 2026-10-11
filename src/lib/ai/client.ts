@@ -19,7 +19,8 @@ const chain =
     ? null
     : createChain({
         transport: googleTransport(env.GEMINI_API_KEY),
-        models: parseModels(env.GEMINI_MODELS),
+        // Users' models on the deployed app, the test model anywhere else.
+        models: parseModels(env.GEMINI_MODELS, env.VERCEL !== undefined),
       });
 
 /** Model names and outcomes only: never the prompt, the reply or the key. */

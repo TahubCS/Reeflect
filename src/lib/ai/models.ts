@@ -4,28 +4,38 @@
 export const MAX_MODELS = 6;
 
 /**
- * Strongest first. The first four have a small daily allowance on our key,
- * the last two a large one, so on a busy day the later models carry the
- * load. Every model gets the same instruction and the same checks.
+ * For real users, on the deployed app. Strongest first: the first four have
+ * a small daily allowance on our key and the last a large one, so on a busy
+ * day it carries the load. Every model gets the same instruction and checks.
  */
-export const DEFAULT_MODELS: readonly string[] = [
+export const USER_MODELS: readonly string[] = [
   "gemini-3.8-flash",
   "gemini-3.7-flash",
   "gemini-3.6-flash",
   "gemini-3.5-flash",
   "gemini-3.5-flash-lite",
-  "gemini-3.1-flash-lite",
 ];
 
 /**
- * The chain from `GEMINI_MODELS` (comma-separated), or the default when it
- * is unset or empty. Repeats are dropped and the list is cut at `MAX_MODELS`.
+ * For development and checks on our own machines. It shares no model with
+ * `USER_MODELS`: each model has its own daily allowance, so trying things
+ * out can never use up what users' texts need.
  */
-export function parseModels(raw: string | undefined): string[] {
+export const TEST_MODELS: readonly string[] = ["gemini-3.1-flash-lite"];
+
+/**
+ * The chain to use. `GEMINI_MODELS` (comma-separated) wins when set;
+ * otherwise the deployed app gets `USER_MODELS` and everything else gets
+ * `TEST_MODELS`. Repeats are dropped and the list is cut at `MAX_MODELS`.
+ */
+export function parseModels(
+  raw: string | undefined,
+  deployed: boolean,
+): string[] {
   const named = (raw ?? "")
     .split(",")
     .map((name) => name.trim())
     .filter((name) => name !== "");
-  const chain = named.length > 0 ? named : DEFAULT_MODELS;
+  const chain = named.length > 0 ? named : deployed ? USER_MODELS : TEST_MODELS;
   return [...new Set(chain)].slice(0, MAX_MODELS);
 }

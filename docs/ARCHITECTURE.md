@@ -248,6 +248,9 @@ Governed by: ADR-019, ADR-045, ADR-059
   SDK. One stateless request (`store: false`) to Gemini's Interactions API.
 - `src/lib/ai/chain.ts` and `models.ts`: try up to six models in order,
   skipping one that fails and leaving it alone while it cools off (ADR-059).
+  The deployed app uses `USER_MODELS`; everything else uses `TEST_MODELS`,
+  which shares no model with it, so local work never spends the daily
+  allowance of the models that answer users.
 - `src/lib/ai/client.ts` (server-only): `generateText`, the chain bound to
   `GEMINI_API_KEY` and `GEMINI_MODELS`. Without a key it reports
   "unavailable" and callers use their code-built reply.
@@ -300,7 +303,7 @@ Governed by: ADR-006, ADR-007, ADR-010, ADR-012, ADR-019, ADR-025
 | `ENCRYPTION_KEY` | `lib/security/crypto.ts` (32 bytes, base64) | Yes |
 | `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_ENV` | Plaid client | Yes (secret) |
 | `GEMINI_API_KEY` | `lib/ai` (Google Gemini API); optional, the agent answers with code-built replies without it | Yes |
-| `GEMINI_MODELS` | `lib/ai`: models to try in order, comma-separated, six at most; optional, defaults to the chain in `src/lib/ai/models.ts` (ADR-059) | No |
+| `GEMINI_MODELS` | `lib/ai`: models to try in order, comma-separated, six at most; optional. Unset, the deployed app uses the users' chain and everything else the test chain, both in `src/lib/ai/models.ts` (ADR-059) | No |
 | `NESSIE_API_KEY` | `features/nessie` (sent as a query parameter; logs must redact it) | Yes |
 | `NESSIE_BASE_URL` | `features/nessie`: `https://api.nessieisreal.com` (ADR-048) | No |
 | `AGENT_SERVICE_TOKEN` | Next.js and worker (shared secret, 32+ characters). Optional in Next.js: without it `/api/agent/turn` answers 404 to everyone | Yes |
