@@ -6,6 +6,8 @@ export type EntryPointTarget = {
   accountId: string;
   /** A transaction on `accountId`. */
   transactionId: string;
+  /** A previewed statement import on `accountId`. */
+  importBatchId: string;
 };
 
 /**

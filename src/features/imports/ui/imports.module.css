@@ -1,0 +1,271 @@
+/* Statement import (F-06). Uses the tokens in src/app/globals.css
+   (ADR-046), so it follows the light and dark themes. */
+
+.page {
+  max-width: 56rem;
+  padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1rem, 3vw, 3.5rem) 3rem;
+}
+
+.page h1 {
+  font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.page h2 {
+  margin-top: 2rem;
+  font-size: 1.125rem;
+  font-weight: 650;
+}
+
+.lede {
+  max-width: 60ch;
+  margin-top: 0.5rem;
+  color: var(--ink-soft);
+}
+
+.note {
+  max-width: 60ch;
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--ink-soft);
+}
+
+.problem {
+  max-width: 60ch;
+  margin-top: 1rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--bill);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.form {
+  display: grid;
+  gap: 1rem;
+  max-width: 28rem;
+  margin-top: 1.5rem;
+}
+
+.field label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.field select,
+.field input[type="file"] {
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.hint {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--ink-soft);
+  font-size: 0.8125rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.primary,
+.secondary {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.primary {
+  border: 0;
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.secondary {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.primary:disabled,
+.secondary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Summary */
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.summary div {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.summary dt {
+  color: var(--ink-soft);
+  font-size: 0.8125rem;
+}
+
+.summary dd {
+  margin: 0.125rem 0 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+
+/* Checks */
+
+.checks {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+.check {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  gap: 0.25rem 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.check[data-outcome="pass"] {
+  border-left-color: var(--in);
+}
+
+.check[data-outcome="warn"] {
+  border-left-color: var(--sub);
+}
+
+.check[data-outcome="block"] {
+  border-left-color: var(--bill);
+}
+
+.outcome {
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+
+.checkLabel {
+  font-weight: 600;
+}
+
+.checkDetail {
+  grid-column: 2;
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 30rem) {
+  .check {
+    grid-template-columns: 1fr;
+  }
+
+  .checkDetail {
+    grid-column: 1;
+  }
+}
+
+/* Rows */
+
+.tableWrap {
+  margin-top: 0.75rem;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.table th,
+.table td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.table th {
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+.table tbody tr {
+  border-top: 1px solid var(--line);
+}
+
+.table td.description {
+  white-space: normal;
+}
+
+.table .number {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.confirm {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  max-width: 60ch;
+  margin-top: 1.5rem;
+}
+
+.confirm input {
+  margin-top: 0.25rem;
+}
+
+.waiting {
+  margin-top: 0.75rem;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.waiting li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 1rem;
+}
+
+.waiting li + li {
+  border-top: 1px solid var(--line);
+}

@@ -10,12 +10,15 @@ import {
   fraction,
   negate,
   parseBalance,
+  parseDecimalString,
   parseDollars,
+  parseStatementAmount,
   positivePart,
   ratio,
   subtract,
   sum,
   times,
+  toDecimalString,
   truncateToDollars,
 } from "./index";
 
@@ -169,5 +172,69 @@ describe("truncateToDollars", () => {
 
   it("never returns negative zero", () => {
     expect(Object.is(truncateToDollars(cents(-99)), -0)).toBe(false);
+  });
+});
+
+describe("parseStatementAmount", () => {
+  it.each([
+    ["$1,186.93", 118693],
+    ["$2.49", 249],
+    ["2.49", 249],
+    ["$0.00", 0],
+    ["-$2.49", -249],
+    ["- $2.49", -249],
+    ["($2.49)", -249],
+    ["( $1,000.00 )", -100000],
+    ["$2.49-", -249],
+    ["2.49 CR", 249],
+    ["  $12.00  ", 1200],
+  ])("reads %s as %i cents", (text, expected) => {
+    expect(parseStatementAmount(text)).toBe(expected);
+  });
+
+  it.each([
+    "",
+    "$",
+    "2.4",
+    "2",
+    "abc",
+    "$2.49.1",
+    "(-$2.49)",
+    "($2.49-)",
+    "1.234",
+  ])("rejects %j", (text) => {
+    expect(parseStatementAmount(text)).toBeNull();
+  });
+
+  it("never returns negative zero", () => {
+    expect(Object.is(parseStatementAmount("-$0.00"), -0)).toBe(false);
+  });
+});
+
+describe("toDecimalString and parseDecimalString", () => {
+  it.each([
+    [0, "0.00"],
+    [5, "0.05"],
+    [-5, "-0.05"],
+    [120450, "1204.50"],
+    [-1234, "-12.34"],
+    [100, "1.00"],
+  ])("writes %i cents as %s and reads it back", (value, text) => {
+    expect(toDecimalString(cents(value))).toBe(text);
+    expect(parseDecimalString(text)).toBe(value);
+  });
+
+  it.each([
+    "",
+    "1",
+    "1.5",
+    "01.00",
+    "-0.00",
+    "$1.00",
+    "1,000.00",
+    " 1.00",
+    "1.000",
+  ])("rejects %j", (text) => {
+    expect(parseDecimalString(text)).toBeNull();
   });
 });

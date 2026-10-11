@@ -22,6 +22,13 @@ export default defineConfig({
       BETTER_AUTH_SECRET: "test-only-not-a-real-secret-0123456789",
       BETTER_AUTH_URL: "http://localhost:3000",
       AGENT_SERVICE_TOKEN: "test-only-agent-service-token-0123456789",
+      // S3Mock from docker-compose.yml, never Neon object storage (ADR-053).
+      AWS_ACCESS_KEY_ID: "test-access-key",
+      AWS_SECRET_ACCESS_KEY: "test-secret-key",
+      AWS_ENDPOINT_URL_S3:
+        process.env.AWS_ENDPOINT_URL_S3 ?? "http://localhost:9100",
+      AWS_REGION: "us-east-1",
+      STATEMENTS_BUCKET: "statements",
     },
     coverage: {
       provider: "v8",

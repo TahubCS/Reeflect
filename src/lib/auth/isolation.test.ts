@@ -4,12 +4,17 @@ import {
   createAccount,
   listAccounts,
 } from "@/features/accounts/server/repository";
+import { IMPORT_ENTRY_POINTS } from "@/features/imports/server/entry-points";
+import { listPreviews } from "@/features/imports/server/repository";
 import { MESSAGING_ENTRY_POINTS } from "@/features/messaging/server/entry-points";
 import { TRANSACTION_ENTRY_POINTS } from "@/features/transactions/server/entry-points";
 import {
   createTransaction,
   listTransactions,
 } from "@/features/transactions/server/repository";
+import { db } from "@/lib/db/client";
+import { uuidv7 } from "@/lib/db/id";
+import { importBatch } from "@/lib/db/schema";
 import { cents } from "@/lib/money";
 import {
   fixtures,
@@ -25,6 +30,7 @@ import type { EntryPoint, EntryPointTarget } from "./entry-point";
 // nothing and change nothing in B.
 const ENTRY_POINTS: EntryPoint[] = [
   ...ACCOUNT_ENTRY_POINTS,
+  ...IMPORT_ENTRY_POINTS,
   ...MESSAGING_ENTRY_POINTS,
   ...TRANSACTION_ENTRY_POINTS,
 ];
@@ -53,6 +59,7 @@ async function snapshotB() {
   return {
     accounts: await listAccounts(b.workspaceId),
     transactions: await listTransactions(b.workspaceId),
+    previews: await listPreviews(b.workspaceId),
   };
 }
 
@@ -74,7 +81,33 @@ async function newTarget(workspaceId: string): Promise<EntryPointTarget> {
       status: "posted",
     },
   });
-  return { workspaceId, accountId, transactionId: transactionId! };
+  const importBatchId = uuidv7();
+  await db.insert(importBatch).values({
+    id: importBatchId,
+    workspaceId,
+    financialAccountId: accountId,
+    kind: "pdf",
+    fileSha256: importBatchId,
+    statementInstitution: "Bank",
+    statementLast4: "0000",
+    productName: "Checking",
+    periodStart: "2026-01-01",
+    periodEnd: "2026-01-31",
+    openingBalanceCents: 0,
+    closingBalanceCents: 0,
+    reconciliation: "passed",
+    rowsParsed: 0,
+    checks: [],
+    csvObjectKey: `isolation/${importBatchId}.csv`,
+    csvSha256: "0",
+    status: "previewed",
+  });
+  return {
+    workspaceId,
+    accountId,
+    transactionId: transactionId!,
+    importBatchId,
+  };
 }
 
 beforeAll(async () => {
@@ -109,10 +142,12 @@ describe.each(ENTRY_POINTS)("$name", (entry) => {
 
     await outcome(entry, { ...a, accountId: b.accountId });
     await outcome(entry, { ...a, transactionId: b.transactionId });
+    await outcome(entry, { ...a, importBatchId: b.importBatchId });
     await outcome(entry, {
       ...a,
       accountId: b.accountId,
       transactionId: b.transactionId,
+      importBatchId: b.importBatchId,
     });
 
     expect(await snapshotB()).toEqual(before);

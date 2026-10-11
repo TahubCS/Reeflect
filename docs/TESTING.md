@@ -145,6 +145,12 @@ when coverage is already met.
 - Each PDF template has at least: one normal statement, one with zero
   transactions, one multi-page statement, and one deliberately altered to
   fail reconciliation by $0.01.
+  The Capital One fixtures are in `tests/fixtures/pdf/`, drawn from
+  `specs.ts` by `generate.ts` (the command is at the top of that file);
+  commit the PDFs after changing a spec. pdf-lib cannot write an encrypted
+  PDF, so that case is a unit test with the PDF library mocked
+  (`extract-pdf-errors.test.ts`). A real or redacted statement used to build
+  a template stays in a gitignored `private/` folder.
 - `pnpm db:seed` builds the demo workspace from the same fixture generators,
   so the demo and the tests use identical data shapes.
 - The synthetic generator (ADR-049, `docs/SYNTHETIC.md`) is that generator.

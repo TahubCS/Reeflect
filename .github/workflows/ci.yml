@@ -70,6 +70,12 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      # Stands in for Neon object storage (ADR-053), as in docker-compose.yml.
+      s3:
+        image: adobe/s3mock:4.7.0
+        env:
+          COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: statements
+        ports: ["9100:9090"]
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -103,6 +109,12 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      # Stands in for Neon object storage (ADR-053), as in docker-compose.yml.
+      s3:
+        image: adobe/s3mock:4.7.0
+        env:
+          COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: statements
+        ports: ["9100:9090"]
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6

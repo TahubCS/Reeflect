@@ -122,3 +122,52 @@ export function parseBalance(text: string): Cents | null {
   );
   return match[1] ? negate(value) : value;
 }
+
+/**
+ * Reads an amount printed on a bank statement as signed cents: "$1,186.93",
+ * "-$2.49", "($2.49)", "$2.49-" or "2.49 CR" (a credit, kept positive). Zero
+ * is allowed. Statements always print the cents, so exactly two decimals are
+ * required.
+ */
+export function parseStatementAmount(text: string): Cents | null {
+  let rest = text.trim().replace(/,/g, "");
+  let negative = false;
+  if (/^\(.*\)$/.test(rest)) {
+    negative = true;
+    rest = rest.slice(1, -1).trim();
+  }
+  if (rest.startsWith("-")) {
+    if (negative) return null;
+    negative = true;
+    rest = rest.slice(1).trim();
+  } else if (rest.endsWith("-")) {
+    if (negative) return null;
+    negative = true;
+    rest = rest.slice(0, -1).trim();
+  }
+  rest = rest.replace(/\s*CR$/i, "");
+  const match = /^\$?(\d{1,10})\.(\d{2})$/.exec(rest);
+  if (!match) return null;
+  const value = cents(Number(match[1]) * 100 + Number(match[2]));
+  return negative ? negate(value) : value;
+}
+
+/**
+ * An amount as a plain decimal for machine-readable files: "-12.34", "0.00",
+ * "1204.50". No currency sign, no thousands separators. `parseDecimalString`
+ * reads it back exactly.
+ */
+export function toDecimalString(a: Cents): string {
+  const whole = Math.trunc(Math.abs(a) / 100);
+  const part = String(Math.abs(a) % 100).padStart(2, "0");
+  return `${a < 0 ? "-" : ""}${whole}.${part}`;
+}
+
+/** Reads what `toDecimalString` wrote; anything else is null. */
+export function parseDecimalString(text: string): Cents | null {
+  const match = /^(-)?(0|[1-9]\d{0,12})\.(\d{2})$/.exec(text);
+  if (!match) return null;
+  const value = cents(Number(match[2]) * 100 + Number(match[3]));
+  if (match[1] && value === 0) return null;
+  return match[1] ? negate(value) : value;
+}

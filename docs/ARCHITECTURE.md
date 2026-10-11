@@ -120,7 +120,7 @@ have `updated_at`.
 |---|---|---|
 | `workspace_settings` | workspace_id (PK), kind (`personal`/`household`), timezone, cushion_target_cents (nullable) | Not built. It was for the aquarium (ADR-016, superseded); create it only if ADR-042 finds a use |
 | `financial_account` | id, workspace_id, institution_name, type (`checking`/`savings`/`credit_card`/`loan`), mask_last4, nickname, source (`manual`/`text`/`csv`/`pdf`/`plaid`/`nessie`/`synthetic`), current_balance_cents, balance_as_of, identity_confirmed_at, plaid_account_id (nullable), nessie_account_id (nullable) | Unique (workspace_id, plaid_account_id); unique (workspace_id, nessie_account_id). Built (migration 0002) |
-| `transaction` | id, workspace_id, financial_account_id, posted_on (date), amount_cents (signed, ADR-008), description_raw, merchant_normalized, category_id (nullable), status (`pending`/`posted`), is_transfer, transfer_pair_id (nullable; both sides of a transfer share it), source, import_batch_id (nullable), external_id (nullable), fingerprint | Unique (financial_account_id, fingerprint). Built (migration 0002) without `category_id` and `import_batch_id`; each arrives with the table it references. Manual rows: fingerprint `manual:<id>`, balance rule in ADR-050 |
+| `transaction` | id, workspace_id, financial_account_id, posted_on (date), amount_cents (signed, ADR-008), description_raw, merchant_normalized, category_id (nullable), status (`pending`/`posted`), is_transfer, transfer_pair_id (nullable; both sides of a transfer share it), source, import_batch_id (nullable), external_id (nullable), fingerprint | Unique (financial_account_id, fingerprint). Built (migration 0002) without `category_id`, which arrives with its table; `import_batch_id` added in migration 0005 (set null if the batch is deleted). Manual rows: fingerprint `manual:<id>`, balance rule in ADR-050 |
 | `synthetic_batch` | id, label, generator_version, seed, start_month, months, as_of, spec (jsonb), notes, created_by, promoted_from | A replayable recipe (ADR-049). Built |
 | `synthetic_workspace` | workspace_id (PK, cascade), batch_id (restrict), person_key, persona, summary | The synthetic marker: a row means the workspace is synthetic, no row means real (ADR-049). Built |
 | `category` | id, workspace_id, name, color_token, sort_order, is_preset | |
@@ -129,7 +129,7 @@ have `updated_at`.
 | `recurring_series` | id, workspace_id, financial_account_id, merchant_normalized, median_amount_cents, cadence (`weekly`/`monthly`), last_charged_on, user_intent (`none`/`keep`/`cancel`), manual (bool), kind (`subscription`/`bill`), next_due_on (nullable), due_date_source (`lender`/`user`/`predicted`), autopay (bool) | Subscriptions are `kind = subscription` only (ADR-030) |
 | `reminder` | id, workspace_id, recurring_series_id, due_on, remind_on, status (`scheduled`/`sent`/`cancelled_paid`/`dismissed`), channel (`in_app`/`imessage`), low_balance_warning (bool), sent_at | Unique (recurring_series_id, due_on) so each cycle reminds once |
 | `savings_goal` | id, workspace_id, name, target_cents, saved_cents, target_date, active | One active goal in MVP |
-| `import_batch` | id, workspace_id, financial_account_id, kind (`csv`/`pdf`/`plaid`/`nessie`), file_sha256 (nullable), period_start, period_end, opening_balance_cents, closing_balance_cents, reconciliation (`passed`/`failed`/`not_applicable`), rows_imported, rows_skipped_duplicate, status (`previewed`/`committed`/`rejected`), created_by | Unique (financial_account_id, file_sha256) |
+| `import_batch` | id, workspace_id, financial_account_id, kind (`csv`/`pdf`/`plaid`/`nessie`), file_sha256 (nullable), statement_institution, statement_last4, product_name, period_start, period_end, opening_balance_cents, closing_balance_cents, reconciliation (`passed`/`failed`/`not_applicable`), rows_parsed, rows_imported, rows_skipped_duplicate, checks (jsonb), csv_object_key, csv_sha256, status (`previewed`/`committed`/`rejected`), created_by, committed_at | Unique (financial_account_id, file_sha256). Built (migration 0005) for PDF imports; `csv_object_key` and `csv_sha256` locate and verify the stored CSV (ADR-053). Blocked previews write no row, so `rejected` is unused so far |
 | `csv_mapping` | id, workspace_id, institution_name, column_map (jsonb), date_format, sign_convention | Reused per institution |
 | `plaid_item` | id, workspace_id, plaid_item_id, institution_name, access_token_ciphertext, access_token_iv, transactions_cursor, status | Ciphertext only (ADR-012) |
 | `liability` | id, workspace_id, financial_account_id, apr_bps, minimum_payment_cents, next_due_on, source (`plaid`/`mock`) | P2 |
@@ -193,15 +193,22 @@ flowchart TD
   S --> N
   N --> G[Guardrails: identity, currency, type, duplicate file, fingerprints, overlap, reconciliation]
   G -->|blocking failure| R[Reject: show reason, write nothing]
-  G -->|passed| PV[Preview shown to user]
-  PV -->|user confirms| CM[Commit in one DB transaction]
+  G -->|passed| ST[Store canonical CSV, read back to check it]
+  ST --> PV[Preview shown to user, rows read from the stored CSV]
+  PV -->|user confirms| RC[Download CSV, compare SHA-256, re-parse, reconcile]
+  RC --> CM[Commit in one DB transaction]
   CM --> POST[Post-commit: categorize, pair transfers, update recurring, update balance]
-  CM --> DEL[Delete raw file, keep SHA-256]
+  X --> DEL[Raw PDF never stored; keep SHA-256]
 ```
 
 - CSV and PDF parsing is done by code only; no AI model sees the file or
   produces a value (ADR-044).
-- `preview` performs no writes except a `previewed` import batch row.
+- `preview` performs no writes except a `previewed` import batch row and
+  its CSV in the `statements` bucket (ADR-053). A blocked preview writes
+  nothing.
+- Built so far: PDF statements, Capital One 360 checking and savings
+  (`src/features/imports/`). Text is extracted with `unpdf`; the template is
+  `domain/templates/capital-one.ts`. Storage is `src/lib/storage/`.
 - `commit` is idempotent per batch: re-running a committed batch does nothing.
 - Plaid sync runs on webhook receipt and on user request; it uses the same
   normalization and post-commit steps (no preview step).
@@ -268,6 +275,9 @@ Governed by: ADR-006, ADR-007, ADR-010, ADR-012, ADR-019, ADR-025
 | `BETTER_AUTH_API_KEY` | Better Auth Infrastructure dashboard (`dash()` plugin, ADR-047); optional, the plugin is left out without it | Yes |
 | `RESEND_API_KEY` | `lib/email` (ADR-052); required when `VERCEL` is set; without it emails go to the local `.email-outbox/` | Yes |
 | `EMAIL_FROM` | `lib/email`: sender on the Resend-verified domain (ADR-052); required when `VERCEL` is set | No |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | `lib/storage`: Neon object storage credentials for the branch, from `neon env pull` (ADR-053). All five storage variables or none; without them statement import is off | Yes (secret key) |
+| `AWS_ENDPOINT_URL_S3`, `AWS_REGION` | `lib/storage`: the branch's S3 endpoint and region (ADR-053) | No |
+| `STATEMENTS_BUCKET` | `lib/storage`: the bucket name, `statements` (ADR-053) | No |
 | `ENCRYPTION_KEY` | `lib/security/crypto.ts` (32 bytes, base64) | Yes |
 | `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_ENV` | Plaid client | Yes (secret) |
 | `GEMINI_API_KEY` | `lib/ai` (Google Gemini API) | Yes |
