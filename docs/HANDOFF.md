@@ -2899,7 +2899,7 @@ recommendation, not a decision.
 ### Open problems
 - None new.
 
-## HO-055: Diagnose skipped budget migration and prepare forward recovery
+## HO-058: Diagnose skipped budget migration and prepare forward recovery
 
 - **Date:** 2026-10-11 07:00 (UTC)
 - **Author:** Muhammad Tahub Khatri with Codex
@@ -2975,7 +2975,7 @@ recommendation, not a decision.
 - Fetched main again: it remains `d2f2448dc4ccb72336ab46996f7e8db54b199f5d`,
   already included. There are no unmerged paths or diff whitespace errors.
   The generated 0012 recovery follows main's 0011 recurring-income migration.
-- No migration or application changes were needed after HO-055's successful
+- No migration or application changes were needed after HO-058's successful
   298 relevant Vitest tests, 16 isolation cases, 16 browser checks, production
   build and local migration verification. Preserve those results and recheck
   documentation after this handoff append.
@@ -3016,10 +3016,66 @@ recommendation, not a decision.
 - Push this merge to PR #27, check mergeability and wait for required CI and
   teammate review.
 - Apply the existing 0012 recovery to the verified production database as
-  described in HO-055 and the PR; resolving this conflict does not apply it.
+  described in HO-058 and the PR; resolving this conflict does not apply it.
 
 ### Open problems
 
 - Production migration and full storage-dependent local regressions retain
   the managed-network limitation documented in HO-056.
+
+## HO-059: Repair the duplicate handoff number after PRs #25 and #27 merged
+
+- **Date:** 2026-10-11 03:47 (EDT)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `fix/handoff-number-collision` / not opened
+
+### What changed
+
+- Main `374bfd0` fails the documentation step in the `lint-typecheck` job:
+  [CI run 38120929921](https://github.com/TahubCS/Reeflect/actions/runs/38120929921)
+  reports `docs/HANDOFF.md: HO-055 appears twice`. Its typecheck, unit,
+  browser, build and security steps passed.
+- PR #25's Gemini entry and PR #27's budget diagnosis both used HO-055.
+  Renumbered the budget diagnosis to unused HO-058 in Muhammad's block and
+  updated its two actionable references. Entry text is preserved; HO-057's
+  mention of the old number remains a record of that earlier merge.
+- Only this documentation file changes. No application, migration or checker
+  implementation changes are needed.
+- `pnpm docs:check`, all 27 docs-check tests, whitespace validation and both
+  app/worker TypeScript checks with incremental caching disabled pass.
+  Fetched main again; this branch is based on its latest commit.
+
+### What's next
+
+- Obtain approval under AGENTS.md section 7 to commit, push and open the
+  follow-up documentation PR with
+  `docs: resolve duplicate budget handoff number`.
+
+### Open problems
+
+- Main's documentation gate stays failed until this correction is merged.
+
+## HO-060: Publish the approved handoff-number correction
+
+- **Date:** 2026-10-11 03:49 (EDT)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `fix/handoff-number-collision` / publishing into `main`
+
+### What changed
+
+- User supplied the matching CI error and explicitly approved committing,
+  pushing and opening the follow-up PR. Publish with
+  `docs: resolve duplicate budget handoff number`.
+- Main remains `374bfd0`, already the branch base. The correction and this
+  session's handoff affect only `docs/HANDOFF.md`; retain HO-059's verified
+  documentation tests and uncached typecheck results.
+
+### What's next
+
+- Verify the PR is conflict-free and wait for required CI and teammate review
+  before merging. Main's next CI run can then pass the documentation gate.
+
+### Open problems
+
+- None beyond the failing documentation gate described in HO-059.
 
