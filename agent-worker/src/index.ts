@@ -63,8 +63,21 @@ console.info("worker: connected", {
   port: config.PORT,
 });
 
-// Spectrum stops the stream on SIGINT and SIGTERM, which ends this call.
+// Spectrum stops the stream on SIGINT and SIGTERM, which ends `runWorker`.
+let stopping = false;
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    stopping = true;
+  });
+}
+
 await runWorker(source, {
   appUrl: config.REEFLECT_URL,
   serviceToken: config.AGENT_SERVICE_TOKEN,
 });
+
+// The HTTP server would keep this process alive and `/health` answering
+// while no text is heard any more. If the stream ended without a signal,
+// leave with an error so the host starts a fresh worker.
+if (!stopping) console.error("worker: message stream ended by itself");
+process.exit(stopping ? 0 : 1);
