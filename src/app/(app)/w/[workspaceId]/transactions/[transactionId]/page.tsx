@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
+import { PageLoading } from "@/components/ui/page-loading";
 import { DEFAULT_TIME_ZONE } from "@/config/app";
 import { isoDateIn, listAccounts } from "@/features/accounts";
 import {
@@ -29,9 +31,11 @@ const SOURCE_NAMES = {
   synthetic: "made as sample data",
 } as const;
 
-export default async function EditTransactionPage({
-  params,
-}: PageProps<"/w/[workspaceId]/transactions/[transactionId]">) {
+type Props = PageProps<"/w/[workspaceId]/transactions/[transactionId]">;
+
+// Reads the URL, the session and the transaction, so the page renders this
+// inside a Suspense boundary.
+async function EditTransaction({ params }: Props) {
   const { workspaceId, transactionId } = await params;
   const access = await requireWorkspaceAccess(
     await getSession(),
@@ -74,5 +78,13 @@ export default async function EditTransactionPage({
         )}
       />
     </TransactionPage>
+  );
+}
+
+export default function EditTransactionPage(props: Props) {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <EditTransaction {...props} />
+    </Suspense>
   );
 }
