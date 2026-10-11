@@ -1,0 +1,31 @@
+/* Uses the tokens in src/app/globals.css (ADR-046). */
+
+/* A flex column, not a grid: globals.css gives every h1 a grid area for the
+   dashboard hero, which would pull this heading out of order in a grid. */
+.page {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1.5rem;
+  padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1rem, 3vw, 3.5rem) 3rem;
+}
+
+.page h1 {
+  font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+/* Sections fill the column up to their own maximum width. */
+.page > section {
+  width: 100%;
+}
+
+.note {
+  padding: 0.75rem 1rem;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+}

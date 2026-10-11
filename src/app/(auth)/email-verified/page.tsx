@@ -8,7 +8,7 @@ import { LinkProblem } from "@/features/auth/ui/link-problem";
 
 export const metadata: Metadata = { title: "Confirm your email" };
 
-// A verification link lands here (ADR-051). Better Auth has already checked
+// A verification link lands here (ADR-052). Better Auth has already checked
 // it: on success the person is signed in and goes on to their calendar; on
 // failure Better Auth adds `?error=…`.
 export default function EmailVerifiedPage({

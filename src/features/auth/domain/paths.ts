@@ -1,4 +1,4 @@
-// Pages that Better Auth sends people back to from an email link (ADR-051).
+// Pages that Better Auth sends people back to from an email link (ADR-052).
 // Relative paths: Better Auth resolves them against BETTER_AUTH_URL.
 
 /** Where a verification link lands; `?error=…` when the link is bad. */

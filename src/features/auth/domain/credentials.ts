@@ -97,7 +97,7 @@ export function resetToken(raw: unknown): string | null {
 
 /**
  * What the email-verified page says when Better Auth sends `?error=…` back
- * from a verification link (ADR-051). Unknown codes get the general message.
+ * from a verification link (ADR-052). Unknown codes get the general message.
  */
 export function verificationLinkMessage(code: unknown): string {
   if (code === "TOKEN_EXPIRED") {

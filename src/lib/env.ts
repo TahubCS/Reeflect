@@ -30,7 +30,23 @@ const envSchema = z
      */
     BETTER_AUTH_API_KEY: optionalText,
     /**
-     * Resend key for sign-up and password emails (ADR-051). Without it emails
+     * Shared secret the agent worker sends to `/api/agent/turn` (ADR-032).
+     * Optional: without it the endpoint answers 404 to everyone. An empty
+     * value counts as unset.
+     */
+    AGENT_SERVICE_TOKEN: optionalText.pipe(z.string().min(32).optional()),
+    /**
+     * The number users text, shown on the Settings card (ADR-051). Optional:
+     * on Photon's shared pool there may be no single number. E.164 format.
+     */
+    AGENT_PHONE_NUMBER: optionalText.pipe(
+      z
+        .string()
+        .regex(/^\+[1-9]\d{6,14}$/, "must look like +15551234567")
+        .optional(),
+    ),
+    /**
+     * Resend key for sign-up and password emails (ADR-052). Without it emails
      * are written to the local outbox instead of sent.
      */
     RESEND_API_KEY: optionalText,
@@ -40,7 +56,7 @@ const envSchema = z
     VERCEL: optionalText,
   })
   // A deployment must send real email: the local outbox is for development
-  // and tests only (ADR-051).
+  // and tests only (ADR-052).
   .superRefine((env, context) => {
     // Resend rejects a sender outside the verified domain.
     if (env.RESEND_API_KEY !== undefined && env.EMAIL_FROM === undefined) {

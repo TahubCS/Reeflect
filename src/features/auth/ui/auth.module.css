@@ -111,7 +111,7 @@
   cursor: pointer;
 }
 
-/* Email verification and password reset (ADR-051). */
+/* Email verification and password reset (ADR-052). */
 
 .note {
   margin-top: 1rem;

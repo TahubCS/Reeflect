@@ -4,6 +4,7 @@ import {
   createAccount,
   listAccounts,
 } from "@/features/accounts/server/repository";
+import { MESSAGING_ENTRY_POINTS } from "@/features/messaging/server/entry-points";
 import { TRANSACTION_ENTRY_POINTS } from "@/features/transactions/server/entry-points";
 import {
   createTransaction,
@@ -24,6 +25,7 @@ import type { EntryPoint, EntryPointTarget } from "./entry-point";
 // nothing and change nothing in B.
 const ENTRY_POINTS: EntryPoint[] = [
   ...ACCOUNT_ENTRY_POINTS,
+  ...MESSAGING_ENTRY_POINTS,
   ...TRANSACTION_ENTRY_POINTS,
 ];
 

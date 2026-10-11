@@ -34,7 +34,7 @@ test("sign up, verify the email, sign out, sign in, and a wrong password", async
     data: { name: "E2E Test", email, password },
   });
   expect(signUp.status()).toBe(200);
-  // No session until the email is confirmed (ADR-051).
+  // No session until the email is confirmed (ADR-052).
   expect(await session()).toBeNull();
 
   const unverified = await signIn(password);

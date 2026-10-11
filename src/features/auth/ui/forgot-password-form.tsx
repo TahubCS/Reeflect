@@ -43,7 +43,7 @@ export function ForgotPasswordForm() {
   };
 
   if (sentTo !== null) {
-    // The same words whether or not the address has an account (ADR-051).
+    // The same words whether or not the address has an account (ADR-052).
     return (
       <section className={styles.card} aria-labelledby="reset-sent-title">
         <h1 id="reset-sent-title">Check your inbox</h1>

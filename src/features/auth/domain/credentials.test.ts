@@ -96,7 +96,7 @@ describe("parseSignIn", () => {
 });
 
 describe("authFailureMessage", () => {
-  it("asks an unverified user to confirm their email (ADR-051)", () => {
+  it("asks an unverified user to confirm their email (ADR-052)", () => {
     expect(
       authFailureMessage({ status: 403, code: "EMAIL_NOT_VERIFIED" }),
     ).toBe("Confirm your email first. We've sent a new link to your inbox.");

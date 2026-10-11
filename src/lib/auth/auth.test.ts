@@ -3,6 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const headersMock = vi.hoisted(() => vi.fn());
 vi.mock("next/headers", () => ({ headers: headersMock }));
 
+// Every test here loads Better Auth afresh (`vi.resetModules` below), which
+// can take longer than the default 5 seconds when the whole suite runs.
+vi.setConfig({ testTimeout: 30_000 });
+
 beforeEach(() => {
   vi.stubEnv("DATABASE_URL", "postgres://test:test@localhost:5432/app_test");
   vi.stubEnv("BETTER_AUTH_SECRET", "test-only-not-a-real-secret-0123456789");
@@ -83,7 +87,7 @@ describe("auth", () => {
     vi.doUnmock("./personal-workspace");
   });
 
-  it("requires a verified email and sends verification and reset links (ADR-051)", async () => {
+  it("requires a verified email and sends verification and reset links (ADR-052)", async () => {
     const send = vi.fn();
     vi.doMock("@/lib/email", async (importOriginal) => ({
       ...(await importOriginal<typeof import("@/lib/email")>()),

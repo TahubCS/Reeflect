@@ -8,7 +8,7 @@ import { OUTBOX_DIR, type SenderConfig, deliver } from "./send";
 
 export { passwordResetEmail, verificationEmail } from "./messages";
 
-/** Resend when the key is set; otherwise the local outbox (ADR-051). */
+/** Resend when the key is set; otherwise the local outbox (ADR-052). */
 export function senderConfig(
   settings: Pick<typeof env, "RESEND_API_KEY" | "EMAIL_FROM">,
 ): SenderConfig {
@@ -22,7 +22,7 @@ let config: SenderConfig | undefined;
 
 /**
  * Sends after the response has gone out, so response times do not reveal
- * whether an address has an account (ADR-051). Outside a request (scripts,
+ * whether an address has an account (ADR-052). Outside a request (scripts,
  * tests) it sends straight away. Never throws.
  */
 export function sendAfterResponse(message: EmailMessage, userId: string): void {

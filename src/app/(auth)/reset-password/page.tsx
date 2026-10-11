@@ -8,7 +8,7 @@ import { ResetPasswordForm } from "@/features/auth/ui/reset-password-form";
 export const metadata: Metadata = { title: "Choose a new password" };
 
 // Better Auth checks the emailed link and sends `?token=…` when it is good,
-// or `?error=INVALID_TOKEN` when it is not (ADR-051). Search params are only
+// or `?error=INVALID_TOKEN` when it is not (ADR-052). Search params are only
 // known at request time, so they are read inside <Suspense>.
 export default function ResetPasswordPage({
   searchParams,

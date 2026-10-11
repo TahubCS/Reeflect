@@ -1,0 +1,6 @@
+/* Uses the tokens in src/app/globals.css (ADR-046). */
+
+.loading {
+  padding: 2rem clamp(1rem, 3vw, 3.5rem);
+  color: var(--ink-soft);
+}

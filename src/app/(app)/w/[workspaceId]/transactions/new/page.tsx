@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
+import { PageLoading } from "@/components/ui/page-loading";
 import { DEFAULT_TIME_ZONE } from "@/config/app";
 import { isoDateIn, listAccounts } from "@/features/accounts";
 import {
@@ -12,10 +14,11 @@ import { getSession } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Add a transaction" };
 
-export default async function NewTransactionPage({
-  params,
-  searchParams,
-}: PageProps<"/w/[workspaceId]/transactions/new">) {
+type Props = PageProps<"/w/[workspaceId]/transactions/new">;
+
+// Reads the URL, the session and the accounts, so the page renders this
+// inside a Suspense boundary.
+async function NewTransaction({ params, searchParams }: Props) {
   const { workspaceId } = await params;
   const access = await requireWorkspaceAccess(
     await getSession(),
@@ -59,5 +62,13 @@ export default async function NewTransactionPage({
         cancelHref={chosen === account ? `${list}?account=${chosen}` : list}
       />
     </TransactionPage>
+  );
+}
+
+export default function NewTransactionPage(props: Props) {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <NewTransaction {...props} />
+    </Suspense>
   );
 }

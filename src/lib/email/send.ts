@@ -4,7 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { EmailMessage } from "./messages";
 
-/** Where emails go when there is no Resend key (ADR-051). Gitignored. */
+/** Where emails go when there is no Resend key (ADR-052). Gitignored. */
 export const OUTBOX_DIR = ".email-outbox";
 
 /** The part of the Resend SDK we use, so tests can pass a fake. */
@@ -45,7 +45,7 @@ async function writeToOutbox(
 
 /**
  * Sends one email and never throws: a failure is logged with the recipient's
- * user id and the provider's error name only (ADR-051), and returned.
+ * user id and the provider's error name only (ADR-052), and returned.
  */
 export async function deliver(
   config: SenderConfig,

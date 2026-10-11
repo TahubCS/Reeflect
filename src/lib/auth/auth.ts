@@ -34,15 +34,15 @@ export async function createPersonalWorkspace(user: {
 }
 
 // Better Auth (ADR-006): email and password now, Google sign-in later. A
-// workspace is an organization (ADR-007). Emails go through Resend (ADR-051).
+// workspace is an organization (ADR-007). Emails go through Resend (ADR-052).
 export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, { provider: "pg", schema }),
   emailAndPassword: {
     enabled: true,
-    // New users confirm their address before they can sign in (ADR-051).
-    // Users from before this rule were marked verified by migration 0003.
+    // New users confirm their address before they can sign in (ADR-052).
+    // Users from before this rule were marked verified by migration 0004.
     requireEmailVerification: true,
     revokeSessionsOnPasswordReset: true,
     sendResetPassword: async ({ user, url }) => {

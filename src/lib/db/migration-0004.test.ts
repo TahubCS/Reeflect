@@ -6,11 +6,11 @@ import { uuidv7 } from "./id";
 // Integration test (TEST-05): runs the migration's SQL inside a transaction
 // that is always rolled back, so other tests see no change.
 const sql = readFileSync(
-  new URL("./migrations/0003_verify_existing_users.sql", import.meta.url),
+  new URL("./migrations/0004_verify_existing_users.sql", import.meta.url),
   "utf8",
 );
 
-describe("0003_verify_existing_users (ADR-051)", () => {
+describe("0004_verify_existing_users (ADR-052)", () => {
   afterAll(async () => {
     await pool.end();
   });

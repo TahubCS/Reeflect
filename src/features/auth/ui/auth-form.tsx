@@ -40,7 +40,7 @@ type Outcome =
   | { kind: "invalid"; errors: FieldErrors }
   | { kind: "failed"; failure: AuthFailure }
   | { kind: "signed-in" }
-  /** Signed up; the account opens from the link we emailed (ADR-051). */
+  /** Signed up; the account opens from the link we emailed (ADR-052). */
   | { kind: "check-inbox"; email: string };
 
 /** Validates the form, then asks Better Auth. `onSend` runs once input is valid. */

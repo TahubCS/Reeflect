@@ -1,6 +1,6 @@
 import { APP_NAME } from "@/config/app";
 
-// The emails the app sends (ADR-051). They hold a greeting and a link only:
+// The emails the app sends (ADR-052). They hold a greeting and a link only:
 // never amounts, balances, account names or other financial data.
 
 export type EmailMessage = {

@@ -13,55 +13,6 @@ bottom.
 - Keep each entry short and factual. Link PRs, issues, and ADRs instead of
   repeating them.
 
-## HO-032: Email verification and password reset through Resend (ADR-051)
-
-- **Date:** 2026-10-10 20:30 (EDT)
-- **Author:** Simon Ormond with Claude (Claude Code)
-- **Branch / PR:** `feat/email-verification-resend` / not opened
-
-### What changed
-- **ADR-051 (Proposed):** Resend for email; new users must confirm their
-  email before they can sign in. **The team should confirm it.**
-- **Migration `0003_verify_existing_users`** (custom SQL, no schema change)
-  marks every user present when it runs as verified.
-- **`src/lib/email/`:** templates (greeting and link only; names are
-  HTML-escaped), `deliver` (Resend, or `.email-outbox/` JSON files without
-  a key; logs user id and message id only, never throws) and
-  `sendAfterResponse` (Next's `after()`, so response time doesn't reveal
-  whether an address has an account).
-- **Env:** `RESEND_API_KEY`, `EMAIL_FROM`; both required when `VERCEL` is
-  set, optional elsewhere; a key without `EMAIL_FROM` is refused.
-  Playwright sets both empty.
-- **Better Auth:** `requireEmailVerification`, `sendOnSignUp`,
-  `sendOnSignIn`, `autoSignInAfterVerification`, one-hour links,
-  `sendResetPassword`, `revokeSessionsOnPasswordReset`.
-- **UI:** sign-up ends on "Check your inbox" (with "Send the link again");
-  sign-in explains an unverified account and links to "Forgot your
-  password?"; new pages `/forgot-password`, `/reset-password`,
-  `/email-verified` (redirects to the calendar, or explains a bad link).
-  `Field` moved to `src/features/auth/ui/field.tsx`.
-- **Tests:** Vitest for templates, sender, env, auth config, the migration
-  and the new form parsing. E2E: every API sign-up goes through
-  `signUpVerified` in `tests/e2e/support.ts`, which follows the link from
-  the outbox; new specs for unverified sign-in, resend, reset, unknown
-  address and bad links. `pnpm test:unit` (535) and `pnpm test:e2e` (54)
-  pass.
-
-### What's next
-- **Deploy order:** set `RESEND_API_KEY` and `EMAIL_FROM` on Vercel
-  (Production and Preview), merge, run `pnpm db:migrate:to production`,
-  **then** deploy. Deploying first would lock out existing users until the
-  migration runs.
-- Send one real email from a preview deployment to check Resend's DNS and
-  the sender name.
-
-### Open problems
-- ADR-051 is Proposed, not Accepted.
-- `.email-outbox/` is never cleaned up; delete it by hand when it grows.
-- Signing up with an address that already has an account shows "Check your
-  inbox" and sends nothing (Better Auth's enumeration protection). An
-  "already have an account" email would need `onExistingUserSignUp`.
-
 ## Template
 
 ```markdown
@@ -89,7 +40,7 @@ Update this table when work is assigned or finished. Features are listed in
 | Feature / bug | Lane | Assigned to | Branch | Status |
 |---|---|---|---|---|
 | Scaffold (Next.js, pnpm workspace, Drizzle, Better Auth, CI, lefthook) | All | Unassigned | — | Next.js, CI, Drizzle and Better Auth done (HO-017, HO-018). Not done: lefthook, the `agent-worker/` and `packages/` workspace packages |
-| F-01 Sign up / sign in | B | Simon Ormond | `feat/email-verification-resend` | Done (HO-018, HO-020, HO-021, HO-027); email verification and password reset through Resend (HO-032, ADR-051 Proposed) |
+| F-01 Sign up / sign in | B | Simon Ormond | `feat/email-verification-resend` | Done (HO-018, HO-020, HO-021, HO-027); email verification and password reset through Resend (HO-034, ADR-052 Proposed) |
 | F-02 Personal workspace | B | Simon Ormond | `feat/personal-workspace` | Personal workspace and `/w/[workspaceId]` done (HO-027); household later |
 | F-03 Financial accounts | A | Simon Ormond | `feat/financial-accounts` | Done: manual accounts, list, edit, delete (HO-030) |
 | F-04 Manual transactions | A | Simon Ormond | `feat/manual-transactions` | Built: add, edit, delete, list by day, account filter (HO-031); ADR-050 Proposed |
@@ -104,7 +55,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-19 Delete data | B | Unassigned | — | Not started |
 | F-21 Demo seed (incl. Nessie) | A | Jacob Heminway | — | Synthetic generator and batch scripts merged (HO-026, PR #7); Nessie seeding and `pnpm db:seed` not started |
 | F-23 Nessie import and sync | A | Unassigned | — | Not started |
-| F-24 Phone linking | C | Unassigned | — | Not started |
+| F-24 Phone linking | C | Muhammad Tahub Khatri | `feat/photon-agent` | Built (HO-032); real texts need the worker (F-32) |
 | F-25 "How am I doing?" + week-ahead image | C | Unassigned | — | Not started |
 | F-26 Subscription alerts | C | Unassigned | — | Not started |
 | F-27 Log spending by text | C | Unassigned | — | Not started |
@@ -1422,3 +1373,162 @@ recommendation, not a decision.
 - ADR-050 is Proposed, not Accepted.
 - The list has no paging past 200 rows.
 - No audit event on delete yet (ADR-025, P1).
+
+---
+
+---
+
+## HO-032: F-24 phone linking: link card, turn endpoint, ADR-051
+
+- **Date:** 2026-10-10 19:10 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `feat/photon-agent` (uncommitted) / not opened
+
+### What changed
+- **ADR-051 (Proposed)** refines ADR-034: six-digit codes, approval on the
+  website before anything is linked, lockout after 5 wrong codes, and the
+  number to text as an optional setting.
+- **Migration `0003_phone_linking`** adds `messaging_identity`,
+  `agent_link_code` and `agent_link_attempt` (ARCH-03).
+- **`POST /api/agent/turn`** (`src/app/api/agent/turn/route.ts`). It answers
+  404 without `Authorization: Bearer <AGENT_SERVICE_TOKEN>`, and always when
+  the token is not set. Body and reply are the zod schemas in
+  `src/features/agent/domain/protocol.ts`.
+- **`runAgentTurn`** handles LINK and STOP in code. An unlinked phone gets
+  the sign-up reply only. A linked phone gets a fixed "answers are coming"
+  line until F-25. No Gemini and no Photon code yet.
+- **Settings card** (`src/features/messaging/ui/`) on
+  `/w/<workspaceId>/settings`, in the user's Personal workspace only:
+  Connect iMessage, the code, Approve / Not me, the opt-in checkbox,
+  Disconnect. It polls every 3 seconds while a code is out.
+- **Linking logic** is `src/features/messaging/server/link.ts`; the card's
+  server actions (`actions.ts`) reuse Simon's `requireWorkspaceAccess` and
+  `ensurePersonalWorkspace`.
+- **Env:** `AGENT_SERVICE_TOKEN` and `AGENT_PHONE_NUMBER`, both optional, in
+  `src/lib/env.ts`, `.env.example` and ARCH-09.
+- **Tests:** Vitest for the code, handle, command parser, protocol, token
+  check, linking (against the Docker database), server actions and the
+  route; `tests/e2e/agent-link.spec.ts` for the flow in the browser.
+- **Isolation matrix (TEST-06):** the five link actions are registered in
+  `src/features/messaging/server/entry-points.ts` and run by
+  `src/lib/auth/isolation.test.ts`.
+
+### What's next
+- **Before using the card on a shared database:** apply `0003`. It is on the
+  local Docker database only. Production's migration record is still out of
+  step (HO-026), so fix that first.
+- **To try it by hand:** set `AGENT_SERVICE_TOKEN` in `.env.local`, press
+  Connect iMessage, then post the turn yourself to `/api/agent/turn` with
+  the header `Authorization: Bearer <token>` and a JSON body of `platform`
+  (`imessage`), `handle`, `spaceId`, `messageId` and `text` (`LINK 482193`).
+- **F-32, the worker,** is the next plan: `agent-worker/`, Photon Spectrum,
+  and moving the protocol schemas to `packages/agent-protocol/`. Decide
+  there how much of Photon's scaffold to keep, how a user on Photon's shared
+  number pool finds the number to text, and whether `spectrum-ts` still has
+  a Telegram provider (ADR-031's fallback).
+- F-33 adds quiet hours to the same card; F-26 adds `alert_prefs`.
+
+### Open problems
+- **Playwright reuses whatever is on port 3000.** With `pnpm dev` running
+  against Neon, every spec that touches the new tables fails. Stop the dev
+  server, or run `PORT=3100 pnpm test:e2e`.
+- **`src/lib/auth/auth.test.ts` times out now and then** (its first test
+  imports Better Auth cold, with a 5-second limit). It failed in two of
+  five full runs here, once before this work began.
+- A phone unlinked by STOP still shows as connected on an open Settings
+  page until that page is reloaded; the linked card does not poll.
+- The linked reply says the agent cannot answer yet. Do not show the agent
+  to users before F-25.
+
+---
+
+## HO-033: Signed-in pages no longer block a click (Next.js instant navigation)
+
+- **Date:** 2026-10-10 20:10 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `feat/photon-agent` (uncommitted) / not opened
+
+### What changed
+- `next dev` reported "uncached data during a navigation" on most signed-in
+  pages. A click from one page to another waited on the server before
+  showing anything, because the page read the URL or the session with no
+  Suspense boundary of its own. A boundary in a layout that is already on
+  screen does not count: only what is below it is rendered again.
+- **`PageLoading`** (`src/components/ui/page-loading.tsx`) is the shared
+  fallback.
+- **Workspace layout:** the membership check moved into a `Member`
+  component inside a Suspense boundary. The check itself is unchanged.
+- **Accounts pages (list, new, edit) and Settings:** the page is now a
+  plain function that renders its old async body inside
+  `<Suspense fallback={<PageLoading />}>`.
+- **The nine workspace-free URLs** (`/dashboard`, `/accounts`, …) render
+  `PersonalWorkspaceRedirect` (`src/components/ui/`), which does the same.
+- `<body>` has `suppressHydrationWarning`, for attributes that browser
+  extensions add to it.
+- Checked by clicking through every signed-in page in a browser against
+  `next dev`: no findings. `loading.tsx` and `template.tsx` files were tried
+  first and did not clear them.
+
+### What's next
+- **When you build a page** under `src/app/(app)/w/[workspaceId]/`: do not
+  `await params`, the session or data at the top of the page. Put that work
+  in an async component and render it inside
+  `<Suspense fallback={<PageLoading />}>`, as
+  `src/app/(app)/w/[workspaceId]/accounts/page.tsx` does.
+
+### Open problems
+- Hydration warnings that name `bis_skin_checked` on every `div` come from a
+  browser extension and cannot be fixed in code. Turn the extension off for
+  `localhost`, or develop in a profile without it.
+- No automated test guards this. Next's `@next/playwright` `instant()`
+  helper could, at the cost of a new dev dependency.
+
+## HO-034: Email verification and password reset through Resend (ADR-052)
+
+- **Date:** 2026-10-10 20:30 (EDT)
+- **Author:** Simon Ormond with Claude (Claude Code)
+- **Branch / PR:** `feat/email-verification-resend` / not opened
+
+### What changed
+- **ADR-052 (Proposed):** Resend for email; new users must confirm their
+  email before they can sign in. **The team should confirm it.**
+- **Migration `0004_verify_existing_users`** (renumbered from 0003 after
+  merging main, whose `0003_phone_linking` came first) (custom SQL, no schema change)
+  marks every user present when it runs as verified.
+- **`src/lib/email/`:** templates (greeting and link only; names are
+  HTML-escaped), `deliver` (Resend, or `.email-outbox/` JSON files without
+  a key; logs user id and message id only, never throws) and
+  `sendAfterResponse` (Next's `after()`, so response time doesn't reveal
+  whether an address has an account).
+- **Env:** `RESEND_API_KEY`, `EMAIL_FROM`; both required when `VERCEL` is
+  set, optional elsewhere; a key without `EMAIL_FROM` is refused.
+  Playwright sets both empty.
+- **Better Auth:** `requireEmailVerification`, `sendOnSignUp`,
+  `sendOnSignIn`, `autoSignInAfterVerification`, one-hour links,
+  `sendResetPassword`, `revokeSessionsOnPasswordReset`.
+- **UI:** sign-up ends on "Check your inbox" (with "Send the link again");
+  sign-in explains an unverified account and links to "Forgot your
+  password?"; new pages `/forgot-password`, `/reset-password`,
+  `/email-verified` (redirects to the calendar, or explains a bad link).
+  `Field` moved to `src/features/auth/ui/field.tsx`.
+- **Tests:** Vitest for templates, sender, env, auth config, the migration
+  and the new form parsing. E2E: every API sign-up goes through
+  `signUpVerified` in `tests/e2e/support.ts`, which follows the link from
+  the outbox; new specs for unverified sign-in, resend, reset, unknown
+  address and bad links. `pnpm test:unit` (535) and `pnpm test:e2e` (54)
+  pass.
+
+### What's next
+- **Deploy order:** set `RESEND_API_KEY` and `EMAIL_FROM` on Vercel
+  (Production and Preview), merge, run `pnpm db:migrate:to production`,
+  **then** deploy. Deploying first would lock out existing users until the
+  migration runs.
+- Send one real email from a preview deployment to check Resend's DNS and
+  the sender name.
+
+### Open problems
+- ADR-052 is Proposed, not Accepted.
+- `.email-outbox/` is never cleaned up; delete it by hand when it grows.
+- Signing up with an address that already has an account shows "Check your
+  inbox" and sends nothing (Better Auth's enumeration protection). An
+  "already have an account" email would need `onExistingUserSignUp`.

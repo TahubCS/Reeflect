@@ -6,7 +6,7 @@ import { authFailureMessage } from "../domain/credentials";
 import { EMAIL_VERIFIED_PATH } from "../domain/paths";
 import styles from "./auth.module.css";
 
-/** Shown after sign-up until the person opens the link we emailed (ADR-051). */
+/** Shown after sign-up until the person opens the link we emailed (ADR-052). */
 export function CheckInbox({ email }: { email: string }) {
   const [status, setStatus] = useState("");
   const [pending, setPending] = useState(false);

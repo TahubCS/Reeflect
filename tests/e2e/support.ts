@@ -29,7 +29,7 @@ export function ownClientAddress(): Record<string, string> {
   return { "x-forwarded-for": `10.${part()}.${part()}.${part()}` };
 }
 
-/** Where the server under test writes emails: it has no Resend key (ADR-051). */
+/** Where the server under test writes emails: it has no Resend key (ADR-052). */
 const OUTBOX_DIR = ".email-outbox";
 
 type OutboxEmail = { to: string; subject: string; text: string };
@@ -91,7 +91,7 @@ export const RESET_SUBJECT = /^Reset your/;
 
 /**
  * Signs a new user up through the API and opens the verification link, which
- * signs them in on `request`'s cookies (ADR-051).
+ * signs them in on `request`'s cookies (ADR-052).
  */
 export async function signUpVerified(
   request: APIRequestContext,
