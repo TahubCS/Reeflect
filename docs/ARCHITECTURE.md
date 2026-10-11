@@ -150,7 +150,7 @@ have `updated_at`.
 | `messaging_identity` | id, user_id, workspace_id (personal), platform (`imessage`), handle, space_id, verified_at, proactive_opt_in (bool), revoked_at | Unique (platform, handle) and unique (user_id), both among non-revoked rows (ADR-034, ADR-051). `alert_prefs` (jsonb) arrives with F-26 |
 | `agent_link_code` | id, user_id, code_hash (unique), expires_at, used_at, and the pending request: platform, handle, space_id, claimed_at | Single use, 10-minute expiry. The hash is keyed with a server secret. A phone that texts the code is recorded here until the user approves it (ADR-051) |
 | `agent_link_attempt` | id, platform, handle, attempted_at | One row per wrong code; 5 in 10 minutes locks the handle out of linking (ADR-051) |
-| `agent_pending_log` | identity_id (PK, FK to `messaging_identity`), workspace_id, amount_cents, description, day (`today`/`yesterday`), account_ids (text[]), asked_at | Built in 0015 (ADR-065). The one "which account?" a phone has open; replaced by the next question and ignored 10 minutes after `asked_at`. Both FKs cascade |
+| `agent_pending_log` | identity_id (PK, FK to `messaging_identity`), workspace_id, amount_cents, description, day (`today`/`yesterday`), account_ids (text[]), asked_at, kind (`account`/`receipt`), category_id (FK to `category`, set null), message_id | Built in 0015 (ADR-065); `kind`, `category_id` and `message_id` added in 0016 for a receipt photo's proposal, which is not a transaction until the person says yes (ADR-067). The one "which account?" a phone has open; replaced by the next question and ignored 10 minutes after `asked_at`. Both FKs cascade |
 | `nessie_link` | workspace_id (PK), nessie_customer_id, last_synced_at | One sandbox customer per workspace (ADR-033) |
 | `outbound_message` | id, messaging_identity_id, kind (`subscription_alert`/`bill_reminder`/`weekly_recap`), dedupe_key, scheduled_for, sent_at, status | Unique dedupe_key; enforces quiet hours and daily cap (ADR-038) |
 | `audit_event` | id, workspace_id (nullable), actor_user_id, action, target_type, target_id, created_at, ip_hash | No financial details |
@@ -252,6 +252,9 @@ Governed by: ADR-019, ADR-045, ADR-059
 
 - `src/lib/ai/google.ts`: the only file that imports the `@google/genai`
   SDK. One stateless request (`store: false`) to Gemini's Interactions API.
+  A request may carry one picture, sent inline as base64, and a JSON schema
+  the answer must follow (`response_format`); both are for receipt photos
+  (ADR-067).
 - `src/lib/ai/chain.ts` and `models.ts`: try up to six models in order,
   skipping one that fails and leaving it alone while it cools off (ADR-059).
   The deployed app uses `USER_MODELS`; everything else uses `TEST_MODELS`,
@@ -259,7 +262,9 @@ Governed by: ADR-019, ADR-045, ADR-059
   allowance of the models that answer users.
 - `src/lib/ai/client.ts` (server-only): `generateText`, the chain bound to
   `GEMINI_API_KEY` and `GEMINI_MODELS`. Without a key it reports
-  "unavailable" and callers use their code-built reply.
+  "unavailable" and callers use their code-built reply. `generateFromImage`
+  is the same chain with 8 seconds for each model instead of 4, inside the
+  same total.
 - `src/lib/ai/fill.ts`: replaces `{labels}` with formatted values from code;
   refuses an unknown label or a stray brace.
 - `src/lib/ai/digitScan.ts`: finds a digit the model wrote itself (digits
@@ -312,6 +317,7 @@ Governed by: ADR-006, ADR-007, ADR-010, ADR-012, ADR-019, ADR-025
 | `GEMINI_MODELS` | `lib/ai`: models to try in order, comma-separated, six at most; optional. Unset, the deployed app uses the users' chain and everything else the test chain, both in `src/lib/ai/models.ts` (ADR-059) | No |
 | `NESSIE_API_KEY` | `features/nessie` (sent as a query parameter; logs must redact it) | Yes |
 | `NESSIE_BASE_URL` | `features/nessie`: `https://api.nessieisreal.com` (ADR-048) | No |
+| `AGENT_RECEIPT_PHOTOS` | Next.js: `on` lets a receipt photo be sent to Gemini (F-29, ADR-067). Optional and off when unset; any other value stops the app from starting. Keep it off while the Gemini key is on the free tier | No |
 | `AGENT_SERVICE_TOKEN` | Next.js and worker (shared secret, 32+ characters). Optional in Next.js: without it `/api/agent/turn` answers 404 to everyone | Yes |
 | `AGENT_PHONE_NUMBER` | Next.js: the number shown on the Settings link card, in `+15551234567` form; optional (ADR-051) | No |
 | `AGENT_WORKER_URL` | Next.js: the worker's origin, where texts the app sends first are posted (`src/features/messaging/server/notify.ts`, ADR-032, ADR-062). Optional: without it nothing is sent | No |
@@ -484,7 +490,7 @@ cron secret. Both are idempotent: running them repeatedly sends nothing twice
 
 ## ARCH-13: The iMessage agent
 
-Governed by: ADR-031, ADR-032, ADR-034, ADR-051, ADR-035, ADR-038, ADR-019
+Governed by: ADR-031, ADR-032, ADR-034, ADR-051, ADR-035, ADR-038, ADR-019, ADR-067
 
 ```mermaid
 sequenceDiagram
@@ -498,7 +504,7 @@ sequenceDiagram
   U->>P: "how am I doing?"
   P->>W: message in space
   W->>W: show typing indicator
-  W->>B: POST turn {handle, spaceId, text, attachments} + service token
+  W->>B: POST turn {handle, spaceId, text, photo} + service token
   B->>DB: messaging_identity lookup (unlinked → sign-up reply only)
   B->>B: sync Nessie if stale (ADR-033)
   B->>G: user text + tool definitions
@@ -514,16 +520,16 @@ sequenceDiagram
 
 | Module | Location | Responsibility |
 |---|---|---|
-| Worker loop | `agent-worker/src/index.ts`, `worker.ts` | If the message stream ends without a shutdown signal, the process exits with an error so the host restarts it, instead of staying up and hearing nothing. Spectrum connection, typing indicator, forward turn, send reply. The indicator is best-effort: if the platform refuses it, the reply is still sent. Failures are logged with the error's name and the platform's code, never its message. One conversation is answered in order (`queue.ts`); images arrive with F-25 |
-| Worker relay | `agent-worker/src/relay.ts`, `turn.ts`, `config.ts` | `turn.ts` picks what is forwarded: inbound text in direct chats only. `relay.ts` posts it with the service token, waits up to 20 seconds, and falls back to a fixed reply on any failure. `config.ts` validates the worker's env |
+| Worker loop | `agent-worker/src/index.ts`, `worker.ts` | If the message stream ends without a shutdown signal, the process exits with an error so the host restarts it, instead of staying up and hearing nothing. Spectrum connection, typing indicator, forward turn, send reply. The indicator is best-effort: if the platform refuses it, the reply is still sent. Failures are logged with the error's name and the platform's code, never its message. One conversation is answered in order (`queue.ts`). A photo is downloaded in memory inside that turn (`photo.ts`, 10 seconds at most) and handed on in the same request (ADR-067) |
+| Worker relay | `agent-worker/src/relay.ts`, `turn.ts`, `config.ts` | `turn.ts` picks what is forwarded: inbound messages in direct chats only, as their words (also inside a threaded reply) and at most one photo of a type and size the turn allows; for a photo it cannot carry it says why (`too_large`, `unsupported`, `several`, `unavailable`) and the app writes the reply (ADR-067). `relay.ts` posts it with the service token, waits up to 20 seconds, and falls back to a fixed reply on any failure. `config.ts` validates the worker's env |
 | Worker send API | `agent-worker/src/server.ts` | `POST /send`: the app asks the worker to text a conversation. 404 without the service token, 400 for a body that does not match the protocol, 502 when the send fails. Used by the link confirmation (ADR-062); proactive messages arrive with F-26 |
 | Texts the app sends first | `src/features/messaging/server/notify.ts` | `sendToPhone` posts to the worker's `/send`, waits up to 5 seconds and never throws. The link actions use it to tell a phone it was linked, disconnected, or that its request was declined (ADR-062) |
 | Protocol types | `packages/agent-protocol/` | Zod schemas shared by worker and brain, and the list of platforms. `terminal` is refused by a deployed app (`src/features/agent/server/platform.ts`) |
 | Turn endpoint | `src/app/api/agent/turn/route.ts` | Token check (`src/features/agent/server/service-token.ts`, 404 without it), zod parse, call `runAgentTurn` |
 | Identity | `src/features/messaging/server/link.ts`, `actions.ts` | Link codes, the request a user approves, `messaging_identity`, STOP and Disconnect (ADR-051). The Settings card is `src/features/messaging/ui/` |
-| Brain | `src/features/agent/server/runAgentTurn.ts`, `answer.ts` | LINK and STOP in code; any other text from a linked phone goes to `answer`: figures from code, one model request with labels, the draft checked and filled, the code-built reply on any failure (F-25, ADR-059). `domain/summary.ts`, `prompt.ts`, `draft.ts` and `fallback.ts` hold the pure parts |
-| Tools | `src/features/agent/server/tools/` | Built: `getSummary` (balances; the days until payday from the calendar's own `loadCashflowData` and `summarize`, ADR-042; and the last 30 days from the Insights measures); `logSpending` (F-27, ADR-064: choose the account, or ask which and remember the question for the next text to answer, ADR-065; save a `text` transaction through the transactions feature, category from the rules or `pickCategory`, the budget line, UNDO). Planned: `getCategory`, `listSubscriptions`, `listUpcomingBills`, `setSubscriptionIntent` |
-| Intent parsing | `src/features/agent/domain/parse.ts`, `log.ts`, `log-account.ts`, `log-replies.ts`, `category-pick.ts` | Code-only commands (ADR-040). Built: LINK and STOP (`parse.ts`); logging and UNDO (`log.ts` reads the amount and the words from the text, ADR-035, ADR-064; `log-account.ts` chooses the account or asks; `log-replies.ts` holds every reply; `category-pick.ts` is the model's category request and the check on its answer). Planned: TRY, keep / cancel / yes / DETAILS, quiet hours |
+| Brain | `src/features/agent/server/runAgentTurn.ts`, `answer.ts` | In this order: LINK and STOP in code (also from a photo's caption), the verified link, a photo, the one open question, logging and UNDO; any other text from a linked phone goes to `answer`: figures from code, one model request with labels, the draft checked and filled, the code-built reply on any failure (F-25, ADR-059). `domain/summary.ts`, `prompt.ts`, `draft.ts` and `fallback.ts` hold the pure parts |
+| Tools | `src/features/agent/server/tools/` | Built: `getSummary` (balances; the days until payday from the calendar's own `loadCashflowData` and `summarize`, ADR-042; and the last 30 days from the Insights measures); `logSpending` (F-27, ADR-064: choose the account, or ask which and remember the question for the next text to answer, ADR-065; save a `text` transaction through the transactions feature, category from the rules or `pickCategory`, the budget line, UNDO); `logReceipt` (F-29, ADR-067, behind `AGENT_RECEIPT_PHOTOS`: one model request reads the photo, code checks every field, the proposal waits in `agent_pending_log`, and "yes" or the account saves it through `logSpending`'s `saveOn`). Planned: `getCategory`, `listSubscriptions`, `listUpcomingBills`, `setSubscriptionIntent` |
+| Intent parsing | `src/features/agent/domain/parse.ts`, `log.ts`, `log-account.ts`, `log-replies.ts`, `category-pick.ts` | Code-only commands (ADR-040). Built: LINK and STOP (`parse.ts`); logging and UNDO (`log.ts` reads the amount and the words from the text, ADR-035, ADR-064; `log-account.ts` chooses the account or asks; `log-replies.ts` holds every reply; `category-pick.ts` is the model's category request and the check on its answer; `receipt.ts` is the receipt request, the checks on its answer, and how "yes" and "no" are read, with every reply in `receipt-replies.ts`, ADR-067). Planned: TRY, keep / cancel / DETAILS, quiet hours |
 | Quiet hours | `src/features/messaging/domain/quietHours.ts` | Parse times, handle ranges across midnight, decide whether a message may be sent now |
 | Demo mode | `src/features/messaging/server/demo.ts`, `scripts/demo-judges.ts`, `scripts/demo-reset.ts` | Judge workspaces, TRY linking, expiry, reset (ADR-034) |
 | Week-ahead image | `src/app/api/agent/week.png/route.ts` | Renders the next 7 days of the calendar to PNG (Proposed, ADR-042); URL signed and valid for 10 minutes |
@@ -546,9 +552,9 @@ Rules:
   messaging identity, never from model output.
 - Replies never contain account numbers or full names.
 - Typed replies ("keep", "cancel", "yes") always work. iMessage tapbacks
-  (long-press reactions such as 👍) are accepted as the same intent only if
-  Spectrum delivers inbound reactions to the worker; confirm at kickoff
-  (HO-008, Q8).
+  (long-press reactions such as 👍) are not read yet: Spectrum does deliver
+  them, as `reaction` content, but the worker does not forward them, since
+  the app cannot tell which message a tapback was put on (ADR-067).
 - Proactive messages carry no amounts in their text; amounts go in an
   attached image card (ADR-038).
 - Channel fallback: if no iMessage line is available, the worker runs with

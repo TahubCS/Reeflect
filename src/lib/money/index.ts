@@ -153,6 +153,22 @@ export function parseStatementAmount(text: string): Cents | null {
 }
 
 /**
+ * Reads the total printed on a receipt ("23.40", "$1,204.99") as a positive
+ * amount (F-29, ADR-067). Stricter than what a person types: receipts print
+ * the cents, so exactly two decimals are required, thousands separators
+ * must sit every three digits, and zero, a minus sign, brackets or "CR" are
+ * refused. A string that fails here is never guessed at.
+ */
+export function parseReceiptTotal(text: string): Cents | null {
+  const match = /^\$?(\d{1,3}(?:,\d{3}){1,2}|\d{1,7})\.(\d{2})$/.exec(
+    text.trim(),
+  );
+  if (!match) return null;
+  const value = Number(match[1]!.replace(/,/g, "")) * 100 + Number(match[2]);
+  return value > 0 ? cents(value) : null;
+}
+
+/**
  * Reads an amount from a bank's CSV export as signed cents: "1234",
  * "1234.5", "1234.56", "-12.00". Exports write plain numbers and may drop
  * trailing zeros, so 0 to 2 decimals are allowed; a currency sign,

@@ -11,7 +11,12 @@ import { parseCommand } from "../domain/parse";
 import { REPLIES } from "../domain/replies";
 import { answer } from "./answer";
 import { clearPending } from "./pending";
-import { answerPending, logSpending } from "./tools/logSpending";
+import {
+  type ReceiptContext,
+  answerOpenQuestion,
+  receivePhoto,
+} from "./tools/logReceipt";
+import { logSpending } from "./tools/logSpending";
 
 // The brain's entry point for one inbound message (ARCH-13). Linking and
 // unlinking are executed by code (ADR-040). A phone that is not linked gets
@@ -24,7 +29,15 @@ const CLAIM_REPLIES: Record<ClaimResult, string> = {
   already_linked: REPLIES.alreadyLinked,
 };
 
-export async function runAgentTurn(turn: TurnRequest): Promise<string> {
+/** Replaced in tests: the receipt switch and the model that reads a photo. */
+export type TurnOptions = Pick<ReceiptContext, "receiptPhotos" | "readImage">;
+
+export async function runAgentTurn(
+  turn: TurnRequest,
+  options: TurnOptions = {},
+): Promise<string> {
+  // LINK and STOP are read from a photo's caption too; nothing else in a
+  // caption is (ADR-067).
   const command = parseCommand(turn.text);
 
   if (command.type === "link") {
@@ -43,6 +56,7 @@ export async function runAgentTurn(turn: TurnRequest): Promise<string> {
   }
 
   // The workspace comes from the verified link and nowhere else (ADR-034).
+  // A photo from a phone that is not linked is never looked at.
   const identity = await findIdentity(turn.platform, turn.handle);
   if (!identity) return REPLIES.signUp;
 
@@ -50,10 +64,15 @@ export async function runAgentTurn(turn: TurnRequest): Promise<string> {
     workspaceId: identity.workspaceId,
     identityId: identity.identityId,
     messageId: turn.messageId,
+    ...options,
   };
 
-  // An open "which account?" is answered first (ADR-065): "2", "checking".
-  const answered = await answerPending(turn.text, context);
+  // A photo is read as a receipt, or declined (F-29, ADR-067).
+  if (turn.photo !== undefined) return receivePhoto(turn.photo, context);
+
+  // The open question is answered first: "2" or "checking" for an account
+  // (ADR-065), "yes" or "no" for a receipt (ADR-067).
+  const answered = await answerOpenQuestion(turn.text, context);
   if (answered !== null) return answered;
 
   // Logging and UNDO are read and carried out by code (F-27, ADR-064).

@@ -107,6 +107,99 @@ describe("runWorker", () => {
     expect(echoApp).not.toHaveBeenCalled();
   });
 
+  it("downloads a picture and hands it to the app in the same turn", async () => {
+    const log: string[] = [];
+    const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0x01]);
+    const seen: unknown[] = [];
+    const app = vi.fn<typeof fetch>(async (_url, init) => {
+      seen.push(JSON.parse(String(init?.body)));
+      return Response.json({ reply: "read it" });
+    });
+
+    await run(
+      [
+        [
+          fakeSpace("alice", log, "dm"),
+          {
+            ...text("m1", "+15551230001", ""),
+            content: {
+              type: "attachment",
+              mimeType: "image/jpeg",
+              size: bytes.length,
+              read: async () => bytes,
+            },
+          },
+        ],
+      ],
+      app,
+    );
+
+    expect(seen).toEqual([
+      {
+        platform: "imessage",
+        handle: "+15551230001",
+        spaceId: "alice",
+        messageId: "m1",
+        text: "",
+        photo: {
+          status: "attached",
+          mimeType: "image/jpeg",
+          data: Buffer.from(bytes).toString("base64"),
+        },
+      },
+    ]);
+    expect(log).toEqual([
+      "alice: typing on",
+      'alice: sent "read it"',
+      "alice: typing off",
+    ]);
+  });
+
+  it("tells the app when a picture could not be carried, logging ids only", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const log: string[] = [];
+    const seen: { photo?: unknown }[] = [];
+    const app = vi.fn<typeof fetch>(async (_url, init) => {
+      seen.push(JSON.parse(String(init?.body)));
+      return Response.json({ reply: "could not read it" });
+    });
+    const picture = (id: string, content: IncomingMessage["content"]) => ({
+      ...text(id, "+15551230001", ""),
+      content,
+    });
+
+    await run(
+      [
+        [
+          fakeSpace("alice", log, "dm"),
+          picture("m1", {
+            type: "attachment",
+            mimeType: "image/jpeg",
+            read: async () => {
+              throw new Error("no such chat +15551230001");
+            },
+          }),
+        ],
+        [
+          fakeSpace("alice", log, "dm"),
+          picture("m2", { type: "attachment", mimeType: "application/pdf" }),
+        ],
+      ],
+      app,
+    );
+
+    expect(seen.map((turn) => turn.photo)).toEqual([
+      { status: "unavailable" },
+      { status: "unsupported" },
+    ]);
+    expect(log.filter((line) => line.includes("sent"))).toHaveLength(2);
+    expect(logged).toHaveBeenCalledWith("worker: photo not forwarded", {
+      messageId: "m1",
+      status: "unavailable",
+    });
+    expect(JSON.stringify(logged.mock.calls)).not.toContain("+15551230001");
+  });
+
   it("sends the fallback when the app fails", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const log: string[] = [];
