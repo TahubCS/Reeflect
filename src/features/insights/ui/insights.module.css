@@ -3,8 +3,8 @@
    context first, then spending by category, then where you stand. */
 
 .page {
-  max-width: 60rem;
-  padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1rem, 3vw, 3.5rem) 3rem;
+  max-width: var(--page-medium);
+  padding: var(--page-top) var(--gutter) 3rem;
   display: grid;
   gap: 1.25rem;
   font-variant-numeric: tabular-nums;
@@ -20,13 +20,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.625rem;
-}
-
-.page h1 {
-  font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
-  font-weight: 650;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
 }
 
 .page h2 {
@@ -111,13 +104,6 @@
   text-decoration: none;
 }
 
-.segmented a:focus-visible,
-.quiet a:focus-visible,
-.callout a:focus-visible {
-  outline: 2px solid var(--sub);
-  outline-offset: 2px;
-}
-
 /* Your take-home and the group's range, side by side. */
 .context {
   display: grid;
@@ -125,7 +111,7 @@
   gap: 1rem 1.5rem;
   padding: 1rem;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background: var(--surface);
 }
 
@@ -195,7 +181,7 @@
 
 .callout {
   padding: 0.5rem 0.75rem;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--tint);
   font-size: 0.875rem;
 }
@@ -215,7 +201,7 @@
   gap: 0.875rem;
   padding: 1.25rem 1rem;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background: var(--surface);
 }
 

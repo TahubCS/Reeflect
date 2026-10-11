@@ -15,6 +15,9 @@
   --ink: #171717;
   --ink-soft: #474747;
   --line: #cfcfcf;
+  /* Input and select borders: 3:1 or more on every ground (WCAG 1.4.11).
+     --line stays for dividers and card edges. */
+  --field-line: #767676;
   --tint: #e8e8e8;
   --bar: #7d858b;
   --in: #17734c;
@@ -42,6 +45,19 @@
   /* Figures that should line up like a statement. */
   --font-num: var(--font-mono), ui-monospace, Menlo, monospace;
 
+  /* One page frame for every signed-in page: the side gutter matches the
+     header's, the top padding is shared, and pages are left-aligned under
+     the wordmark. Lists and forms read best narrow; card grids go wide. */
+  --gutter: clamp(1rem, 3vw, 3.5rem);
+  --page-top: clamp(1.5rem, 3vw, 2.5rem);
+  --page-narrow: 48rem;
+  --page-medium: 60rem;
+  --page-wide: 72rem;
+
+  /* Corners: controls, then cards and panels. */
+  --radius-control: 8px;
+  --radius-card: 12px;
+
   /* "Sample" label (ADR-024) and Insights' slight comparison tints
      (ADR-056). Tints sit behind ink text: the words carry the meaning. */
   --sample-bg: #fbefd9;
@@ -61,18 +77,19 @@
   :root {
     /* The header's night (--head-bg below), so pages and header match. */
     --bg: #0a0a0a;
-    --surface: #181c1f;
-    --surface-soft: #15181b;
+    /* Neutral greys, like the header and the light theme: no blue cast. */
+    --surface: #171717;
+    --surface-soft: #131313;
     --ink: #ededed;
-    --ink-soft: #a3a9ae;
-    --line: #2a2f33;
-    --tint: #22272b;
+    --ink-soft: #a3a3a3;
+    --line: #2e2e2e;
+    --field-line: #707070;
+    --tint: #242424;
     --bar: #7d858b;
     --in: #6bd49a;
     --bill: #e0a84a;
     --sub: #9da8f2;
     --head-bg: #0a0a0a;
-    --head-tint: #22272b;
     --page-grid: var(--head-grid);
 
     --sample-bg: #3a2b12;
@@ -194,7 +211,7 @@ select {
 }
 
 .page {
-  padding: 1rem clamp(1rem, 3vw, 3.5rem) 3rem;
+  padding: 1rem var(--gutter) 3rem;
 }
 
 h2 {
@@ -242,8 +259,8 @@ strong {
   gap: 0.5rem 3rem;
   /* Style B: the headline continues the header's night band, edge to edge
      (the negative margins undo .page's padding). */
-  margin: -1rem calc(-1 * clamp(1rem, 3vw, 3.5rem)) 1.5rem;
-  padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1rem, 3vw, 3.5rem);
+  margin: -1rem calc(-1 * var(--gutter)) 1.5rem;
+  padding: var(--page-top) var(--gutter);
   background-color: var(--head-bg);
   background-image:
     linear-gradient(var(--head-grid) 1px, transparent 1px),
@@ -266,7 +283,17 @@ strong {
   outline-color: var(--head-ink);
 }
 
-h1 {
+/* Every page's title. The dashboard's headline is bigger (.hero h1). */
+main h1 {
+  font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
+  font-weight: 650;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.hero h1 {
   grid-area: headline;
   max-width: 22ch;
   font-size: clamp(1.75rem, 1.1rem + 2.2vw, 3rem);
@@ -530,8 +557,8 @@ h1 {
 .go-day input {
   min-height: 2.125rem;
   padding: 0 0.5rem;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--ink);
 }
@@ -571,7 +598,7 @@ h1 {
   gap: 1px;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   background: var(--line);
 }
 
@@ -780,7 +807,7 @@ button.cell:hover,
   overscroll-behavior: contain;
   padding: 1.25rem;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   background: var(--surface);
 }
 
@@ -935,7 +962,7 @@ a.item-remove:hover {
   grid-template-columns: 1fr 1fr;
   margin: 0.75rem 0;
   padding: 0.1875rem;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--tint);
 }
 
@@ -956,7 +983,7 @@ a.item-remove:hover {
 .switch input:checked + span {
   background: var(--surface);
   font-weight: 600;
-  box-shadow: 0 1px 2px rgb(20 32 43 / 0.12);
+  box-shadow: 0 0 0 1px var(--line);
 }
 
 .switch input:focus-visible + span {
@@ -980,8 +1007,8 @@ a.item-remove:hover {
 .field select {
   width: 100%;
   padding: 0.5rem 0.625rem;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius-control);
   background: var(--surface);
 }
 
@@ -1024,7 +1051,7 @@ a.item-remove:hover {
   margin-top: 1rem;
   padding: 0.625rem;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--ink);
   color: var(--bg);
   font-weight: 600;
@@ -1041,7 +1068,7 @@ a.item-remove:hover {
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   list-style: none;
   background: var(--surface);
 }
@@ -1111,7 +1138,7 @@ a.item-remove:hover {
 .agenda-empty {
   padding: 2rem 1rem;
   border: 1px dashed var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   color: var(--ink-soft);
 }
 
@@ -1184,7 +1211,7 @@ a.item-remove:hover {
 .plan {
   padding: 0.375rem 0.75rem;
   border: 1px solid var(--ink-soft);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: none;
   cursor: pointer;
   font-size: 0.875rem;
@@ -1307,4 +1334,9 @@ footer {
   * {
     transition: none !important;
   }
+}
+
+/* Hover: ink buttons lighten a little, outlined ones pick up the tint. */
+.primary:hover:not(:disabled) {
+  opacity: 0.88;
 }

@@ -1,6 +1,6 @@
 .page {
-  max-width: 72rem;
-  padding: clamp(1.5rem, 3vw, 2.5rem) clamp(1rem, 3vw, 3.5rem) 3rem;
+  max-width: var(--page-wide);
+  padding: var(--page-top) var(--gutter) 3rem;
 }
 
 .lede {
@@ -20,7 +20,7 @@
   margin-top: 0.75rem;
   padding: 1rem;
   border: 1px dashed var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   color: var(--ink-soft);
 }
 .list {
@@ -28,7 +28,7 @@
   margin-top: 0.75rem;
   list-style: none;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background: var(--surface);
 }
 .transaction,
@@ -82,8 +82,8 @@
   width: 100%;
   min-width: 0;
   padding: 0.5rem;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--ink);
 }
@@ -104,7 +104,7 @@
 }
 .ruleFields {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   min-width: 0;
   padding: 0.75rem;
   display: grid;
@@ -117,7 +117,7 @@
 .button,
 .secondary {
   padding: 0.5rem 1rem;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   cursor: pointer;
   font-weight: 600;
   width: fit-content;
@@ -165,4 +165,13 @@
   .row > :last-child {
     grid-column: 1 / -1;
   }
+}
+
+/* Hover: ink buttons lighten a little, outlined ones pick up the tint. */
+.button:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.secondary:hover:not(:disabled) {
+  background: var(--tint);
 }

@@ -5,7 +5,7 @@
   margin-bottom: 1.5rem;
   padding: 1rem 1.25rem 1.125rem;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--surface);
 }
 
@@ -20,7 +20,7 @@
 .write {
   padding: 0.375rem 0.75rem;
   border: 1px solid var(--ink-soft);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: transparent;
   font-size: 0.875rem;
   font-weight: 600;

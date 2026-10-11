@@ -10,7 +10,7 @@
   margin-top: 1.5rem;
   padding: 1rem;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background: var(--surface);
 }
 
@@ -39,7 +39,7 @@
   min-height: 2.75rem;
   padding: 0.5rem 1rem;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--ink);
   font-weight: 600;
@@ -141,4 +141,9 @@
     clip: rect(0 0 0 0);
     white-space: nowrap;
   }
+}
+
+/* Hover: ink buttons lighten a little, outlined ones pick up the tint. */
+.button:hover:not(:disabled) {
+  background: var(--tint);
 }
