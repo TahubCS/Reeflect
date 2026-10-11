@@ -10,6 +10,8 @@ import {
   updateAccountAction,
 } from "./actions";
 import { createAccount, getAccount, listAccounts } from "./repository";
+import { testStore } from "../../../../tests/support/storage";
+import { statementCsvKey } from "@/lib/storage/keys";
 
 // Integration tests against the Docker database (TEST-05); only the session
 // is faked.
@@ -228,5 +230,27 @@ describe("deleteAccountAction", () => {
     expect(isNotFound(await thrown(deleteAccountAction(workspace, id)))).toBe(
       true,
     );
+  });
+
+  it("deletes the account's stored statement files and no one else's", async () => {
+    signedInAs(editor);
+    const id = await createAccount(workspace, {
+      type: "checking",
+      institutionName: "Bank",
+      nickname: "With statements",
+      maskLast4: null,
+      balanceCents: null,
+    });
+    const store = testStore();
+    const mine = statementCsvKey(workspace, id, "batch-1");
+    const other = statementCsvKey(workspace, "another-account", "batch-1");
+    await store.put(mine, "csv", "text/csv");
+    await store.put(other, "csv", "text/csv");
+
+    await thrown(deleteAccountAction(workspace, id));
+
+    expect(await store.get(mine)).toBeNull();
+    expect(await store.get(other)).toBe("csv");
+    await store.delete(other);
   });
 });

@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { testStorageEnv } from "./tests/support/storage-env";
 
 const isCi = Boolean(process.env.CI);
 // Set PORT when something else (such as `pnpm dev`) already uses 3000.
@@ -48,6 +49,10 @@ export default defineConfig({
       // links there (ADR-052). Empty values win over .env.local.
       RESEND_API_KEY: "",
       EMAIL_FROM: "",
+      // The Neon `storage-tests` branch's bucket, never production's
+      // (ADR-053): from CI secrets or .env.storage-tests. These win over
+      // any storage values in .env.local.
+      ...testStorageEnv(),
     },
   },
 });

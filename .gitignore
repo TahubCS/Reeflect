@@ -47,3 +47,7 @@ next-env.d.ts
 plan.md
 # outbox for emails when RESEND_API_KEY is unset (ADR-052)
 /.email-outbox/
+
+# real or redacted sample statements: never committed (TEST-08)
+tests/fixtures/**/private/
+.neon

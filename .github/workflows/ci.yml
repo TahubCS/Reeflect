@@ -57,6 +57,14 @@ jobs:
   unit:
     name: unit
     runs-on: ubuntu-latest
+    # The Neon `storage-tests` branch's bucket (ADR-053). Repository secrets;
+    # pull requests from forks don't get them, so their storage tests fail.
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.NEON_TEST_STORAGE_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.NEON_TEST_STORAGE_SECRET_ACCESS_KEY }}
+      AWS_ENDPOINT_URL_S3: ${{ secrets.NEON_TEST_STORAGE_ENDPOINT }}
+      AWS_REGION: ${{ secrets.NEON_TEST_STORAGE_REGION }}
+      STATEMENTS_BUCKET: statements
     services:
       postgres:
         image: postgres:16
@@ -90,6 +98,14 @@ jobs:
   e2e:
     name: e2e
     runs-on: ubuntu-latest
+    # The Neon `storage-tests` branch's bucket (ADR-053). Repository secrets;
+    # pull requests from forks don't get them, so their storage tests fail.
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.NEON_TEST_STORAGE_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.NEON_TEST_STORAGE_SECRET_ACCESS_KEY }}
+      AWS_ENDPOINT_URL_S3: ${{ secrets.NEON_TEST_STORAGE_ENDPOINT }}
+      AWS_REGION: ${{ secrets.NEON_TEST_STORAGE_REGION }}
+      STATEMENTS_BUCKET: statements
     services:
       postgres:
         image: postgres:16
