@@ -25,6 +25,109 @@ export const INSTITUTION = "Capital One";
 /** Shown wherever a synthetic workspace's name appears (ADR-024's "Sample" label). */
 export const NAME_PREFIX = "Sample · ";
 
+type Person = Expansion["people"][number];
+export type PersonRows = Pick<BatchRows, "rules" | "accounts" | "transactions">;
+
+/** F-08's presets, as its first editor visit would seed them (ADR-057). */
+export function presetCategoryRows(
+  workspaceId: string,
+  newId: () => string,
+): { categories: BatchRows["categories"]; ids: Map<string, string> } {
+  const ids = new Map<string, string>();
+  const categories = PRESET_CATEGORIES.map((preset, sortOrder) => {
+    const id = newId();
+    ids.set(preset.key, id);
+    return {
+      id,
+      workspaceId,
+      name: preset.name,
+      colorToken: preset.colorToken,
+      sortOrder,
+      presetKey: preset.key,
+    };
+  });
+  return { categories, ids };
+}
+
+/**
+ * One person's accounts and transactions in a workspace, with the rules and
+ * manual choices that give each row its category (ADR-057). `categoryIds`
+ * maps preset keys to that workspace's category ids.
+ */
+export function personRows(
+  person: Person,
+  options: {
+    workspaceId: string;
+    categoryIds: ReadonlyMap<string, string>;
+    asOf: string;
+    newId: () => string;
+    /** Put before account nicknames, so sample accounts are labelled. */
+    nicknamePrefix?: string;
+  },
+): PersonRows {
+  const { workspaceId, categoryIds, asOf, newId } = options;
+  const rows: PersonRows = { rules: [], accounts: [], transactions: [] };
+  const plan = planCategories(person.transactions);
+  for (const rule of plan.rules) {
+    rows.rules.push({
+      id: newId(),
+      workspaceId,
+      pattern: rule.pattern,
+      matchType: "exact",
+      categoryId: categoryIds.get(rule.presetKey)!,
+    });
+  }
+
+  const accountIds = new Map<string, string>();
+  for (const account of person.accounts) {
+    const id = newId();
+    accountIds.set(account.key, id);
+    rows.accounts.push({
+      id,
+      workspaceId,
+      institutionName: INSTITUTION,
+      type: account.type,
+      maskLast4: account.mask,
+      nickname: `${options.nicknamePrefix ?? ""}${account.nickname}`,
+      source: "synthetic",
+      currentBalanceCents: account.closingBalance,
+      balanceAsOf: asOf,
+    });
+  }
+
+  const pairIds = new Map<string, string>();
+  for (const t of person.transactions) {
+    let transferPairId: string | null = null;
+    if (t.transferPair !== null) {
+      transferPairId = pairIds.get(t.transferPair) ?? newId();
+      pairIds.set(t.transferPair, transferPairId);
+    }
+    const categorized = plan.byTransaction.get(t.id)!;
+    rows.transactions.push({
+      id: newId(),
+      workspaceId,
+      financialAccountId: accountIds.get(t.account)!,
+      postedOn: t.postedOn,
+      amountCents: t.amount,
+      descriptionRaw: t.description,
+      status: "posted",
+      // Money into an IRA or brokerage leaves the workspace unpaired, but
+      // is marked so it never counts as spending (ADR-020, ADR-055).
+      isTransfer: t.transferPair !== null || t.kind === "investment",
+      transferPairId,
+      categoryId: categorized.presetKey
+        ? categoryIds.get(categorized.presetKey)!
+        : null,
+      categoryIsManual: categorized.manual,
+      source: "synthetic",
+      // The generator's own id: the same row on every replay of the batch.
+      externalId: t.id,
+      fingerprint: `synthetic:${t.id}`,
+    });
+  }
+  return rows;
+}
+
 export function buildRows(
   expansion: Expansion,
   options: { batchId: string; now: Date; newId: () => string },
@@ -55,79 +158,17 @@ export function buildRows(
       summary: person.summary,
     });
 
-    // F-08's presets, as its first editor visit would seed them, plus the
-    // rules and manual choices that give each row its category (ADR-057).
-    const categoryIds = new Map<string, string>();
-    PRESET_CATEGORIES.forEach((preset, sortOrder) => {
-      const id = newId();
-      categoryIds.set(preset.key, id);
-      rows.categories.push({
-        id,
-        workspaceId,
-        name: preset.name,
-        colorToken: preset.colorToken,
-        sortOrder,
-        presetKey: preset.key,
-      });
+    const presets = presetCategoryRows(workspaceId, newId);
+    rows.categories.push(...presets.categories);
+    const own = personRows(person, {
+      workspaceId,
+      categoryIds: presets.ids,
+      asOf: expansion.asOf,
+      newId,
     });
-    const plan = planCategories(person.transactions);
-    for (const rule of plan.rules) {
-      rows.rules.push({
-        id: newId(),
-        workspaceId,
-        pattern: rule.pattern,
-        matchType: "exact",
-        categoryId: categoryIds.get(rule.presetKey)!,
-      });
-    }
-
-    const accountIds = new Map<string, string>();
-    for (const account of person.accounts) {
-      const id = newId();
-      accountIds.set(account.key, id);
-      rows.accounts.push({
-        id,
-        workspaceId,
-        institutionName: INSTITUTION,
-        type: account.type,
-        maskLast4: account.mask,
-        nickname: account.nickname,
-        source: "synthetic",
-        currentBalanceCents: account.closingBalance,
-        balanceAsOf: expansion.asOf,
-      });
-    }
-
-    const pairIds = new Map<string, string>();
-    for (const t of person.transactions) {
-      let transferPairId: string | null = null;
-      if (t.transferPair !== null) {
-        transferPairId = pairIds.get(t.transferPair) ?? newId();
-        pairIds.set(t.transferPair, transferPairId);
-      }
-      const categorized = plan.byTransaction.get(t.id)!;
-      rows.transactions.push({
-        id: newId(),
-        workspaceId,
-        financialAccountId: accountIds.get(t.account)!,
-        postedOn: t.postedOn,
-        amountCents: t.amount,
-        descriptionRaw: t.description,
-        status: "posted",
-        // Money into an IRA or brokerage leaves the workspace unpaired, but
-        // is marked so it never counts as spending (ADR-020, ADR-055).
-        isTransfer: t.transferPair !== null || t.kind === "investment",
-        transferPairId,
-        categoryId: categorized.presetKey
-          ? categoryIds.get(categorized.presetKey)!
-          : null,
-        categoryIsManual: categorized.manual,
-        source: "synthetic",
-        // The generator's own id: the same row on every replay of the batch.
-        externalId: t.id,
-        fingerprint: `synthetic:${t.id}`,
-      });
-    }
+    rows.rules.push(...own.rules);
+    rows.accounts.push(...own.accounts);
+    rows.transactions.push(...own.transactions);
   }
   return rows;
 }

@@ -8,6 +8,9 @@
 //   pnpm batch delete <batchId> [--yes]
 //   pnpm batch promote <batchId> --target production [--from branch] [--yes]
 //   pnpm batch rollup <batchId>    recompute its Insights figures (ADR-056)
+//   pnpm batch give <spec.json> --user <personKey>=<userId> […] [--seed s] [--as-of …] [--replace] [--dry-run] [--yes]
+//   pnpm batch take-back --user <userId> [--yes]
+//                                  a developer's own account (ADR-082)
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
@@ -22,18 +25,21 @@ import {
   resolveTarget,
 } from "../db/target";
 import { formatTarget } from "../db/whoami";
-import { SpecError, prepareBatch } from "./prepare";
+import { SpecError, parseUserMap, prepareBatch } from "./prepare";
 import { formatPersonaTable, formatWarnings, personaRows } from "./report";
-import { buildRows } from "./rows";
+import { NAME_PREFIX, buildRows, personRows } from "./rows";
 import {
   connect,
   countBatchRows,
   deleteBatch,
   getBatch,
   countSampleFigures,
+  GiveError,
+  giveToUser,
   insertBatch,
   listBatches,
   rollupBatch,
+  takeBackFromUser,
 } from "./store";
 
 const env = process.env;
@@ -273,6 +279,96 @@ async function promote(args: string[], flags: Flags): Promise<void> {
   }
 }
 
+async function give(args: string[], flags: Flags): Promise<void> {
+  const file = args[0];
+  if (!file) {
+    throw new TargetError(
+      "Give the spec file: pnpm batch give <spec.json> --user <personKey>=<userId>.",
+    );
+  }
+  const users = parseUserMap(flags.user ?? []);
+  if (users.size === 0) {
+    throw new TargetError("Name at least one --user <personKey>=<userId>.");
+  }
+  const seed = flags.seed ?? crypto.randomUUID().slice(0, 8);
+  const { expansion, warnings } = prepareBatch(
+    JSON.parse(readFileSync(file, "utf8")),
+    { seed, today: flags["as-of"] ?? today() },
+  );
+  const people = new Map(expansion.people.map((p) => [p.key, p]));
+  for (const key of users.keys()) {
+    if (!people.has(key))
+      throw new TargetError(`No person "${key}" in the spec.`);
+  }
+  say([
+    `Span:        ${expansion.startMonth} for ${expansion.months} month(s), up to ${expansion.asOf}`,
+    `Seed:        ${seed}   generator v${GENERATOR_VERSION}   (same seed = same rows)`,
+    "",
+    ...[...users].map(
+      ([key, userId]) =>
+        `${key} (${people.get(key)!.persona}): ${people.get(key)!.transactions.length} transactions → user ${userId}`,
+    ),
+    "",
+    ...formatWarnings(warnings),
+  ]);
+  if (flags["dry-run"]) return say("\nDry run: nothing written.");
+
+  const t = target(flags.target);
+  assertWritable(t, env);
+  if (t.name === "production" && !flags.yes) {
+    throw new TargetError("Writing to production needs --yes.");
+  }
+  const { db, close } = connect(t.url);
+  try {
+    for (const [key, userId] of users) {
+      const person = people.get(key)!;
+      const result = await giveToUser(
+        db,
+        userId,
+        (workspaceId, categoryIds) =>
+          personRows(person, {
+            workspaceId,
+            categoryIds,
+            asOf: expansion.asOf,
+            newId: uuidv7,
+            nicknamePrefix: NAME_PREFIX,
+          }),
+        { replace: flags.replace ?? false, newId: uuidv7 },
+      );
+      say(
+        `${key} → workspace ${result.workspaceId}: ${result.accounts} accounts, ${result.transactions} transactions, ${result.rules} new rules` +
+          (result.replaced
+            ? ` (replaced ${result.replaced} sample accounts)`
+            : ""),
+      );
+    }
+  } finally {
+    await close();
+  }
+}
+
+async function takeBack(flags: Flags): Promise<void> {
+  const userIds = flags.user ?? [];
+  if (userIds.length === 0) throw new TargetError("Name the --user <userId>.");
+  const t = target(flags.target);
+  assertWritable(t, env);
+  const { db, close } = connect(t.url);
+  try {
+    for (const userId of userIds) {
+      const { workspaceId, accounts } = await takeBackFromUser(db, userId, {
+        yes: flags.yes ?? false,
+      });
+      say(
+        flags.yes
+          ? `User ${userId}: removed ${accounts} sample accounts from ${workspaceId}.`
+          : `User ${userId}: ${accounts} sample accounts in ${workspaceId}. Run again with --yes to remove them.`,
+      );
+    }
+  } finally {
+    await close();
+  }
+}
+
 type Flags = {
   target?: string;
   from?: string;
@@ -282,6 +378,8 @@ type Flags = {
   notes?: string;
   "dry-run"?: boolean;
   yes?: boolean;
+  user?: string[];
+  replace?: boolean;
 };
 
 async function main(): Promise<void> {
@@ -297,6 +395,8 @@ async function main(): Promise<void> {
       notes: { type: "string" },
       "dry-run": { type: "boolean" },
       yes: { type: "boolean" },
+      user: { type: "string", multiple: true },
+      replace: { type: "boolean" },
     },
   });
   const [command, ...args] = positionals;
@@ -313,16 +413,24 @@ async function main(): Promise<void> {
       return promote(args, values);
     case "rollup":
       return rollup(args, values);
+    case "give":
+      return give(args, values);
+    case "take-back":
+      return takeBack(values);
     default:
       say(
-        "Usage: pnpm batch <load|list|report|delete|promote|rollup> … (see scripts/batch/cli.ts)",
+        "Usage: pnpm batch <load|list|report|delete|promote|rollup|give|take-back> … (see scripts/batch/cli.ts)",
       );
       process.exitCode = 1;
   }
 }
 
 main().catch((error: unknown) => {
-  if (error instanceof TargetError || error instanceof SpecError) {
+  if (
+    error instanceof TargetError ||
+    error instanceof SpecError ||
+    error instanceof GiveError
+  ) {
     console.error(error.message);
   } else if (error instanceof SyntaxError) {
     console.error(`The spec file is not valid JSON (${error.message}).`);

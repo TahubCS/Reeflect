@@ -1,18 +1,19 @@
 // Batch reads and writes. Loading is one database transaction: a failure
 // part-way leaves nothing behind (TEST-05).
-import { asc, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { type NodePgDatabase, drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import { type WorkspaceData, sampleFigures } from "@/features/insights";
 import * as schema from "@/lib/db/schema";
 import { cents } from "@/lib/money";
-import type { BatchRows } from "./rows";
+import { type BatchRows, type PersonRows, presetCategoryRows } from "./rows";
 
 const {
   category,
   categoryRule,
   financialAccount,
   insightSample,
+  member,
   organization,
   syntheticBatch,
   syntheticWorkspace,
@@ -288,4 +289,155 @@ export async function deleteBatch(db: Db, batchId: string): Promise<number> {
     await tx.delete(syntheticBatch).where(eq(syntheticBatch.id, batchId));
     return removed.length;
   });
+}
+
+// Developer accounts (ADR-082): one spec person's year written into a real
+// user's Personal workspace, so the team can test Insights against the
+// sample people. No `synthetic_workspace` marker: the workspace stays out
+// of the comparison group.
+
+/** As `personalSlug` in src/lib/auth/personal-workspace.ts (server-only). */
+const personalSlug = (userId: string) => `personal-${userId}`;
+
+export async function findPersonalWorkspace(
+  db: Pick<Db, "select">,
+  userId: string,
+): Promise<string | null> {
+  const [row] = await db
+    .select({ id: organization.id })
+    .from(organization)
+    .innerJoin(
+      member,
+      and(
+        eq(member.organizationId, organization.id),
+        eq(member.userId, userId),
+      ),
+    )
+    .where(eq(organization.slug, personalSlug(userId)));
+  return row?.id ?? null;
+}
+
+export class GiveError extends Error {}
+
+export type GiveResult = {
+  workspaceId: string;
+  replaced: number;
+  accounts: number;
+  transactions: number;
+  rules: number;
+};
+
+/**
+ * Writes one person's rows into the user's Personal workspace, in one
+ * transaction. Refuses if it already holds synthetic accounts, unless
+ * `replace` is set, which removes those first. `build` gets the workspace
+ * id and its category ids by preset key (missing presets are added).
+ */
+export async function giveToUser(
+  db: Db,
+  userId: string,
+  build: (
+    workspaceId: string,
+    categoryIds: ReadonlyMap<string, string>,
+  ) => PersonRows,
+  options: { replace: boolean; newId: () => string },
+): Promise<GiveResult> {
+  return db.transaction(async (tx) => {
+    const workspaceId = await findPersonalWorkspace(tx, userId);
+    if (!workspaceId) {
+      throw new GiveError(
+        `User ${userId} has no Personal workspace: sign in once, then retry.`,
+      );
+    }
+    const replaced = await removeSyntheticAccounts(tx, workspaceId, {
+      dryRun: !options.replace,
+    });
+    if (replaced > 0 && !options.replace) {
+      throw new GiveError(
+        `That workspace already has ${replaced} sample account(s). Use --replace, or take-back first.`,
+      );
+    }
+
+    // Seed any presets the user's first Categories visit has not made yet;
+    // keep the ones that exist (the user may have renamed them).
+    const { categories } = presetCategoryRows(workspaceId, options.newId);
+    await tx.insert(category).values(categories).onConflictDoNothing();
+    const existing = await tx
+      .select({ id: category.id, presetKey: category.presetKey })
+      .from(category)
+      .where(eq(category.workspaceId, workspaceId));
+    const categoryIds = new Map(existing.map((c) => [c.presetKey, c.id]));
+
+    const rows = build(workspaceId, categoryIds);
+    // Keep the user's own rules: add only patterns they do not have.
+    const patterns = new Set(
+      (
+        await tx
+          .select({ pattern: categoryRule.pattern })
+          .from(categoryRule)
+          .where(eq(categoryRule.workspaceId, workspaceId))
+      ).map((r) => r.pattern),
+    );
+    const rules = rows.rules.filter((r) => !patterns.has(r.pattern));
+    await insertChunked((r) => tx.insert(categoryRule).values(r), rules);
+    await insertChunked(
+      (r) => tx.insert(financialAccount).values(r),
+      rows.accounts,
+    );
+    await insertChunked(
+      (r) => tx.insert(transaction).values(r),
+      rows.transactions,
+    );
+    return {
+      workspaceId,
+      replaced: options.replace ? replaced : 0,
+      accounts: rows.accounts.length,
+      transactions: rows.transactions.length,
+      rules: rules.length,
+    };
+  });
+}
+
+/**
+ * Removes the sample accounts from the user's Personal workspace; their
+ * transactions cascade. Categories and rules stay: they are the user's now.
+ * Returns how many accounts went (or would go, without `yes`).
+ */
+export async function takeBackFromUser(
+  db: Db,
+  userId: string,
+  options: { yes: boolean },
+): Promise<{ workspaceId: string; accounts: number }> {
+  return db.transaction(async (tx) => {
+    const workspaceId = await findPersonalWorkspace(tx, userId);
+    if (!workspaceId)
+      throw new GiveError(`User ${userId} has no Personal workspace.`);
+    const accounts = await removeSyntheticAccounts(tx, workspaceId, {
+      dryRun: !options.yes,
+    });
+    return { workspaceId, accounts };
+  });
+}
+
+async function removeSyntheticAccounts(
+  db: Executor,
+  workspaceId: string,
+  options: { dryRun: boolean },
+): Promise<number> {
+  const where = and(
+    eq(financialAccount.workspaceId, workspaceId),
+    eq(financialAccount.source, "synthetic"),
+  );
+  if (options.dryRun) {
+    const [row] = await db
+      .select({ n: count() })
+      .from(financialAccount)
+      .where(where);
+    return row?.n ?? 0;
+  }
+  const removed = await db
+    .delete(financialAccount)
+    .where(where)
+    .returning({ id: financialAccount.id });
+  return removed.length;
 }

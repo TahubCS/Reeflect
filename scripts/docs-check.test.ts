@@ -6,6 +6,7 @@ import {
   agentsCommands,
   checkDocs,
   loadRepo,
+  reservedBlocks,
   retiredAdrIds,
   workflowJobNames,
   type DocsCheckInput,
@@ -142,6 +143,57 @@ describe("checkDocs", () => {
     expect(checkDocs(repo(withFile("docs/ARCHITECTURE.md", text)))).toEqual([
       "docs/ARCHITECTURE.md: ARCH-01 appears twice",
     ]);
+  });
+
+  describe("reserved blocks (ADR-084)", () => {
+    const agents = `${AGENTS}
+## 9. End of every session
+
+### Reserved numbers
+
+| Developer | ADR numbers | HO numbers |
+|---|---|---|
+| Ana | 004–005 | 002–003 |
+| Ben | 006–007 | 004–005 |
+
+## 10. Team
+`;
+    const withBlocks = (path: string, text: string) => {
+      const base = withFile(path, text);
+      const files = [
+        ...base.files!.filter((file) => file.path !== "AGENTS.md"),
+        { path: "AGENTS.md", text: agents },
+      ];
+      return repo({ ...base, files });
+    };
+
+    it("allows unused numbers inside a block", () => {
+      const decisions = `${DECISIONS}\n### ADR-006: Ben's first\n\n- **Status:** Proposed\n`;
+      const handoff = "## HO-001: Start\n\n## HO-004: Ben\n\n## HO-002: Ana\n";
+      const input = withBlocks("docs/DECISIONS.md", decisions);
+      const files = input.files.map((file) =>
+        file.path === "docs/HANDOFF.md" ? { ...file, text: handoff } : file,
+      );
+
+      expect(checkDocs({ ...input, files })).toEqual([]);
+    });
+
+    it("fails on a number outside every block", () => {
+      const decisions = `${DECISIONS}\n### ADR-009: Nobody's\n\n- **Status:** Proposed\n`;
+
+      expect(checkDocs(withBlocks("docs/DECISIONS.md", decisions))).toEqual([
+        "docs/DECISIONS.md: ADR-009 is outside every reserved block (AGENTS.md section 9)",
+        "docs/DECISIONS.md: ADR number 8 is missing",
+      ]);
+    });
+
+    it("still fails on a gap in the shared numbers", () => {
+      const handoff = "## HO-002: Ana\n";
+
+      expect(checkDocs(withBlocks("docs/HANDOFF.md", handoff))).toEqual([
+        "docs/HANDOFF.md: HO number 1 is missing",
+      ]);
+    });
   });
 
   it("fails when an ADR has no Status line", () => {
@@ -301,5 +353,21 @@ describe("loadRepo", () => {
     write("package.json", JSON.stringify({ name: "x" }));
 
     expect(() => loadRepo(root)).toThrow("no scripts object");
+  });
+});
+
+describe("reservedBlocks", () => {
+  it("reads each developer's ADR and HO ranges", () => {
+    const agents =
+      "### Reserved numbers\n\n| Developer | ADR numbers | HO numbers |\n|---|---|---|\n| Ana | 062–081 | 055-074 |\n\n## 10. Team\n| Bob | 1–2 | 3–4 |\n";
+
+    expect(reservedBlocks(agents)).toEqual([
+      { owner: "Ana", kind: "ADR", from: 62, to: 81 },
+      { owner: "Ana", kind: "HO", from: 55, to: 74 },
+    ]);
+  });
+
+  it("returns nothing without the table", () => {
+    expect(reservedBlocks("# AGENTS\n")).toEqual([]);
   });
 });
