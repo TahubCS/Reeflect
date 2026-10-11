@@ -48,6 +48,9 @@ async function SignedIn({ children }: { children: ReactNode }) {
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <>
+      <a href="#content" className="skip-link">
+        Skip to content
+      </a>
       {/* Two rows on the landing page's night band: the wordmark, Capital
           One sync and the account above; the page tabs below. */}
       <header className={styles.top}>
@@ -74,9 +77,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <AppNav counts={NAV_COUNTS} />
         </Suspense>
       </header>
-      <Suspense fallback={<p className={styles.loading}>Loading…</p>}>
-        <SignedIn>{children}</SignedIn>
-      </Suspense>
+      <div id="content">
+        <Suspense fallback={<p className={styles.loading}>Loading…</p>}>
+          <SignedIn>{children}</SignedIn>
+        </Suspense>
+      </div>
     </>
   );
 }

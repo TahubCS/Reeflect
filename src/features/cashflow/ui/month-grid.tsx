@@ -42,13 +42,20 @@ const KEY_STEPS: Record<string, number> = {
   ArrowDown: 7,
 };
 
-function describe(day: DayView) {
+/**
+ * What a day cell says to a screen reader. Every visual state has words
+ * here (ADR-042): on card, planned and not confirmed, planning to cancel
+ * (the cell shows that one only as a strikethrough).
+ */
+export function describeDay(day: DayView, cancelPlans: ReadonlySet<string>) {
   const parts = [formatLong(day.date)];
   if (day.isToday) parts.push("today");
-  for (const item of day.items)
+  for (const item of day.items) {
+    const cancelling = !!item.recurringId && cancelPlans.has(item.recurringId);
     parts.push(
-      `${item.name} ${formatSigned(item.amount)}${item.onCard ? " on card" : ""}${item.unconfirmed ? " planned, not confirmed" : ""}`,
+      `${item.name} ${formatSigned(item.amount)}${item.onCard ? " on card" : ""}${item.unconfirmed ? " planned, not confirmed" : ""}${cancelling ? " planning to cancel" : ""}`,
     );
+  }
   if (day.noSpend) parts.push("no-spend day");
   parts.push(
     `${day.isFuture ? "expected balance" : "balance"} ${formatCents(day.endBalance)}`,
@@ -85,7 +92,7 @@ function Cell({
     <button
       type="button"
       className="cell"
-      aria-label={describe(day)}
+      aria-label={describeDay(day, cancelPlans)}
       aria-pressed={selected}
       // One tab stop for the whole grid; arrow keys move between days.
       tabIndex={selected ? 0 : -1}

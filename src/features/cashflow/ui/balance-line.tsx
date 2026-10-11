@@ -69,7 +69,9 @@ export function BalanceLine({
         >
           <span
             className={
-              x(selectedIndex) > 70
+              // Past the middle, the label opens to the left so it never
+              // runs off a narrow screen.
+              x(selectedIndex) > 50
                 ? "line-label line-label-left"
                 : "line-label"
             }

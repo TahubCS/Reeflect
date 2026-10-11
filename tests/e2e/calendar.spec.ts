@@ -164,6 +164,12 @@ test("filters by kind, switches to the list and moves by arrow keys", async ({
     "true",
   );
   await expect(cell(page, today)).not.toContainText("Coffee beans");
+  // Days with nothing of that kind step back with a softer number, not a
+  // fade that would drop it to about 2:1.
+  const quietDay = page
+    .locator(".cell[data-quiet]:not([data-today]) .cell-day")
+    .first();
+  await expect(quietDay).toHaveCSS("opacity", "1");
   await show.getByRole("button", { name: "Everything" }).click();
   await expect(cell(page, today)).toContainText("Coffee beans");
 
@@ -349,6 +355,10 @@ test("confirmed paydays and subscriptions fill the headline and the subscription
     subscriptions.getByRole("button", { name: "Planning to cancel" }),
   ).toBeVisible();
   await expect(subscriptions.locator(".saving")).toContainText("$191.88");
+  // The calendar shows the plan as a strikethrough; the words are there too.
+  await expect(
+    page.locator('button.cell[aria-label*="stream service"]').first(),
+  ).toHaveAttribute("aria-label", /stream service [^,]* planning to cancel/);
 
   // The choice is saved where Recurring payments reads it.
   await page.goto("/subscriptions");
@@ -554,4 +564,42 @@ test("a text gets the same per-day figure as the calendar's headline", async ({
   expect(reply).toContain("You have $2,000.00 in checking and savings.");
   expect(reply).toContain(`That leaves ${perDay} a day until then.`);
   expect(reply).toContain("14 days away");
+});
+
+test("fits a 360px phone with a five-digit balance, and the day panel stays below the header on desktop", async ({
+  browser,
+  baseURL,
+}) => {
+  const page = await newUserPage(browser, baseURL);
+  await addAccount(page, { nickname: "Everyday", balance: "12345.67" });
+
+  await page.setViewportSize({ width: 360, height: 800 });
+  await openDashboard(page);
+  await expect(page.locator(".sums")).toContainText("$12,345.67");
+  // The last day of the month puts the balance label at the right edge.
+  await page.locator("button[data-date]").last().click();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  for (const figure of await page.locator(".sums dd").all()) {
+    const box = (await figure.boundingBox())!;
+    expect(box.x + box.width).toBeLessThanOrEqual(360);
+  }
+
+  await page.setViewportSize({ width: 1440, height: 700 });
+  await page.mouse.wheel(0, 800);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const header = document.querySelector("header")!;
+        const panel = document.querySelector(".panel")!;
+        return (
+          panel.getBoundingClientRect().top >=
+          header.getBoundingClientRect().bottom
+        );
+      }),
+    )
+    .toBe(true);
 });

@@ -38,6 +38,10 @@
   /* Figures that should line up like a statement. */
   --font-num: var(--font-mono), ui-monospace, Menlo, monospace;
 
+  /* About the height of the sticky signed-in header (src/app/(app)/
+     layout.tsx), so nothing sticky or scrolled-to hides under it. */
+  --header-h: 7rem;
+
   /* "Sample" label (ADR-024) and Insights' slight comparison tints
      (ADR-056). Tints sit behind ink text: the words carry the meaning. */
   --sample-bg: #fbefd9;
@@ -132,12 +136,38 @@ html {
   font-size: clamp(16px, 11px + 0.42vw, 20px);
   /* Room for the sticky header (src/app/(app)/layout.tsx), so a focused or
      linked-to element is never hidden underneath it. */
-  scroll-padding-top: 8rem;
+  scroll-padding-top: calc(var(--header-h) + 1rem);
 }
 
 /* The grid is fixed to the window, like the sticky header's and the
    dashboard hero's, so its lines run on unbroken from the header into the
    page while it scrolls. */
+/* Links without a class of their own take the colour of the text around
+   them, never the browser's default blue (which fails contrast on the dark
+   ground). */
+a {
+  color: inherit;
+  text-underline-offset: 0.15em;
+}
+
+/* "Skip to content": the first stop for the keyboard, shown only when
+   focused (src/app/(app)/layout.tsx). */
+.skip-link {
+  position: absolute;
+  top: -10rem;
+  left: 1rem;
+  z-index: 20;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  background: var(--head-ink);
+  color: var(--head-bg);
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
 body {
   background-color: var(--bg);
   background-image:
@@ -684,9 +714,11 @@ button.cell:hover,
   }
 }
 
-/* A day with nothing of the chosen kind steps back */
-.cell[data-quiet] > * {
-  opacity: 0.35;
+/* A day with nothing of the chosen kind steps back: softer, lighter
+   number, still readable (fading it with opacity fell to about 2:1). */
+.cell[data-quiet]:not([data-today]) .cell-day {
+  color: var(--ink-soft);
+  font-weight: 400;
 }
 
 .cell {
@@ -741,7 +773,11 @@ button.cell:hover,
 
 .panel {
   position: sticky;
-  top: 1rem;
+  /* Below the sticky header, and never taller than the window. */
+  top: calc(var(--header-h) + 1rem);
+  max-height: calc(100dvh - var(--header-h) - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 1.25rem;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -1186,16 +1222,31 @@ footer {
 
   .panel {
     position: static;
+    max-height: none;
+    overflow: visible;
   }
 }
 
 /* Phones: cells show marks and bars; names live in the day panel */
 
 @media (max-width: 40rem) {
+  /* One sum per row, label left and figure right: three columns were
+     too narrow for a five-digit balance at 360px. */
   .sums {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.75rem;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+
+  .sums > div:not(.sums-op) {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .sums dt {
+    max-width: none;
   }
 
   .sums-op {
