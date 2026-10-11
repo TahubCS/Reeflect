@@ -56,6 +56,19 @@ Coverage is measured over `src/` and `scripts/`, with these exceptions:
 Coverage is a floor, not the goal. Boundary cases below are required even
 when coverage is already met.
 
+The categorization batch regression checks that a rule list is validated once
+for 20,000 rows and that saved rules, built-in rules and manual categories keep
+their results. Different and invalid lists are checked independently. Unit CI
+does not enforce a wall-clock deadline on shared runners. To measure the same
+20,000-row workload without coverage instrumentation or a fixed time limit:
+
+```sh
+pnpm exec node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register-paths.ts tests/benchmarks/categorization.bench.ts
+```
+
+The opt-in benchmark prints five timings after warm-up; it uses synthetic data
+and never connects to a database.
+
 ## TEST-04: Required unit tests by area
 
 | Area | Must cover |

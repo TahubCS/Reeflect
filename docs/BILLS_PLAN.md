@@ -296,7 +296,7 @@ passing domain, PostgreSQL and production-build browser tests, a reviewed
 diff and a verified deployment. No iMessage implementation is required.
 
 Status: web implementation and local verification complete; publication
-authorized. Production migration and Neon storage verification remain pending.
+authorized. Production migration remains pending; CI has verified Neon storage.
 
 ## Implementation verification (October 11)
 
@@ -305,7 +305,8 @@ Implemented on `feat/bills`, updated to main `66552da`, with ADR-063 and migrati
 Domain/database/action/isolation tests and six Bills browser flows pass, as do
 104 locally runnable browser regressions and 1,736 unit regressions with coverage.
 The populated upgrade and repeat migration preserve existing financial records.
-The final `pnpm db:migrate` succeeded locally. Production migration and the
-existing Neon storage suites await a fresh runtime applying the saved network
-rules; they are not claimed verified. Agent and dashboard integrations remain
-outside this feature.
+The final `pnpm db:migrate` succeeded locally. Production migration awaits a
+runtime applying the saved network rules; it is not claimed verified. The
+existing Neon storage suites passed in CI on `90126dc` (see HO-070); this
+runtime's network policy still prevents running them locally. Agent and
+dashboard integrations remain outside this feature.

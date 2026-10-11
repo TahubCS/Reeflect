@@ -3510,3 +3510,43 @@ recommendation, not a decision.
 
 - Production migration and Neon storage-dependent checks remain pending network
   access. This handoff repair does not change those verification limits.
+
+## HO-070: Make the categorization batch regression reliable in CI
+
+- **Date:** 2026-10-11 10:01 (UTC)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `feat/bills` / [PR #34](https://github.com/TahubCS/Reeflect/pull/34)
+
+### What changed
+
+- The supplied CI log had 1,790 passing tests and one failure: the existing
+  categorization batch test took 1,067.63 ms against a 1,000 ms wall-clock limit.
+  Its isolated covered run took 606 ms. CI subsequently passed on `90126dc`,
+  confirming that the timing assertion varied with runner load.
+- Replaced the deadline with a deterministic regression: classify 20,000 mixed
+  rows with the expected saved/built-in/manual/unknown categories and validate
+  the rule list exactly once. Also verify independent validation and results
+  for new and invalid lists. No categorization implementation change.
+- Preserved the original timing workload as an opt-in synthetic benchmark in
+  `tests/benchmarks/categorization.bench.ts`; documented its command in TESTING.
+  Five warm runs took 117–129 ms locally without coverage instrumentation.
+- Local checks: 182 categorization domain tests pass (100% lines, 92.94%
+  branches); 1,741 locally runnable unit tests pass across 108 files with all
+  coverage thresholds met; lint, formatting, typechecks and docs checks pass.
+  Only the four previously blocked storage files were omitted locally; no CI
+  exclusion, coverage threshold or app/agent/migration changes were made.
+- CI on the preceding head `90126dc` passed lint/typecheck, unit (including
+  Neon storage), E2E and security, plus CodeQL:
+  [CI run](https://github.com/TahubCS/Reeflect/actions/runs/38129966263).
+  This supersedes the remote-storage verification blocker in HO-067/069.
+
+### What's next
+
+- Push this test repair and verify its full PR CI run. Review PR #34, verify the
+  production database target, and apply migration 0014 before deploying Bills.
+
+### Open problems
+
+- Production migration has not run; this local runtime still lacks Neon network
+  grants. Local database and successful CI storage tests do not apply production
+  schema. No new migration is introduced by this test repair.
