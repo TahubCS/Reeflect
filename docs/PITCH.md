@@ -82,6 +82,7 @@ screen. Fill in the bracketed values from the seed before rehearsing.
 | 0:15 | Text "how am I doing?" on the presenter's phone, mirrored on screen | "I just text it." The reply arrives: balance, what's owed before payday, and the per-day amount, the same figure as the calendar's headline. |
 | 0:40 | Show the "Try it" QR code | "Try it yourself: scan this and hit send." The QR opens Messages with `TRY` already typed. The judge's phone is linked for two hours to its own sandbox workspace with Capital One Nessie data, and Reeflect replies with a welcome and that workspace's summary. Mention: "Normally you link your phone with a one-time code from our website; this shortcut only exists in demo mode." |
 | 1:00 | Switch to the website calendar | "The same numbers, as a month. Paydays, bills and subscriptions are already on their days, and the line shows where your balance is heading." |
+| 1:10 | Under the headline, click "Write it with Gemini" | "Gemini writes this summary and what's worth a look. It never sees an amount: it writes around labels, and our code puts every number in." The panel says who wrote it. |
 | 1:20 | In the demo control, create a $90 dining purchase in Capital One's Nessie sandbox; tap "Sync now" | "This is Capital One's Nessie API. Watch today." The purchase appears on today's square and the per-day number drops. |
 | 1:45 | Show the subscription alert that arrives in iMessage, then reply DETAILS and CANCEL | "Reeflect noticed a new subscription. No amounts on the lock screen; I reply DETAILS and see it's [$X] a month, [$Y] a year. I reply CANCEL to mark it. Reeflect never moves money; it just keeps track." |
 | 2:05 | Show the bill reminder in iMessage, then reply DETAILS | "And a week before my car payment, it reminds me. DETAILS gives me the amount, and tells me my balance won't cover it yet." |
@@ -154,7 +155,7 @@ This web flow is independent of scheduled reminders and iMessage delivery.
 |---|---|---|
 | Photon AI Agent | "Agents where people already are" | A live iMessage exchange, the typing indicator, the week-ahead image arriving, a proactive alert |
 | Best Use of Nessie | Nessie as the live data source | Creating a Nessie purchase and the calendar and per-day number reacting; Nessie bills becoming reminders |
-| MLH Best Use of Gemini API | Gemini as the agent's reasoning with function calling | A free-form question answered through tools, with numbers that match the dashboard |
+| MLH Best Use of Gemini API | Gemini as the agent's reasoning with function calling | A free-form question answered through tools, with numbers that match the dashboard; the dashboard summary written by Gemini around figures it is never shown |
 | Beginner/General | The whole story | The one-line pitch and the 3-minute demo |
 
 Devpost write-up: one section per track explaining exactly how Spectrum and

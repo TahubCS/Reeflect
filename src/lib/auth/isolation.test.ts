@@ -37,6 +37,7 @@ import { listPreviews } from "@/features/imports/server/repository";
 import { MESSAGING_ENTRY_POINTS } from "@/features/messaging/server/entry-points";
 import { TRANSACTION_ENTRY_POINTS } from "@/features/transactions/server/entry-points";
 import { RECURRING_ENTRY_POINTS } from "@/features/recurring/server/entry-points";
+import { SUMMARY_ENTRY_POINTS } from "@/features/summary/server/entry-points";
 import { createTransaction } from "@/features/transactions/server/repository";
 import { createPlan } from "@/features/plans/server/repository";
 import { cents } from "@/lib/money";
@@ -64,6 +65,7 @@ const ENTRY_POINTS: EntryPoint[] = [
   ...BUDGET_ENTRY_POINTS,
   ...BILL_ENTRY_POINTS,
   ...TRANSFER_ENTRY_POINTS,
+  ...SUMMARY_ENTRY_POINTS,
 ];
 
 const getSession = vi.hoisted(() => vi.fn());

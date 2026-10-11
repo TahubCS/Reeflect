@@ -51,6 +51,8 @@ export const ATTEMPT_TIMEOUT_MS = 4_000;
 export const TOTAL_BUDGET_MS = 14_000;
 /** Reading a picture takes longer than writing a sentence (ADR-067). */
 export const IMAGE_ATTEMPT_TIMEOUT_MS = 8_000;
+/** So does writing a paragraph and suggestions to a shape (F-15). */
+export const LONG_ATTEMPT_TIMEOUT_MS = IMAGE_ATTEMPT_TIMEOUT_MS;
 /**
  * A model that failed (rate or quota limit, overload, timeout) is left alone
  * this long, so the texts that follow do not each wait on it again.
