@@ -83,13 +83,15 @@ screen. Fill in the bracketed values from the seed before rehearsing.
 | 0:40 | Show the "Try it" QR code | "Try it yourself: scan this and hit send." The QR opens Messages with `TRY` already typed. The judge's phone is linked for two hours to its own sandbox workspace with Capital One Nessie data, and Reeflect replies with a welcome and that workspace's summary. Mention: "Normally you link your phone with a one-time code from our website; this shortcut only exists in demo mode." |
 | 1:00 | Switch to the website calendar | "The same numbers, as a month. Paydays, bills and subscriptions are already on their days, and the line shows where your balance is heading." |
 | 1:20 | In the demo control, create a $90 dining purchase in Capital One's Nessie sandbox; tap "Sync now" | "This is Capital One's Nessie API. Watch today." The purchase appears on today's square and the per-day number drops. |
-| 1:45 | Show the subscription alert that arrives in iMessage | "Reeflect noticed a new subscription: [$X] a month, [$Y] a year. I reply 'cancel' to mark it. Reeflect never moves money; it just keeps track." |
-| 2:05 | Show the bill reminder in iMessage | "And a week before my car payment, it reminds me, and tells me my balance won't cover it yet." |
+| 1:45 | Show the subscription alert that arrives in iMessage, then reply DETAILS and CANCEL | "Reeflect noticed a new subscription. No amounts on the lock screen; I reply DETAILS and see it's [$X] a month, [$Y] a year. I reply CANCEL to mark it. Reeflect never moves money; it just keeps track." |
+| 2:05 | Show the bill reminder in iMessage, then reply DETAILS | "And a week before my car payment, it reminds me. DETAILS gives me the amount, and tells me my balance won't cover it yet." |
 | 2:25 | Text "12 lunch" | "Logging cash is one text." Reply confirms the category and what's left. |
 | 2:45 | Close | Repeat the one-line pitch (section 1). |
 
-Steps that depend on P1 features (the keep / cancel reply at 1:45, bill
-reminders at 2:05) are cut if unfinished (ADR-043).
+The keep / cancel reply at 1:45 and the bill reminder at 2:05 are built
+(ADR-105). Before the demo, link the phone, tick "Text me about new
+subscriptions and bills" and set quiet hours away from the demo time; the
+texts go out on the worker's next five-minute tick.
 
 Optional F-08 demo after the categorization PR and migration are merged:
 open Transactions in a seeded workspace, change a merchant to Groceries and
@@ -127,7 +129,7 @@ This web flow is independent of scheduled reminders and iMessage delivery.
 | (Capital One) "How did you use Nessie?" | "Nessie is our live data source: accounts, purchases, deposits, transfers, bills and loans all land on the calendar, and Nessie bills drive the due-date reminders." |
 | "How do you stop someone else texting and seeing my data?" | "Your phone has to be linked by texting a one-time code from it, and then you approve that phone on the website. Unlinked numbers get nothing but a sign-up message." |
 | "What if the AI gets a number wrong?" | "It can't: the AI chooses which question to ask the database; our code puts the numbers in the reply, and a check blocks any digit the AI made up." |
-| "What about privacy on the lock screen?" | "Our alerts never put amounts in the text. The lock screen says your car payment is coming up; the numbers are inside the conversation once you open it." |
+| "What about privacy on the lock screen?" | "Our alerts never put amounts in the text. The lock screen says your car payment is coming up; you reply DETAILS to see the numbers." |
 | "Can I change when it messages me?" | "Yes: set quiet hours on the website, or just text it, like 'Reeflect, register new quiet hours 11PM to 7 AM'." |
 | "How would this make money?" | "Freemium for people, and licensing for banks: a bank could put Reeflect in front of its own customers to keep them on top of their bills." (ADR-028) |
 | "What's next?" | "More channels (WhatsApp and Telegram), real bank linking through Plaid, household group chats, and statement uploads." |

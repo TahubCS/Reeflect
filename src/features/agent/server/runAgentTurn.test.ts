@@ -1,6 +1,7 @@
 import { inArray } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import { APP_NAME } from "@/config/app";
+import { ALERT_REPLIES } from "@/features/alerts";
 import { DEFAULT_QUIET_HOURS } from "@/features/messaging/domain/quiet-hours";
 import { approveLink, createLinkCode } from "@/features/messaging/server/link";
 import { getQuietHours } from "@/features/messaging/server/notifications";
@@ -295,6 +296,21 @@ describe("runAgentTurn", () => {
     expect(await text(handle, "STOP")).toBe(REPLIES.stopped);
     expect(await text(handle, "1")).toBe(REPLIES.signUp);
     expect(await balance()).toBe(48_250);
+  });
+
+  it("reads KEEP, CANCEL, IGNORE and DETAILS as replies to an alert, for linked phones only", async () => {
+    const me = await newUser();
+    const handle = newPhone();
+    await text(handle, `LINK ${await newCode(me.userId)}`);
+    await approveLink(me.userId, me.workspaceId);
+
+    expect(await text(newPhone(), "KEEP")).toBe(REPLIES.signUp);
+    // No alert was sent, so there is nothing to answer, and none of these
+    // is read as spending or sent to the model. The replies themselves are
+    // tested in src/features/alerts.
+    for (const message of ["KEEP", "cancel", "ignore", "Details"]) {
+      expect(await text(handle, message)).toBe(ALERT_REPLIES.nothingOpen);
+    }
   });
 
   it("puts no digits in any fixed reply", () => {

@@ -4,7 +4,10 @@ import { db } from "@/lib/db/client";
 import { notificationSetting, user } from "@/lib/db/schema";
 import { DEFAULT_QUIET_HOURS } from "../domain/quiet-hours";
 import {
+  DEFAULT_ALERT_TYPES,
+  getAlertTypes,
   getQuietHours,
+  setAlertTypes,
   quietHoursUndoableAt,
   setQuietHours,
   setQuietHoursByText,
@@ -113,5 +116,31 @@ describe("quiet hours", () => {
     await db.delete(user).where(inArray(user.id, [me]));
 
     expect(await getQuietHours(me)).toEqual(DEFAULT_QUIET_HOURS);
+  });
+});
+
+describe("alert types", () => {
+  it("are both on until the user turns one off", async () => {
+    expect(await getAlertTypes(await newUser())).toEqual(DEFAULT_ALERT_TYPES);
+  });
+
+  it("are saved without touching quiet hours", async () => {
+    const me = await newUser();
+    await setQuietHours(me, NIGHT);
+    await setAlertTypes(me, { subscriptionAlerts: false, billReminders: true });
+
+    expect(await getAlertTypes(me)).toEqual({
+      subscriptionAlerts: false,
+      billReminders: true,
+    });
+    expect(await getQuietHours(me)).toEqual(NIGHT);
+  });
+
+  it("keep the default quiet hours on a new row", async () => {
+    const me = await newUser();
+    await setAlertTypes(me, { subscriptionAlerts: true, billReminders: false });
+
+    expect(await getQuietHours(me)).toEqual(DEFAULT_QUIET_HOURS);
+    expect((await getAlertTypes(me)).billReminders).toBe(false);
   });
 });

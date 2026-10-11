@@ -120,6 +120,13 @@
       "when": 1791721370815,
       "tag": "0016_quiet_hours",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791722217303,
+      "tag": "0017_proactive_alerts",
+      "breakpoints": true
     }
   ]
 }
