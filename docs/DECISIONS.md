@@ -89,6 +89,7 @@ Rules:
 | ADR-060 | Monthly budget interactions and recorded actual spending (refines ADR-015) | Accepted |
 | ADR-061 | Paydays found in deposits, confirmed like recurring payments (refines ADR-058) | Proposed |
 | ADR-062 | A text that confirms what the user just did is not a proactive message (refines ADR-038) | Proposed |
+| ADR-064 | Logging spending by text: code decides, asks when unsure, never guesses (refines ADR-035, ADR-040) | Proposed |
 | ADR-082 | Sample years in the developers' own accounts (exception to ADR-049) | Accepted |
 | ADR-083 | Ask the user to categorize large uncategorized payments (refines ADR-055, ADR-057) | Proposed |
 | ADR-084 | Reserved ADR and handoff numbers for each developer | Accepted |
@@ -1792,6 +1793,69 @@ Rules:
   the link worked).
 - **Consequences:** The app needs `AGENT_WORKER_URL`. The worker's `/send`
   exists before F-26, which will reuse it.
+
+### ADR-064: Logging spending by text: code decides, asks when unsure, never guesses (refines ADR-035, ADR-040)
+
+- **Status:** Proposed (2026-10-11)
+- **Owner to confirm:** Muhammad Tahub Khatri
+- **Context:** F-27 is the first time a text writes to someone's data.
+  People send short forms, typos and half-sentences. ADR-035 says code
+  takes the amount from the text and asks when it is ambiguous; ADR-040
+  says code executes UNDO. The agent keeps no conversation memory, so it
+  cannot ask a yes/no question and act on the answer.
+- **Decision:**
+  - **Code reads the text** (`parseLog`, pure). A text is spending when it
+    has exactly one clear amount and a sign of spending: the short form
+    (an amount first or last with a few words, "12 lunch"), a spending
+    word with one typo forgiven ("spnt 12 on luch"), or a request ("log 12
+    lunch"). Questions, statements about habits, and numbers that are not
+    money (times, dates, counts, "7up") are never spending.
+  - **Sure: save at once and offer UNDO.** The reply says exactly what was
+    saved. **Unsure: save nothing and say what is missing,** with an
+    example to send. Cases: no amount, an amount in words, nothing to call
+    it, more than one amount, more than two decimals, "2k", over
+    $9,999.99, another currency (ADR-008), money coming in, a day other
+    than today or yesterday.
+  - **Not about logging at all:** the text goes to the normal answer
+    (ADR-059), unchanged.
+  - **Account.** One account that can hold spending: it is used. Several:
+    the text must name one by nickname or kind ("from Everyday", "on
+    card"), or the agent asks, naming their accounts (decided by Muhammad,
+    2026-10-11). Never a loan.
+  - **What is saved.** A normal transaction with `source: "text"`, through
+    the transactions feature. It moves an account's balance by ADR-050's
+    rule, the same as a row typed on the website. No database change.
+  - **Category.** The saved rules and built-in keywords first (ADR-013,
+    ADR-103). Only when they find none, one model request with the
+    person's words and the workspace's spending category names; the answer
+    must be exactly one of those names, checked by code, and is stored as
+    a manual choice. The transaction is saved before the model is asked;
+    the amount, the account and all figures stay out of the request.
+  - **Budget line.** When the category has a budget this month and money
+    is left, the reply adds the amount left, from the Budgets code. Over
+    budget is not announced (ADR-042).
+  - **UNDO** removes the most recent transaction this workspace logged by
+    text in the last 24 hours, and restores the balance. It never removes
+    a row typed on the website or imported.
+  - **Limits.** $9,999.99 a text; 50 texts logged in 24 hours. The same
+    message delivered twice is saved once (the transaction's id is worked
+    out from the link and the message id).
+  - **Every reply about logging is written by code.** Amounts in them are
+    the person's own, formatted by code (ADR-035's exception).
+- **Alternatives considered:** a model reading intent and amounts (breaks
+  ADR-035, and a wrong read writes data); a yes/no confirmation step (needs
+  conversation memory); a default account chosen on the website (a
+  database change; the user chose asking).
+- **Consequences:**
+  - Reading intent is a judgement call. The rules are cautious: a doubtful
+    text is never saved. A casual message that happens to fit the short
+    form ("level 3") would be logged; the reply shows it and UNDO removes
+    it.
+  - On accounts fed by statements or Nessie the stored balance does not
+    move (ADR-050), so the calendar shows the spending while "how am I
+    doing?" keeps the statement's balance.
+  - A model-picked category does not follow later rule changes.
+  - Not built: logging money coming in, days before yesterday, receipts.
 
 ### ADR-084: Reserved ADR and handoff numbers for each developer
 

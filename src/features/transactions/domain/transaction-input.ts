@@ -226,6 +226,18 @@ export function parseTransactionForm(
   };
 }
 
+/** The sources a person enters themselves: on the website, or by text (F-27). */
+export type TypedSource = "manual" | "text";
+
+/**
+ * Whether a transaction was entered by the person, not imported or synced.
+ * Only these can be changed in full or removed, and only these move an
+ * account's balance (ADR-050).
+ */
+export function isTyped(source: DataSource): source is TypedSource {
+  return source === "manual" || source === "text";
+}
+
 /** The account fields that decide whether a transaction moves its balance. */
 export type BalanceAnchor = {
   source: DataSource;

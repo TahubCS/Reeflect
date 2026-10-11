@@ -28,8 +28,9 @@ Agent Track, Best Use of Nessie with Capital One, MLH Best Use of Gemini API
 > an optional website demonstration can set a $500 groceries plan and show
 > $320 of recorded net spending with $180 remaining. Editing or copying
 > allocations leaves account balances and transactions intact. This page
-> does not calculate cash available until payday, and budget replies by text
-> remain F-27/F-28 work.
+> does not calculate cash available until payday. Logging by text (F-27) is
+> built: "12 lunch" is saved, shown on the calendar, and its reply says what
+> is left in that category's budget. Budget questions by text remain F-28.
 
 ## 1. One line
 

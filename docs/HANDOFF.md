@@ -60,7 +60,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-24 Phone linking | C | Muhammad Tahub Khatri | `feat/photon-agent` | Built (HO-032); the phone is texted when the link is approved (HO-061, ADR-062) |
 | F-25 "How am I doing?" + week-ahead image | C | Muhammad Tahub Khatri | `feat/agent-payday-answer` | Answers built (HO-050, HO-061): balances, the last 30 days, and what is owed before payday with the calendar's per-day figure. The image is not built |
 | F-26 Subscription alerts | C | Unassigned | — | Not started |
-| F-27 Log spending by text | C | Unassigned | — | Not started |
+| F-27 Log spending by text | C | Muhammad Tahub Khatri | `feat/agent-log-spending` | Built (HO-071, ADR-064): log, ask when unsure, UNDO. Not built: money in, days before yesterday, receipts |
 | F-28 Category and balance questions | C | Unassigned | — | Not started |
 | F-32 Agent worker | C | Muhammad Tahub Khatri | `feat/agent-worker` | Done, replies only (HO-039, PR #17); live on Render (HO-049) |
 | F-22 Bill reminders (P1) | A + C | Unassigned | — | Not started |
@@ -3550,3 +3550,64 @@ recommendation, not a decision.
 - Production migration has not run; this local runtime still lacks Neon network
   grants. Local database and successful CI storage tests do not apply production
   schema. No new migration is introduced by this test repair.
+
+## HO-071: F-27, log spending by text (ADR-064)
+
+- **Date:** 2026-10-11 07:40 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `feat/agent-log-spending` / not opened
+
+### What changed
+- A linked phone can text "12 lunch". Code reads it (`parseLog` in
+  `src/features/agent/domain/log.ts`), saves a transaction with
+  `source: "text"`, and replies with what was saved and "Text UNDO to
+  remove it". The calendar already showed text rows as "texted in".
+- **When it is not sure it saves nothing and says what is missing**
+  (ADR-064, Proposed): no amount, an amount in words, nothing to call it,
+  several amounts, too many decimals, "2k", over $9,999.99, another
+  currency, money coming in, a day other than today or yesterday.
+  Questions and everything else go to the normal answer, unchanged.
+- **Accounts (decided by Muhammad):** one usable account is used; with
+  several the text must name one ("from Everyday", "on card") or the agent
+  asks, naming them. Never a loan.
+- **Category:** the rules and built-in keywords first; only when they find
+  none, Gemini picks one of the workspace's own category names, checked by
+  code and stored as a manual choice. The transaction is saved first.
+- **Budget line:** what is left in that category this month, from
+  `readBudgetMonth`, when a budget is set and money is left.
+- **UNDO** removes the latest text-logged row from the last 24 hours and
+  restores the balance. 50 logs a day; the same message twice saves once.
+- **Transactions feature (Simon's), small:** `createTransaction` takes
+  `source: "manual" | "text"`; rows with either source count as typed
+  (`isTyped`), so text rows can be removed on the website and their
+  balance effect is undone; new `latestTextTransaction` and
+  `countTextTransactions`. Existing behaviour for other rows is unchanged.
+- No database change. `runAgentTurn` reads LINK and STOP first, then the
+  link, then logging, then the answer.
+
+### Verified
+- Parser table: 160 texts. Database tests for saving, accounts, category,
+  budget line, UNDO, limits and failures. `agent-log.spec.ts` in Playwright
+  (2 flows).
+- **After merging `main` (PR #34, Bills):** `pnpm lint`, `format:check`,
+  `typecheck`, `docs:check`, `build`, `scan:bundle` pass. `pnpm test:unit`:
+  1943 pass; the 8 that fail are the storage tests that need
+  `.env.storage-tests`. `pnpm test:e2e`: all 115 pass.
+- Main's Bills work had already taken ADR-063 and HO-064 to HO-070, so
+  this decision is **ADR-064** and this entry HO-071.
+- Real Gemini on the test model with made-up purchases: "luch", "grocries",
+  "ubr", "cofee", "netflx" and others were sorted sensibly; nonsense and an
+  attempt to make it answer off the list both gave "none".
+
+### What's next
+- After deploy, by hand on a real phone: "12 lunch", check the calendar,
+  "UNDO", then messy ones ("spnt 5 on cofee", "12", "twelve lunch").
+- Next agent plan: F-28, category and balance questions.
+
+### Open problems
+- Reading intent is a judgement call: a casual text that fits the short
+  form ("level 3") would be logged. The reply shows it and UNDO removes it.
+- On accounts fed by statements or Nessie the stored balance does not move
+  (ADR-050), so "how am I doing?" will not drop after a log there.
+- A text delivered again after its log was undone would be logged again.
+- Not tried with a real iMessage yet.

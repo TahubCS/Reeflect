@@ -20,9 +20,12 @@ export {
 } from "./server/actions";
 export {
   LIST_LIMIT,
+  type TextTransaction,
+  countTextTransactions,
   createTransaction,
   deleteTransaction,
   getTransaction,
+  latestTextTransaction,
   listTransactions,
   listTransactionsBetween,
 } from "./server/repository";
