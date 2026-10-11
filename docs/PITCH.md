@@ -30,7 +30,9 @@ Agent Track, Best Use of Nessie with Capital One, MLH Best Use of Gemini API
 > allocations leaves account balances and transactions intact. This page
 > does not calculate cash available until payday. Logging by text (F-27) is
 > built: "12 lunch" is saved, shown on the calendar, and its reply says what
-> is left in that category's budget. Budget questions by text remain F-28.
+> is left in that category's budget. Questions by text (F-28) are built for
+> this month so far: "what's left in my groceries budget?" answers with the
+> Budgets page's own figures. Other periods are not answered.
 
 ## 1. One line
 
