@@ -10,10 +10,15 @@ import {
 import { Pool } from "pg";
 import { hydrated, ownClientAddress, signUpVerified } from "./support";
 
-const pool = new Pool({
-  connectionString:
-    process.env.DATABASE_URL ?? "postgres://test:test@localhost:5433/app_test",
-  max: 2,
+let pool: Pool;
+test.beforeAll(() => {
+  // Parallel test groups can return to this cached module after afterAll.
+  pool = new Pool({
+    connectionString:
+      process.env.DATABASE_URL ??
+      "postgres://test:test@localhost:5433/app_test",
+    max: 2,
+  });
 });
 const users: string[] = [];
 const contexts: BrowserContext[] = [];
@@ -147,6 +152,9 @@ test.afterAll(async () => {
   }
   await pool.end();
   expect(errors).toEqual([]);
+  contexts.length = 0;
+  users.length = 0;
+  errors.length = 0;
 });
 
 test("starts without invented spending, saves and edits a plan, and leaves ledger balances intact", async ({
