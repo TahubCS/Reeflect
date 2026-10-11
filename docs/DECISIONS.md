@@ -1398,6 +1398,11 @@ Rules:
   - The agent's figures match the Insights page, since both use
     `workspaceMeasures`.
   - Follow-up questions ("and last month?") do not work yet.
+  - **The activity figures are monthly averages, not totals:** the last 30
+    days scaled to an average month, so a reply can be a few dollars away
+    from the exact 30-day total. The model is told to say "about … a month",
+    and a draft that uses one of these figures without the word "month" is
+    dropped for the code-built reply (decided by Muhammad, 2026-10-11).
   - Once the stronger models' daily allowance is spent, replies come from
     the lite models; the same checks apply.
 

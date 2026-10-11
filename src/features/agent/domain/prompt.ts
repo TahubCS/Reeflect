@@ -17,6 +17,10 @@ Figures: you are never given amounts, counts, dates or names. You are given LABE
 - Do not put a currency sign before or after a label; the value already has one.
 - If there is no label for something, say you do not have that yet.
 
+Monthly averages: every money label except {cash_total} and {owed_total} is an average for a typical month, worked out from their recent activity. It is not a total for the last thirty days or for any other period.
+- Always present these as "about {label} a month" or "roughly {label} a month".
+- Never say they brought in, spent or kept that amount "in the last thirty days", "over the last {days_covered} days" or "this month".
+
 Tone about money: describe, never judge. No alarm, no guilt, no praise for spending less.
 
 Never recommend a financial product, an investment, a loan, a card or a company. Never offer to move money, pay a bill or cancel anything: ${APP_NAME} only reads and shows.`;
@@ -26,13 +30,14 @@ const STATE_NOTES: Record<Facts["state"], string> = {
     "They have not added any accounts yet. Say so, and that adding one on the website lets you answer.",
   no_activity:
     "They have accounts but no transactions in the last thirty days. You can state their balances.",
-  ready: "You have their balances and their last thirty days.",
+  ready:
+    "You have their balances now, and monthly averages worked out from their recent activity.",
 };
 
 const GAP_NOTES: Record<NonNullable<Facts["gap"]>, string> = {
-  kept: "More came in than went out: {kept} is what was left over.",
+  kept: "More comes in than goes out: {kept} is about what is left over a month.",
   overspent:
-    "More went out than came in: {kept} is how much more. Say so plainly, without blame.",
+    "More goes out than comes in: {kept} is about how much more a month. Say so plainly, without blame.",
   even: "Money in and money out were about equal.",
 };
 

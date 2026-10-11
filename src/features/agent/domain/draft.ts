@@ -1,6 +1,6 @@
 import { hasOwnDigits } from "@/lib/ai/digitScan";
-import { fill } from "@/lib/ai/fill";
-import type { Facts } from "./summary";
+import { fill, labelsIn } from "@/lib/ai/fill";
+import { type Facts, type Label, MONTHLY_LABELS } from "./summary";
 
 /** A text message, not an essay: longer than this and the model rambled. */
 export const MAX_REPLY_LENGTH = 700;
@@ -9,7 +9,12 @@ export type CheckedDraft =
   | { ok: true; text: string }
   | {
       ok: false;
-      reason: "digits" | "unknown_label" | "stray_brace" | "too_long";
+      reason:
+        | "digits"
+        | "unknown_label"
+        | "stray_brace"
+        | "too_long"
+        | "average_not_called_monthly";
     };
 
 /**
@@ -19,6 +24,14 @@ export type CheckedDraft =
  */
 export function completeDraft(draft: string, facts: Facts): CheckedDraft {
   if (hasOwnDigits(draft)) return { ok: false, reason: "digits" };
+  // A monthly average passed off as a total would be a wrong figure, so a
+  // draft that uses one must say "a month" (or "monthly") somewhere.
+  const usesAverage = labelsIn(draft).some((label) =>
+    MONTHLY_LABELS.has(label as Label),
+  );
+  if (usesAverage && !/\bmonth(ly)?\b/i.test(draft)) {
+    return { ok: false, reason: "average_not_called_monthly" };
+  }
   const filled = fill(draft, facts.values as Record<string, string>);
   if (!filled.ok) return filled;
   if (filled.text.length > MAX_REPLY_LENGTH) {

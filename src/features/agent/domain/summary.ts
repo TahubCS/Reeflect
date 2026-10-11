@@ -33,23 +33,48 @@ export type Facts = {
 export const LABELS = {
   cash_total: "the total in their checking and savings accounts right now",
   owed_total: "the total they owe on credit cards and loans right now",
-  days_covered: "how many recent days the figures below are based on",
-  take_home: "money that came in, as a monthly amount",
-  spending: "money that went out, as a monthly amount",
-  kept: "the gap between money in and money out, as a monthly amount",
-  saved: "money put into savings, retirement or investing, monthly",
-  bills: "housing, utilities, insurance and loan payments, monthly",
-  subscription_cost: "what their subscriptions cost, monthly",
-  subscription_count: "how many different subscriptions they paid",
+  days_covered:
+    "how many recent days the monthly averages are worked out from; use it only as 'based on the last {days_covered} days'",
+  take_home: "about how much comes in a month (a monthly average)",
+  spending: "about how much goes out a month (a monthly average)",
+  kept: "about how far apart money in and money out are a month (a monthly average)",
+  saved:
+    "about how much goes into savings, retirement or investing a month (a monthly average)",
+  bills:
+    "about what housing, utilities, insurance and loan payments cost a month (a monthly average)",
+  subscription_cost:
+    "about what their subscriptions cost a month (a monthly average)",
+  subscription_count:
+    "how many different subscriptions they paid; the value already includes the word, so write the label alone, as in 'you pay for {subscription_count}'",
   top_category_1_name: "the category they spent the most on",
-  top_category_1_amount: "what they spent in that category, monthly",
+  top_category_1_amount:
+    "about what they spend in that category a month (a monthly average)",
   top_category_2_name: "the category they spent the second most on",
-  top_category_2_amount: "what they spent in that category, monthly",
+  top_category_2_amount:
+    "about what they spend in that category a month (a monthly average)",
   top_category_3_name: "the category they spent the third most on",
-  top_category_3_amount: "what they spent in that category, monthly",
+  top_category_3_amount:
+    "about what they spend in that category a month (a monthly average)",
 } as const satisfies Record<string, string>;
 
 export type Label = keyof typeof LABELS;
+
+/**
+ * Labels whose value is a monthly average, not a total: the last thirty
+ * days scaled to an average month, as on the Insights page (ADR-056). A
+ * reply that uses one must say it is "a month" (see `completeDraft`).
+ */
+export const MONTHLY_LABELS: ReadonlySet<Label> = new Set<Label>([
+  "take_home",
+  "spending",
+  "kept",
+  "saved",
+  "bills",
+  "subscription_cost",
+  "top_category_1_amount",
+  "top_category_2_amount",
+  "top_category_3_amount",
+]);
 
 export type FactsInput = {
   accounts: readonly { type: AccountKind; balance: Cents }[];
@@ -115,7 +140,11 @@ export function buildFacts(input: FactsInput): Facts {
   if (measures.bills > 0) values.bills = formatCents(measures.bills);
   if (measures.subscriptionCount > 0) {
     values.subscription_cost = formatCents(measures.subscriptionCost);
-    values.subscription_count = String(measures.subscriptionCount);
+    // The noun goes in with the count, so the model cannot get the plural wrong.
+    values.subscription_count =
+      measures.subscriptionCount === 1
+        ? "1 subscription"
+        : `${measures.subscriptionCount} subscriptions`;
   }
   topCategories(measures, input.categoryNames).forEach((category, index) => {
     const rank = (index + 1) as 1 | 2 | 3;

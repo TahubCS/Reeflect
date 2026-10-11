@@ -2514,6 +2514,14 @@ recommendation, not a decision.
   checks the users' chain and says that it spends their allowance.
 - Tried: the Gemma models (14,400 requests a day) refuse the agent's request
   with a 400, so they are not used.
+- **Replies now say "about … a month".** A live reply read "Over the last
+  30 days, you brought in $1,481.41 and spent $119.72", but those figures
+  are monthly averages (the last 30 days scaled to an average month, as on
+  the Insights page), about 1.5% above the exact 30-day totals. The prompt
+  and the label descriptions now call them monthly averages, and
+  `completeDraft` drops a draft that uses one without the word "month".
+- The subscription count is filled in with its noun ("1 subscription"), so
+  a reply cannot say "1 subscriptions".
 
 ### What's next
 - With `pnpm dev` and the real key, local answers now come from
@@ -2521,6 +2529,12 @@ recommendation, not a decision.
   `GEMINI_MODELS` in `.env.local` for that session.
 
 ### Open problems
+- **Unexplained:** at about 02:10 EDT on 2026-10-11 a phone linked to one
+  of Simon's accounts got a reply with a balance of $1,169.65, but that
+  account's workspace held no accounts in the production database three
+  minutes later, and Simon says he deleted nothing. Three sign-ups have
+  emails like his. To settle it: which account is he signed in to, and what
+  does its Accounts page show?
 - The users' chain lost its sixth model, so its daily capacity is 80
   requests on the four strong models plus 500 on `gemini-3.5-flash-lite`.
 - Allowances are per key, so a teammate using the same key for local work
