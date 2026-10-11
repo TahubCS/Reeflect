@@ -161,12 +161,11 @@ and never connects to a database.
 | `bills.spec.ts` | Add a manual car payment due in 7 days; run the reminder job; reminder appears in Upcoming bills with amount and date; mark it paid by adding the payment; reminder disappears |
 | `recurring.spec.ts` | Confirm fixed subscriptions and variable bills; show evidence and actual spending separately from estimates; preserve Keep/planning-to-cancel through refresh; later imports/credits and fingerprint duplicates; manual rent create/edit/remove/restore; persistent dismissal; kind/amount corrections and invalid inputs; viewers/outsiders; filtering/pagination; retry boundary and 360px dark/reduced-motion layout |
 | `budgets.spec.ts` | Set/edit/remove/zero allocations; retained validation input; refunds, card spending, transfers, pending/future rows and Uncategorized; copy without overwriting zero or history; next-month planning; over 500 monthly rows and a year of historical data; changed rules/renames; viewer/outsider access; failed-read retry without fake totals; keyboard, 360px, themes and reduced motion |
+| `transfers.spec.ts` | Explicit ambiguous choice and confirmation; persistence; detach keeps labels; separate normal activity; stale retained selection; paired edit/delete cleanup; old-window padding and counterpart pages; viewer/outsider; Bills allocation feedback; failed-read retry; keyboard, 360px, light/dark and reduced motion. Synthetic screenshots are in `docs/screenshots/transfers/` |
 | `demo-path.spec.ts` | The exact demo script from sign-in to final screen, on the seeded workspace |
 | `a11y.spec.ts` | axe checks on every main page in light and dark themes; zero serious or critical violations |
 | `reduced-motion.spec.ts` | With reduced motion emulated, no animation runs and all labels still show |
 | `responsive.spec.ts` | Dashboard at 360px, 768px, and 1440px wide: no horizontal scroll, numbers panel visible |
-
-| `transfers.spec.ts` | Explicit ambiguous choice and confirmation; persistence; detach keeps labels; separate normal activity; stale retained selection; paired edit/delete cleanup; old-window padding and counterpart pages; viewer/outsider; Bills allocation feedback; failed-read retry; keyboard, 360px, light/dark and reduced motion. Synthetic screenshots are in `docs/screenshots/transfers/` |
 
 ## TEST-08: Fixtures and data
 

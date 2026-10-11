@@ -3841,13 +3841,24 @@ recommendation, not a decision.
   through 0014; its app-role preflight passes. Direct TCP remains unavailable
   in this cloud workspace; migrations still use TCP.
 
+- After merging main `e75fc63`, the standalone readiness branch passed 25
+  verifier/driver tests plus all 3 unchanged health-helper tests, docs and the
+  migrated local app-role preflight. Main's migration 0015 was applied only to
+  the explicitly identified local test database. Final actual Neon app and
+  named production preflights report READY for the financial contract, with
+  the recovered 0010 checkpoint and two outside journal timestamps reported
+  separately. No production rows, schema or journal were modified.
+
 ### What's next
-- Implement the supplied transfer-review plan separately. The user has now
-  authorized local commits and merging main into both branches; no push, PR
-  or deployment has been requested.
+- Transfer review is implemented and verified on `feat/transfer-review`. The
+  user authorized local commits and merging main into both branches; no push,
+  PR or deployment has been requested.
 - The user reports no teammate overlap in Transactions, Bills linkage or CI
   and approved the focused historical/daily cashflow balance correction. That
   correction and its consumer regressions belong to the transfer branch.
+- A full merged browser run exposed an existing Budgets test pool reused after
+  cleanup. Its isolated test-lifecycle correction is also retained here; no
+  production Budgets behavior or assertions changed.
 
 ### Open problems
 - Readiness checks no write privileges, RLS policies, defaults, arbitrary check
@@ -3882,20 +3893,33 @@ recommendation, not a decision.
   Readiness uses HO-115; main's handoff history is preserved.
 
 ### Verified
-- Before merging main: 320 focused domain, PostgreSQL, action, consumer and
-  isolation tests pass, including rollback, concurrency and actual finance
-  totals. Strict typecheck passes. A lint warning in the metadata comparison
-  helper was corrected. Full gates and the new browser scenarios are pending
-  the merged checkout's final verification; no browser success is claimed yet.
-- The readiness baseline passed its complete gates before main's newer agent
-  and Nessie changes, including real Neon storage; see HO-115.
+- Merged main `e75fc63` into both implementation branches. The handoff was the
+  merge conflict; kept main's complete history and our separately numbered
+  entries. Both branches contain main, with no unresolved conflicts.
+- All 2,297 unit/integration tests in 129 files pass with unchanged thresholds,
+  including real Neon test storage. Coverage: 90.77% lines, 88.51% branches.
+  The earlier 320 focused tests and final 72 transfer tests also pass.
+- All 124 non-external browser tests pass against the merged production build,
+  including all eight transfer flows. Tests use local PostgreSQL, four workers
+  and a 60-second timeout; no assertions or storage checks were skipped.
+  Pending controls, stale selection, aborted-save retry, edited/deleted rows,
+  allocated evidence, historical padding, access and themes were exercised.
+- Browser verification exposed React's native form reset on validation errors;
+  retained choices until fresh data replaces the form, and caught request
+  failures with retry feedback. Fixed the existing Budgets suite's closed-pool
+  reuse across parallel groups and used the same lifecycle in this new suite.
+  The first full browser run was 123/124; the corrected full run is 124/124.
+- Lint, format, app/worker typecheck, docs, production build, bundle scan and
+  diff checks pass. Synthetic 360px/1280px light/dark transfer screenshots are
+  retained; unrelated regenerated screenshots were restored.
+- Actual Neon app and named production financial-schema preflights report
+  READY. Journal discrepancies remain diagnostic warnings. Main's migration
+  0015 ran only on the verified local test database; no transfer migration and
+  no production writes were made.
 
 ### What's next
-- Merge the fetched main into each branch, resolve all conflicts, run the
-  merged tree's full gates and update this entry with their actual results.
-- Main adds agent migration 0015. Apply it to the explicitly identified local
-  test database for merged tests. No transfer migration is introduced.
-- No push, PR, production migration or deployment has been requested.
+- Local commits and main merges are complete. No push, PR or deployment has
+  been requested; published CI and teammate review remain future work.
 
 ### Open problems
 - Reviews remain bounded and do not claim complete all-time history. Oversized

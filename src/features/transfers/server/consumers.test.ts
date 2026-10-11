@@ -219,6 +219,10 @@ describe("financial consumers of saved transfer metadata", () => {
   it("excludes labelled repayments from recurring pattern evidence without rewriting or refreshing saved series", async () => {
     const fx = await setup(),
       ids = [];
+    const saved = await db
+      .select()
+      .from(recurringSeries)
+      .where(eq(recurringSeries.workspaceId, fx.ws));
     for (const postedOn of ["2026-07-05", "2026-08-05", "2026-09-05"])
       ids.push(
         await add(fx, fx.cash, -20000, {

@@ -119,6 +119,11 @@ Priorities follow ADR-043. Lanes: A = Data, B = Web, C = Agent.
 | F-36 | Retirement question | Later | B | An action-required item: is money going into a retirement plan through your employer, your own account, or not right now. Retirement and investing count as saving. | ADR-055 |
 | F-37 | Planned transactions | P1 | B | On the calendar, plan money out or in on a later day and see the expected balance and what is owed before payday change. When the day comes, confirm "It happened" (it becomes a manual transaction) or remove it. Plans are not transactions. | ADR-102, ADR-042 |
 
+Transactions now includes an explicit transfer review subroute (ADR-066).
+Suggestions require a selected counterpart and confirmation; independent
+labels and pair relationships are reversible metadata, with Bills evidence
+guards and no change to recorded account balances.
+
 ## 6. The calendar (summary; full spec in ADR-042)
 
 The home screen is a cash-flow calendar built for people who are not
@@ -183,8 +188,3 @@ Freemium subscription plus licensing the product to banks and credit unions
 | Nessie | Capital One's hackathon sandbox banking API. It starts empty: we create its customers and transactions (ADR-033, ADR-048) |
 | Synthetic batch | A set of invented customers made by the generator from a spec and a seed, loaded and deleted as a unit (ADR-049) |
 | Messaging identity | A verified link between a phone handle and a Reeflect user (ADR-034) |
-
-Transactions now includes an explicit transfer review subroute (ADR-066).
-Suggestions require a selected counterpart and confirmation; independent
-labels and pair relationships are reversible metadata, with Bills evidence
-guards and no change to recorded account balances.

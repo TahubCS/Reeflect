@@ -307,6 +307,7 @@ export async function writeReview(
           .where(and(inWorkspace(workspaceId), inArray(transaction.id, ids)));
       } else {
         const row = rows[0]!;
+        if (!row.ownedAccount) return "not_found";
         if (row.pairId !== null) return "paired";
         if (row.isTransfer === input.transfer) return "already";
         if (await hasBillEvidence(tx, workspaceId, ids)) return "allocated";

@@ -8,10 +8,14 @@ import {
 } from "@playwright/test";
 import { Pool } from "pg";
 import { hydrated, ownClientAddress, signUpVerified } from "./support";
-const pool = new Pool({
-  connectionString:
-    process.env.DATABASE_URL ?? "postgres://test:test@localhost:5433/app_test",
-  max: 2,
+let pool: Pool;
+test.beforeAll(() => {
+  pool = new Pool({
+    connectionString:
+      process.env.DATABASE_URL ??
+      "postgres://test:test@localhost:5433/app_test",
+    max: 2,
+  });
 });
 const contexts: BrowserContext[] = [],
   users: string[] = [],
@@ -116,6 +120,7 @@ async function confirmPair(page: Page, description: string, candidate = 0) {
   await form
     .getByRole("button", { name: "Confirm pairing", exact: true })
     .click();
+  await expect(form).toHaveCount(0);
   await expect(page.getByText("Review saved.", { exact: true })).toBeVisible();
 }
 async function change(page: Page, name: string, description: string) {
@@ -125,6 +130,7 @@ async function change(page: Page, name: string, description: string) {
   });
   await form.getByRole("checkbox").check();
   await form.getByRole("button", { name, exact: true }).click();
+  await expect(form).toHaveCount(0);
   await expect(page.getByText("Review saved.", { exact: true })).toBeVisible();
 }
 const snapshot = async (ws: string) =>
@@ -152,6 +158,9 @@ test.afterAll(async () => {
   }
   await pool.end();
   expect(errors).toEqual([]);
+  contexts.length = 0;
+  users.length = 0;
+  errors.length = 0;
 });
 test("requires a specific ambiguous counterpart and confirmation, persists pairing and separates detach from normal activity", async ({
   browser,
@@ -392,10 +401,10 @@ test("shows invalid and orphan groups without repairing them and lets viewers re
     viewer.page.getByRole("link", { name: "Edit transaction", exact: true }),
   ).toHaveCount(0);
   const outsider = await signUp(browser, baseURL);
-  const response = await outsider.page.goto(
-    `${fx.path}?source=${orphan}&view=all`,
-  );
-  expect(response?.status()).toBe(404);
+  await outsider.page.goto(`${fx.path}?source=${orphan}&view=all`);
+  await expect(
+    outsider.page.getByText("This page could not be found."),
+  ).toBeVisible();
   await expect(
     outsider.page.getByText("Orphan transfer", { exact: true }),
   ).toHaveCount(0);
@@ -488,4 +497,53 @@ test("recovers a failed review read without showing a false empty state", async 
     fx.page.getByRole("article", { name: "Recovery activity" }),
   ).toBeVisible();
   expectedFailure.delete(fx.page);
+});
+
+test("retains selection after a failed save request and retries without reclassification", async ({
+  browser,
+  baseURL,
+}) => {
+  const fx = await fixture(browser, baseURL),
+    source = await activity(fx, fx.cash, -20000, "Retry cash");
+  await activity(fx, fx.card, 20000, "Retry card");
+  await open(fx, source);
+  const form = fx.page.getByRole("form", {
+    name: "Confirm pairing: Retry cash",
+    exact: true,
+  });
+  await form.getByRole("radio").check();
+  await form.getByRole("checkbox").check();
+  const requestStarted = Promise.withResolvers<void>();
+  const releaseRequest = Promise.withResolvers<void>();
+  await fx.page.route(
+    (url) => url.pathname === fx.path,
+    async (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      requestStarted.resolve();
+      await releaseRequest.promise;
+      await route.abort("failed");
+    },
+  );
+  await form
+    .getByRole("button", { name: "Confirm pairing", exact: true })
+    .click();
+  await requestStarted.promise;
+  await expect(
+    form.getByRole("button", { name: "Saving…", exact: true }),
+  ).toBeDisabled();
+  await expect(form.getByRole("checkbox")).toBeDisabled();
+  releaseRequest.resolve();
+  await expect(form.getByRole("alert")).toContainText(
+    "Your selection is kept; try again",
+  );
+  await expect(form.getByRole("radio")).toBeChecked();
+  await expect(form.getByRole("checkbox")).toBeChecked();
+  expect((await snapshot(fx.ws)).every((r) => !r.is_transfer)).toBe(true);
+  await fx.page.unrouteAll({ behavior: "wait" });
+  await form
+    .getByRole("button", { name: "Confirm pairing", exact: true })
+    .click();
+  await expect(
+    fx.page.getByRole("heading", { name: "Confirmed pair", exact: true }),
+  ).toBeVisible();
 });

@@ -66,9 +66,17 @@ function ReviewForm({
   const [state, formAction, pending] = useActionState(
     async (previous: ReviewFormState, form: FormData) => {
       feedback({});
-      const result = await action(previous, form);
-      if (result.ok) feedback(result);
-      return result;
+      try {
+        const result = await action(previous, form);
+        if (result.ok) feedback(result);
+        return result;
+      } catch {
+        return {
+          ok: false,
+          message:
+            "The review could not be saved. Your selection is kept; try again.",
+        };
+      }
     },
     {},
   );
@@ -98,6 +106,9 @@ function ReviewForm({
   return (
     <form
       action={formAction}
+      // React resets native controls when an action completes, including
+      // validation failures. Keep choices until fresh data replaces this form.
+      onReset={(event) => event.preventDefault()}
       className={styles.controls}
       aria-label={`${title}: ${review.row.description}`}
     >

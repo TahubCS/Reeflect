@@ -728,6 +728,7 @@ describe("transfer review on PostgreSQL", () => {
       accountName: "Account unavailable",
       accountType: null,
     });
+    expect(await label(fx, malformed.id, true)).toBe("not_found");
     expect(await detach(fx, a.id)).toBe("ok");
     expect((await states(other, [b.id]))[0]!.pairId).toBe("shared");
     expect(
