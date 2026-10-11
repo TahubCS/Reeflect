@@ -320,13 +320,21 @@ test("dismisses false positives persistently and restores the suggestion", async
   baseURL,
 }) => {
   const { page } = await fixture(browser, baseURL);
+  // Each step waits for the one before it to finish. On a slow machine the
+  // two saves and the filter navigation otherwise overlap, and the page can
+  // end up back on the unfiltered list.
+  const saved = () => expect(page.getByText("Saving…")).toHaveCount(0);
   await card(page, "stream service")
     .getByRole("button", { name: "Not recurring" })
     .click();
+  await expect(card(page, "stream service")).toHaveCount(0);
+  await saved();
   await page.getByRole("button", { name: "Refresh patterns" }).click();
+  await saved();
   await expect(card(page, "stream service")).toHaveCount(0);
   await filters(page).getByLabel("Tracking state").selectOption("dismissed");
   await filters(page).getByRole("button", { name: "Apply filters" }).click();
+  await page.waitForURL(/[?&]state=dismissed/);
   await card(page, "stream service")
     .getByRole("button", { name: "Restore tracking" })
     .click();
