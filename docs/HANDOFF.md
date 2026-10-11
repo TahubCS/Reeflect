@@ -2898,3 +2898,128 @@ recommendation, not a decision.
 
 ### Open problems
 - None new.
+
+## HO-055: Diagnose skipped budget migration and prepare forward recovery
+
+- **Date:** 2026-10-11 07:00 (UTC)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `fix/budgets-migration-recovery` / not opened
+
+### What changed
+
+- User reported the live Budgets retry state after merging PR #23 and running
+  `db:migrate`. Read-only Neon diagnostics reproduce
+  `relation "public.budget" does not exist` in production `neondb`, branch
+  `br-proud-darkness-b4pjeno9`. It has 11 migration records, but not 0010's
+  timestamp/hash. Its latest unknown record is timestamp `1791698782168`,
+  later than 0010's `1791697938101`. Drizzle checks only the latest timestamp,
+  so it silently skips the older budget migration while reporting success.
+- Created a forward custom migration with Drizzle Kit. While checking, main
+  advanced to `d2f2448` (calendar PR #24 with `0011_recurring_income`). Synced
+  without conflicts and regenerated the unpublished repair as
+  `0012_budget_migration_recovery`, preserving main's SQL and snapshot.
+- The repair creates the original budget table, constraints and index only
+  when absent. Healthy tables and allocations are untouched; neither existing
+  migration history nor ledger/category/account rows are rewritten. No app
+  runtime, UI, auth or financial calculation code was changed.
+- Added real PostgreSQL regression tests for fresh migration, healthy upgrade
+  with existing allocations, and the exact successful-but-skipped migration
+  incident followed by recovery. They verify amounts, month/ownership/unique
+  constraints, unchanged ledger rows/history and repeatability.
+- Updated architecture, testing and the budgets README with the diagnosis,
+  forward recovery and verification steps. Original skipped 0010 can remain
+  listed as pending: 0012 supplies its schema without changing past records.
+- Final combined validation on current main:
+  - All 298 budget, migration, recurring and cashflow Vitest tests pass.
+  - All 16 budget authorization/isolation cases pass.
+  - All 15 budget/calendar browser flows plus auth setup pass on the rebuilt
+    production app, including confirmed payday/subscription integration.
+  - Build, bundle scan, lint, typecheck, format and docs checks pass. Generated
+    recovery snapshot matches main's schema; regeneration reports no drift.
+  - Ran `pnpm db:migrate` against a fresh isolated local database,
+    `reeflect_budget_recovery_main_test`; all 13 migrations applied. The
+    earlier local test database is preserved. No production writes were made.
+
+### What's next
+
+- Obtain action-specific approval under AGENTS.md section 7 to commit, push
+  and open a follow-up PR. Proposed commit:
+  `fix(db): recover budgets skipped by migration checkpoint`.
+- From a checkout including 0012, run `pnpm db:migrate` against the verified
+  production direct endpoint, verify `public.budget` exists and refresh
+  Budgets. The already deployed dynamic page can use the recovered table.
+- Identify the unknown migration with the user's local journal/files. A
+  successful migration exit alone does not establish the required schema.
+
+### Open problems
+
+- Production still lacks the budget table at the last read. Managed runtime
+  revision 27 still omits Neon hosts; direct production migrations and full
+  storage-dependent regressions remain blocked here. Do not bypass network
+  policy or repair production with ad hoc schema/history edits.
+- Vercel project metadata identifies the expected Reeflect project/domains,
+  but scoped deployment and runtime-log reads return 403; no authenticated
+  Vercel CLI fallback is available. The diagnosis above uses direct Neon
+  schema/history checks and a local reproduction, not a live server log.
+
+## HO-056: Publish the approved budget migration recovery
+
+- **Date:** 2026-10-11 07:02 (UTC)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `fix/budgets-migration-recovery` / publishing into `main`
+
+### What changed
+
+- User explicitly approved committing, pushing and opening the repair PR.
+  Publish with `fix(db): recover budgets skipped by migration checkpoint`.
+- Fetched main again: it remains `d2f2448dc4ccb72336ab46996f7e8db54b199f5d`,
+  already included. There are no unmerged paths or diff whitespace errors.
+  The generated 0012 recovery follows main's 0011 recurring-income migration.
+- No migration or application changes were needed after HO-055's successful
+  298 relevant Vitest tests, 16 isolation cases, 16 browser checks, production
+  build and local migration verification. Preserve those results and recheck
+  documentation after this handoff append.
+
+### What's next
+
+- Check the PR's mergeability and required CI, then obtain teammate review.
+- Apply `pnpm db:migrate` from a checkout including 0012 to the verified
+  production direct database. Verify `public.budget` exists and refresh the
+  deployed Budgets page. Publishing the PR does not repair production by itself.
+
+### Open problems
+
+- Managed networking still omits Neon, so production migration and complete
+  storage-dependent local regressions remain blocked in this workspace.
+  No production SQL or migration-history edits were performed.
+
+## HO-057: Resolve PR #27's handoff conflict with main
+
+- **Date:** 2026-10-11 07:09 (UTC)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `fix/budgets-migration-recovery` / [PR #27](https://github.com/TahubCS/Reeflect/pull/27)
+
+### What changed
+
+- User requested the handoff conflict fix. Merged main `f6fdc5e` into the
+  repair branch; `docs/HANDOFF.md` was the only conflicting file.
+- Preserved main's HO-075 through HO-077 and the repair's HO-055 and HO-056
+  verbatim. The repair entries already use Muhammad's reserved number block
+  from ADR-084; this session takes its next unused number, HO-057.
+- The repair SQL, generated migration metadata and regression tests are
+  unchanged. Main's developer-data changes were integrated without conflicts.
+- `pnpm docs:check`, all 27 docs-check tests and the staged whitespace check
+  pass; there are no unmerged paths.
+
+### What's next
+
+- Push this merge to PR #27, check mergeability and wait for required CI and
+  teammate review.
+- Apply the existing 0012 recovery to the verified production database as
+  described in HO-055 and the PR; resolving this conflict does not apply it.
+
+### Open problems
+
+- Production migration and full storage-dependent local regressions retain
+  the managed-network limitation documented in HO-056.
+

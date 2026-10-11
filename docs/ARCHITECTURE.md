@@ -375,6 +375,12 @@ database records the old draft, and the next `db:migrate` tries to run the
 new file again. This happened with `0001_better_auth` on Neon production
 (HO-026).
 
+A newer recorded migration can also make Drizzle silently skip an older
+pending migration while reporting success. Verify the expected table on the
+actual app database after migrating. Migration `0012_budget_migration_recovery`
+repairs this production case for budgets without rewriting existing history
+or data; on healthy databases its table creation is a no-op.
+
 ## ARCH-11: Plaid integration
 
 Governed by: ADR-012, ADR-010, ADR-020, ADR-025

@@ -73,6 +73,20 @@ use the test database's URL for deployment. The table must exist before
 deploying the new route. A missing table renders the local retry state, not
 fabricated zero spending.
 
+`0012_budget_migration_recovery.sql` repairs an observed production checkpoint
+where a newer migration outside this checkout caused Drizzle to skip 0010.
+Its timestamp is later, so a normal `pnpm db:migrate` creates the missing
+budget table and constraints. If the table already exists, it leaves it and
+all allocations untouched. It neither deletes nor rewrites migration history
+or financial data. Use this forward migration instead of editing 0010's
+timestamp, removing ledger entries, or running schema SQL by hand.
+
+After migrating, verify `public.budget` exists in the same database Vercel
+uses, then refresh Budgets. On a recovered database, `db:whoami` can still
+list the original skipped 0010 as pending; 0012 supplies its schema while
+preserving the original migration history. A successful command alone does
+not prove every older migration ran.
+
 ## Verification
 
 Domain, repository, action and loader Vitest suites cover money, dates,
@@ -81,6 +95,9 @@ handling. The four entry points participate in the shared isolation matrix.
 `tests/e2e/budgets.spec.ts` covers full UI workflows, year navigation, readers,
 outsiders, retry recovery, keyboard input, 360px layouts, themes and reduced
 motion. Synthetic screenshots are under `docs/screenshots/budgets/`.
+`scripts/db/budgets-migration.test.ts` uses disposable local databases to
+exercise fresh migration, a healthy upgrade with existing allocations, and
+the production timestamp-skipping incident followed by forward recovery.
 
 Use an isolated local/CI PostgreSQL database for all fixtures. Full import
 regressions additionally require the existing Neon `storage-tests` bucket;
