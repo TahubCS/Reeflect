@@ -26,6 +26,13 @@ Agent Track, Best Use of Nessie with Capital One, MLH Best Use of Gemini API
 
 ---
 
+> **F-09 on the budgets branch (ADR-060):** after its migration and deployment,
+> an optional website demonstration can set a $500 groceries plan and show
+> $320 of recorded net spending with $180 remaining. Editing or copying
+> allocations leaves account balances and transactions intact. This page
+> does not calculate cash available until payday, and budget replies by text
+> remain F-27/F-28 work.
+
 ## 1. One line
 
 > **"Reeflect lives in your texts. Ask how you're doing and it tells you
