@@ -198,7 +198,7 @@ fails if this table and `package.json` differ.
 | `pnpm lint` | ESLint (no warnings allowed; `.only` and `.skip` in tests are errors) |
 | `pnpm format` | Prettier: rewrite code and config files (Markdown is left alone) |
 | `pnpm format:check` | Prettier check |
-| `pnpm typecheck` | Generate route types, then `tsc --noEmit` in strict mode |
+| `pnpm typecheck` | Generate route types, then `tsc --noEmit` in strict mode for the app and for `agent-worker/` |
 | `pnpm docs:check` | Check that the docs and config agree with each other (TEST-09). Run it after editing any doc, `.coderabbit.yaml`, CI job names or `package.json` scripts |
 | `pnpm test:unit` | Vitest, with coverage thresholds |
 | `pnpm test:e2e` | Playwright against the production build (`pnpm build` first). Tests that call external services are tagged `@external`; CI runs them nightly only |
@@ -215,10 +215,17 @@ thing it runs:
 | Command | Purpose | Arrives with |
 |---|---|---|
 | `pnpm db:seed` | Seed synthetic demo data, including the demo Nessie customer | Demo seed (F-21) |
-| `pnpm --filter agent-worker dev` | Run the agent worker locally (terminal provider by default) | Agent worker (ADR-032) |
 
-Once `agent-worker/` and `packages/` exist (they don't yet), root
-`pnpm lint`, `pnpm typecheck` and `pnpm test:unit` must cover them too.
+The agent worker is its own workspace package (ADR-032), so its scripts are
+in `agent-worker/package.json`:
+
+| Command | Purpose |
+|---|---|
+| `pnpm --filter agent-worker dev` | Run the worker locally, reading `agent-worker/.env` (terminal chat by default) |
+| `pnpm --filter agent-worker start` | Run the worker with settings from the environment, as Render does |
+
+Root `pnpm lint`, `pnpm typecheck` and `pnpm test:unit` cover
+`agent-worker/` and `packages/` too.
 
 Unit and E2E tests need the local database: `docker compose up -d` (host
 port 5433). Tests never use the Neon database in `.env.local`. Object
@@ -277,8 +284,8 @@ tests/
                             any private/ folder is gitignored
 scripts/                    docs-check, scan-bundle, db (whoami, migrate-to),
                             batch (synthetic batches), with their unit tests
-agent-worker/               Photon Spectrum relay process (planned, ADR-032)
-packages/agent-protocol/    zod schemas shared by the worker and /api/agent/turn (planned)
+agent-worker/               Photon Spectrum relay process (pnpm workspace package, ADR-032)
+packages/agent-protocol/    zod schemas shared by the worker and /api/agent/turn
 docs/                       PROJECT, ARCHITECTURE, DECISIONS, HANDOFF, TESTING,
                             PITCH, SYNTHETIC
 ```

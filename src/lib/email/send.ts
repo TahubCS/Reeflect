@@ -1,6 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { EmailMessage } from "./messages";
 
@@ -39,7 +39,11 @@ async function writeToOutbox(
   await mkdir(dir, { recursive: true });
   // The time first, so a directory listing sorts oldest to newest.
   const file = join(dir, `${Date.now()}-${id}.json`);
-  await writeFile(file, JSON.stringify({ id, from, ...message }, null, 2));
+  // Written under another name first, then renamed: a reader that lists the
+  // directory never finds a `.json` file that is only half there.
+  const draft = `${file}.tmp`;
+  await writeFile(draft, JSON.stringify({ id, from, ...message }, null, 2));
+  await rename(draft, file);
   return { ok: true, id };
 }
 

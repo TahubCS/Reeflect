@@ -291,9 +291,11 @@ Governed by: ADR-006, ADR-007, ADR-010, ADR-012, ADR-019, ADR-025
 | `NESSIE_BASE_URL` | `features/nessie`: `https://api.nessieisreal.com` (ADR-048) | No |
 | `AGENT_SERVICE_TOKEN` | Next.js and worker (shared secret, 32+ characters). Optional in Next.js: without it `/api/agent/turn` answers 404 to everyone | Yes |
 | `AGENT_PHONE_NUMBER` | Next.js: the number shown on the Settings link card, in `+15551234567` form; optional (ADR-051) | No |
-| `AGENT_WORKER_URL` | Next.js (where to POST proactive messages) | No |
+| `AGENT_WORKER_URL` | Next.js (where to POST proactive messages); arrives with F-26 | No |
 | `REEFLECT_URL` | Worker (where to POST turns) | No |
-| `PHOTON_PROJECT_ID`, `PHOTON_PROJECT_SECRET` | Worker only | Yes (secret) |
+| `PHOTON_PROJECT_ID`, `PHOTON_PROJECT_SECRET` | Worker only; needed for `AGENT_PROVIDER=imessage` | Yes (secret) |
+| `AGENT_PROVIDER` | Worker: `terminal` (default, a development chat) or `imessage` | No |
+| `PORT`, `RENDER_EXTERNAL_URL` | Worker: set by Render. The port for `/health`, and the public URL the worker pings to stay awake (ADR-041) | No |
 | `CRON_SECRET` | Vercel Cron routes | Yes |
 | `DEMO_MODE` | Brain (`true` only on the demo deployment) | No |
 | `DATABASE_URL_BATCHTESTINGBRANCH` | Scripts only: the Neon batch-testing branch (ADR-049). `_UNPOOLED` is optional; scripts derive the direct URL | Yes |
@@ -449,9 +451,10 @@ sequenceDiagram
 
 | Module | Location | Responsibility |
 |---|---|---|
-| Worker loop | `agent-worker/src/index.ts` | Spectrum connection, typing indicator, forward turn, send reply and image |
-| Worker send API | `agent-worker/src/server.ts` | `POST /send` for proactive messages; token-protected |
-| Protocol types | `packages/agent-protocol/` | Zod schemas shared by worker and brain. Until the worker exists they live in `src/features/agent/domain/protocol.ts` |
+| Worker loop | `agent-worker/src/index.ts`, `worker.ts` | Spectrum connection, typing indicator, forward turn, send reply. One conversation is answered in order (`queue.ts`); images arrive with F-25 |
+| Worker relay | `agent-worker/src/relay.ts`, `turn.ts`, `config.ts` | `turn.ts` picks what is forwarded: inbound text in direct chats only. `relay.ts` posts it with the service token, waits up to 20 seconds, and falls back to a fixed reply on any failure. `config.ts` validates the worker's env |
+| Worker send API | `agent-worker/src/server.ts` | `POST /send` for proactive messages; token-protected. Not built yet: arrives with F-26 |
+| Protocol types | `packages/agent-protocol/` | Zod schemas shared by worker and brain, and the list of platforms. `terminal` is refused by a deployed app (`src/features/agent/server/platform.ts`) |
 | Turn endpoint | `src/app/api/agent/turn/route.ts` | Token check (`src/features/agent/server/service-token.ts`, 404 without it), zod parse, call `runAgentTurn` |
 | Identity | `src/features/messaging/server/link.ts`, `actions.ts` | Link codes, the request a user approves, `messaging_identity`, STOP and Disconnect (ADR-051). The Settings card is `src/features/messaging/ui/` |
 | Brain | `src/features/agent/server/runAgentTurn.ts` | Gemini loop with tools, reply composition. Today: LINK, STOP and fixed replies only (F-24); Gemini arrives with F-25 |

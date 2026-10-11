@@ -14,8 +14,11 @@ import { organization, user } from "./auth";
 
 const timestamptz = (name: string) => timestamp(name, { withTimezone: true });
 
-/** Terminal (for development) arrives with the worker (ADR-032). */
-export const MESSAGING_PLATFORMS = ["imessage"] as const;
+/**
+ * The same list as `PLATFORMS` in `packages/agent-protocol` (a test checks
+ * they match). `terminal` is Spectrum's development chat (ADR-032).
+ */
+export const MESSAGING_PLATFORMS = ["imessage", "terminal"] as const;
 
 export const messagingIdentity = pgTable(
   "messaging_identity",
