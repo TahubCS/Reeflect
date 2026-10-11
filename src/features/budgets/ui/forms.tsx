@@ -53,7 +53,10 @@ export function BudgetForm({
         </p>
       ) : null}
       {state.errors.form ? <p role="alert">{state.errors.form}</p> : null}
-      {state.message ? <p role="status">{state.message}</p> : null}
+      {/* Always there, so the first message is announced too. */}
+      <p role="status" className="live-region">
+        {state.message}
+      </p>
     </form>
   );
 }
@@ -72,7 +75,10 @@ export function BudgetOperation({
         {pending ? "Saving…" : label}
       </button>
       {state.errors.form ? <p role="alert">{state.errors.form}</p> : null}
-      {state.message ? <p role="status">{state.message}</p> : null}
+      {/* Always there, so the first message is announced too. */}
+      <p role="status" className="live-region">
+        {state.message}
+      </p>
     </form>
   );
 }

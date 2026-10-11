@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { NavRefresh } from "@/components/ui/nav-refresh";
 import { formatCents } from "@/lib/money";
+import { longDate } from "../domain/evidence";
 import type { FormAction } from "../domain/forms";
 import type { Payment, summarizePayments } from "../domain/payments";
 import { ChargeEvidence } from "./charge-evidence";
@@ -103,7 +104,11 @@ function PaymentCard({
                 ? "Expected next payday"
                 : "Expected next charge"}
           </dt>
-          <dd>{payment.nextOn ?? "Unknown — add a date to resume tracking"}</dd>
+          <dd>
+            {payment.nextOn
+              ? longDate(payment.nextOn)
+              : "Unknown — add a date to resume tracking"}
+          </dd>
         </div>
       </dl>
       {payment.sampleCount ? (

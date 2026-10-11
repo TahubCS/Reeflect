@@ -1,0 +1,32 @@
+/* Uses the tokens in src/app/globals.css (ADR-046). */
+
+.confirm {
+  display: grid;
+  justify-items: start;
+  gap: 0.5rem;
+}
+
+.confirm > summary {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  list-style: none;
+}
+
+.confirm > summary::-webkit-details-marker {
+  display: none;
+}
+
+.confirm > summary:hover,
+.confirm[open] > summary {
+  background: var(--tint);
+}
+
+.consequence {
+  max-width: 40rem;
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+}

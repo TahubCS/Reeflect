@@ -138,6 +138,17 @@ html {
 /* The grid is fixed to the window, like the sticky header's and the
    dashboard hero's, so its lines run on unbroken from the header into the
    page while it scrolls. */
+/* A status message that stays in the page so screen readers announce its
+   first message; while empty it takes no space. */
+.live-region:empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 body {
   background-color: var(--bg);
   background-image:

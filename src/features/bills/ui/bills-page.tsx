@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Confirm } from "@/components/ui/confirm";
 import { shiftDays } from "@/features/recurring/client";
 import { cents, formatCents, toDecimalString } from "@/lib/money";
 import { isSettled, type CycleStatus, type CycleView } from "../domain/cycles";
@@ -215,16 +216,21 @@ function BillDetail({ data }: { data: BillsView }) {
                     </p>
                   ) : null}
                   {editable ? (
-                    <BillOperation
+                    <Confirm
                       label="Unlink payment"
-                      action={unlinkPaymentAction.bind(
-                        null,
-                        ...args,
-                        cycle.scheduledOn,
-                        cycle.revision,
-                        link.id,
-                      )}
-                    />
+                      consequence="This invoice will no longer count this transaction as its payment. The transaction itself stays."
+                    >
+                      <BillOperation
+                        label="Confirm unlink payment"
+                        action={unlinkPaymentAction.bind(
+                          null,
+                          ...args,
+                          cycle.scheduledOn,
+                          cycle.revision,
+                          link.id,
+                        )}
+                      />
+                    </Confirm>
                   ) : null}
                 </li>
               ))}

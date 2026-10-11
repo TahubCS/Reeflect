@@ -88,7 +88,10 @@ function Feedback({ state }: { state: FormState }) {
   return (
     <>
       {state.errors.form ? <p role="alert">{state.errors.form}</p> : null}
-      {state.message ? <p role="status">{state.message}</p> : null}
+      {/* Always there, so the first message is announced too. */}
+      <p role="status" className="live-region">
+        {state.message}
+      </p>
     </>
   );
 }

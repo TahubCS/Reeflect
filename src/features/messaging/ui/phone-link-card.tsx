@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useOptimistic, useState, useTransition } from "react";
+import { Confirm } from "@/components/ui/confirm";
 import { APP_NAME } from "@/config/app";
 import { formatLinkCode } from "../domain/link-code";
 import {
@@ -234,14 +235,19 @@ export function PhoneLinkCard({ workspaceId, state, agentPhone }: Props) {
               iPhone’s Notifications settings.
             </p>
             <div className={styles.actions}>
-              <button
-                type="button"
-                className={styles.secondary}
-                onClick={disconnect}
-                disabled={busy}
+              <Confirm
+                label="Disconnect"
+                consequence="Your phone stops getting texts and can't log spending. To link it again you'll need a new code."
               >
-                Disconnect
-              </button>
+                <button
+                  type="button"
+                  className={styles.secondary}
+                  onClick={disconnect}
+                  disabled={busy}
+                >
+                  Confirm disconnect
+                </button>
+              </Confirm>
               <span className={styles.meta}>or text STOP</span>
             </div>
           </>

@@ -126,7 +126,15 @@ test("opens on today with the account's balance, and adding and removing spendin
   ).toBeVisible();
   await expect(cell(page, today)).toContainText("Bus pass");
 
-  await dayPanel(page).getByRole("button", { name: "Remove Bus pass" }).click();
+  // × asks once more, on the same button, before it removes.
+  const remove = dayPanel(page).getByRole("button", {
+    name: "Remove Bus pass",
+  });
+  await remove.click();
+  await expect(headline(page)).toHaveText("You have $484.00 today.");
+  await dayPanel(page)
+    .getByRole("button", { name: "Confirm remove Bus pass" })
+    .click();
 
   await expect(headline(page)).toHaveText("You have $500.00 today.");
   await expect(dayPanel(page).getByText("Bus pass")).toHaveCount(0);
@@ -405,6 +413,9 @@ test("plans spending on a later day, sees what it does, and removes it", async (
   await selectDay(page, later);
   await dayPanel(page)
     .getByRole("button", { name: "Remove Concert tickets" })
+    .click();
+  await dayPanel(page)
+    .getByRole("button", { name: "Confirm remove Concert tickets" })
     .click();
   await expect(dayPanel(page).getByText("Concert tickets")).toHaveCount(0);
   await expect(dayPanel(page).locator(".panel-totals")).toContainText(

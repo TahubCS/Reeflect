@@ -188,7 +188,8 @@ test("the opt-in is off until chosen, and Disconnect unlinks", async ({
   await expect(optIn).toBeChecked();
 
   await hydrated(page, "main button");
-  await page.getByRole("button", { name: "Disconnect" }).click();
+  await page.getByText("Disconnect", { exact: true }).click();
+  await page.getByRole("button", { name: "Confirm disconnect" }).click();
 
   await expect(
     page.getByRole("button", { name: "Connect iMessage" }),

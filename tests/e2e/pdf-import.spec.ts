@@ -146,7 +146,9 @@ test("keeps a preview waiting until it is discarded", async ({
   await expect(waiting).toContainText("Everyday ••1234 (360 Checking, PDF)");
   await waiting.getByRole("link", { name: "Review" }).click();
   await hydrated(page, "form button");
-  await page.getByRole("button", { name: "Discard" }).click();
+  // Discarding deletes the saved copy, so it asks once more.
+  await page.getByText("Discard", { exact: true }).click();
+  await page.getByRole("button", { name: "Confirm discard" }).click();
 
   await expect(page).toHaveURL(/\/w\/[^/]+\/import$/);
   await expect(
