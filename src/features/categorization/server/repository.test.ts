@@ -9,7 +9,7 @@ import {
   transaction,
 } from "@/lib/db/schema";
 import { fixtures } from "../../../../tests/support/db-fixtures";
-import { PAGE_SIZE, type RuleInput } from "../domain/forms";
+import { PAGE_SIZE, PRESET_CATEGORIES, type RuleInput } from "../domain/forms";
 import {
   applyCategoryRules,
   createRule,
@@ -95,11 +95,11 @@ describe("categories", () => {
     await ensureCategories(workspace);
     expect(await listCategories(workspace)).toEqual([]);
   });
-  it("seeds eight workspace-specific categories idempotently, even concurrently", async () => {
+  it("seeds every preset per workspace idempotently, even concurrently", async () => {
     const before = await listCategories(a);
     await Promise.all([ensureCategories(a), ensureCategories(a)]);
     expect(await listCategories(a)).toEqual(before);
-    expect(before).toHaveLength(8);
+    expect(before).toHaveLength(PRESET_CATEGORIES.length);
     expect((await listCategories(b)).map((c) => c.id)).not.toContain(groceries);
   });
   it("preserves renamed presets and rejects another workspace's category", async () => {

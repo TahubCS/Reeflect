@@ -185,3 +185,38 @@ export function parseDecimalString(text: string): Cents | null {
   if (match[1] && value === 0) return null;
   return match[1] ? negate(value) : value;
 }
+
+/**
+ * The amount below which a share `p` (0 to 1) of the amounts fall, read
+ * between the two nearest sorted amounts (the usual "linear" method) and
+ * rounded to the nearest cent, halves up as in `fraction`. Zero for no
+ * amounts.
+ */
+export function quantile(amounts: readonly Cents[], p: number): Cents {
+  if (!(p >= 0 && p <= 1)) throw new RangeError("p must be from 0 to 1");
+  if (amounts.length === 0) return ZERO;
+  const sorted = [...amounts].sort((a, b) => a - b);
+  const at = (sorted.length - 1) * p;
+  const below = sorted[Math.floor(at)]!;
+  const above = sorted[Math.ceil(at)]!;
+  return cents(Math.round(below + (above - below) * (at - Math.floor(at))));
+}
+
+export type FiveNumbers = {
+  lowest: Cents;
+  lowerQuartile: Cents;
+  median: Cents;
+  upperQuartile: Cents;
+  highest: Cents;
+};
+
+/** Lowest, 25th percentile, median, 75th percentile and highest. */
+export function fiveNumbers(amounts: readonly Cents[]): FiveNumbers {
+  return {
+    lowest: quantile(amounts, 0),
+    lowerQuartile: quantile(amounts, 0.25),
+    median: quantile(amounts, 0.5),
+    upperQuartile: quantile(amounts, 0.75),
+    highest: quantile(amounts, 1),
+  };
+}

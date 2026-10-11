@@ -44,7 +44,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-02 Personal workspace | B | Simon Ormond | `feat/personal-workspace` | Personal workspace and `/w/[workspaceId]` done (HO-027); household later |
 | F-03 Financial accounts | A | Simon Ormond | `feat/financial-accounts` | Done: manual accounts, list, edit, delete (HO-030) |
 | F-04 Manual transactions | A | Simon Ormond | `feat/manual-transactions` | Built: add, edit, delete, list by day, account filter (HO-031); ADR-050 Proposed |
-| F-05 CSV import | A | Simon Ormond | `feat/csv-statement-import` | Built for Capital One 360 and credit-card CSV exports (HO-039, ADR-054 Proposed); no mapping screen yet |
+| F-05 CSV import | A | Simon Ormond | `feat/csv-statement-import` | Built for Capital One 360 and credit-card CSV exports (HO-040, ADR-054 Proposed); no mapping screen yet |
 | F-06 PDF statement import (P0, ADR-044) | A | Simon Ormond | `feat/pdf-statement-import` | Built for Capital One 360 checking and savings (HO-038); CSV kept in Neon object storage (ADR-053 Proposed); needs `neon deploy` and Vercel vars |
 | F-08 Categorization | A | Codex | `feat/transaction-categorization` | Full feature implemented and verified (HO-037); PR #12 awaits merge |
 | F-09 Monthly budgets (P1) | A | Unassigned | — | Not started |
@@ -63,6 +63,8 @@ Update this table when work is assigned or finished. Features are listed in
 | F-32 Agent worker | C | Muhammad Tahub Khatri | `feat/agent-worker` | Built, replies only (HO-039); not yet deployed to Render |
 | F-22 Bill reminders (P1) | A + C | Unassigned | — | Not started |
 | F-15 Gemini summary on the website (P1, ADR-045) | C | Unassigned | — | Not started |
+| F-35 Compare with people like you (Later, ADR-056) | A + B | Jacob Heminway | `feat/insights` | Built: the Insights page, stored sample figures and `pnpm batch rollup` (HO-043); ADR-056 and ADR-057 Proposed |
+| F-36 Retirement question (Later, ADR-055) | B | Jacob Heminway | `feat/insights` | Planned; generator models the answers (HO-041) |
 | Later (ADR-043): Plaid, household, debt tab, savings goal, receipt photos, recaps, forecast, audit log | — | Unassigned | — | Only if time remains |
 
 ---
@@ -1483,6 +1485,8 @@ recommendation, not a decision.
 - No automated test guards this. Next's `@next/playwright` `instant()`
   helper could, at the cost of a new dev dependency.
 
+---
+
 ## HO-034: Email verification and password reset through Resend (ADR-052)
 
 - **Date:** 2026-10-10 20:30 (EDT)
@@ -1903,3 +1907,222 @@ recommendation, not a decision.
 - A card export never updates the card's balance; it stays as typed.
 - Imported rows are not categorized or paired as transfers yet (F-08,
   ADR-020): a card payment shows on both accounts.
+
+## HO-041: Generator v2 (retirement, investing), ADR-055 and ADR-056, a 100-person year batch
+
+- **Date:** 2026-10-10 21:20 (EDT)
+- **Author:** Jacob Heminway with Claude (Claude Code)
+- **Branch / PR:** `feat/insights` (uncommitted) / not opened
+
+### What changed
+- **ADR-055 (Proposed):** money into retirement (an IRA) or a brokerage
+  counts as saving, not spending (refines ADR-020). A 401(k) is known only
+  from the user's answer to an action-required retirement question, shown
+  without alarms. AGENTS.md section 2 and SYNTHETIC.md rule 7 now draw the
+  line: amounts in are fine; holdings, prices, returns and trades are not.
+- **ADR-056 (Proposed):** the insights comparison that ADR-049 asked for.
+  Each sample person's figures are stored at batch load in an
+  `insight_sample` table (not built yet); the page compares you with the
+  10 sample people just above and 10 just below you by take-home, or with
+  everyone, over the last 30, 90 or 365 days.
+- **PROJECT.md:** F-35 (compare with people like you) and F-36 (retirement
+  question), both Later under ADR-043.
+- **Generator v2** (`src/features/synthetic`): spec fields `retirement`
+  (`employer` / `own` / `none`) and `investing[]`; new rows of kind
+  `investment` with category "Retirement" or "Investing", out of checking,
+  stored with `is_transfer = true` and no pair; `personStats` leaves them
+  out of spending. `GENERATOR_VERSION` is 2: a spec without the new fields
+  gives the same rows as v1 (tested), but a v1 checkout would silently drop
+  the new rows. SYNTHETIC.md documents the fields and a retirement mix
+  (rule 10).
+- **Batch `year-100-nc`** (`scripts/batch/specs/year-100-nc.json`) loaded on
+  the batch-testing branch: id `01a12882-d73f-72be-8d84-60e5d2de94fb`, seed
+  `year100`, 100 people, 2025-10 to 2026-10-10, 234 accounts, 48,743
+  transactions, about 10 seconds to load. The first 50 people are
+  `first-50-nc`'s; the other 50 are varied copies. Students overdraw and
+  outspend, which was accepted.
+- **Tests:** Vitest for the new spec fields, the expander rows, stats and the
+  loader's transfer mark. `pnpm lint`, `pnpm typecheck` and `pnpm docs:check`
+  pass. All non-database unit tests pass.
+
+### What's next
+- The fast-path steps are in Jacob's `insights_plan.md` (gitignored):
+  `quantile` in `src/lib/money`, then `insights/domain` (periods, metrics,
+  cohort), then the `insight_sample` table, the page, `pnpm batch attach`,
+  the retirement question, and the production load.
+- The team to confirm ADR-055 and ADR-056.
+- F-08 (categories) is unassigned; our own accounts need it for spending by
+  category on Insights.
+
+### Open problems
+- **`first-50-nc` is generator v1**, so `promote` refuses it from this code.
+  Reloading it under v2 gives the same rows.
+- **`pnpm db:migrate` was run by mistake** with no local database. Every
+  target in Jacob's `.env.local` points at the batch-testing branch, so it
+  went there and at most applied `0003_phone_linking` (three empty tables).
+  Production was not touched.
+- **No Docker on Jacob's machine:** the 38 database-backed unit tests and
+  the e2e suite were not run for this change.
+
+---
+
+## HO-042: Eighteen preset categories (ADR-057); sample people arrive categorized
+
+- **Date:** 2026-10-10 23:10 (EDT)
+- **Author:** Jacob Heminway with Claude (Claude Code)
+- **Branch / PR:** `feat/insights` (uncommitted, on top of the merge of
+  main) / not opened
+
+### What changed
+- **ADR-057 (Proposed):** F-08's presets go from eight to eighteen. The
+  first eight are unchanged and in the same order. Added after them:
+  health, insurance, loans, subscriptions, personal care, kids & childcare,
+  gifts, travel, retirement, investing. Existing workspaces gain them on the
+  next editor visit (same idempotent seed). `PRESET_CATEGORIES` and a
+  `PresetKey` type are now exported from `@/features/categorization/client`.
+- **Generator → presets:** `PRESET_FOR` and `planCategories` in
+  `src/features/synthetic/domain/categories.ts`.
+  - The generator keeps its finer categories, so the rows are unchanged and
+    it stays at generator v2.
+  - **Rules:** a merchant that always means one preset gets an exact rule.
+  - **Manual choices:** a merchant used for two things gets these instead.
+  - **Uncategorized:** Other, Education, card interest and transfer pairs.
+  - **Tested against F-08's own engine:** every generated row gets the
+    category `categorizeTransaction` computes from the plan.
+- **Batch loader** (`scripts/batch/rows.ts`, `store.ts`): every sample
+  workspace gets the presets, its rules and a `category_id` on every row.
+  `pnpm batch delete` removes them through the workspace cascade.
+- **Batch-testing branch:**
+  - **Migrated:** `pnpm db:migrate:to branch` applied 0004 (the branch's
+    3 users marked email-verified) and 0005 (categories).
+  - **The "1 recorded migration not in this checkout"** is an old draft
+    stamped between 0000 and 0001, so it is harmless.
+  - **`year-100-nc` reloaded** with seed `year100` and as-of 2026-10-10.
+    Same 48,743 transactions; new id
+    `01a128e5-20d4-7f2c-acbe-1c3c2ee6f056`. The old id `01a12882-…` was
+    deleted.
+  - **Result:** 1,800 categories, 18–40 rules per person and 195 manual
+    rows. About $35.7k of $3.9M spending is Uncategorized.
+- **Docs:**
+  - DECISIONS (ADR-057).
+  - ARCHITECTURE (category table row).
+  - PROJECT (F-09).
+  - SYNTHETIC (how the loader categorizes).
+  - The categorization README.
+
+### What's next
+- Muhammad (F-08 owner) to look over ADR-057 and the new presets.
+- Insights steps 4 onward in Jacob's `insights_plan.md`: `quantile`, then
+  `insights/domain` (periods, metrics by preset key, cohort).
+- Starter rules for the Nessie demo accounts: Jacob, on a separate branch,
+  later.
+
+### Open problems
+- **Not run here (no Docker):**
+  - The new store test.
+  - The updated categorization repository test.
+  - The other database-backed tests.
+  - The e2e suite.
+  CI must cover them.
+- `first-50-nc` (generator v1, no categories) is still on the branch.
+
+
+## HO-043: Insights page (F-35): compare with sample people (ADR-056)
+
+- **Date:** 2026-10-11 00:30 (EDT)
+- **Author:** Jacob Heminway with Claude (Claude Code)
+- **Branch / PR:** `feat/insights` (main merged in and staged, not yet
+  committed; this work unstaged on top) / not opened
+
+### What changed
+- **Merged main** (Simon's PDF import, #16). Simon's ADR-053 and HO-038
+  keep their numbers, so ours moved: ADR-055 (retirement and investing as
+  saving), ADR-056 (insights), ADR-057 (presets), HO-041 and HO-042.
+- **`src/lib/money`:** `quantile` (linear, rounded to the cent) and
+  `fiveNumbers`.
+- **`src/features/insights/`** (new):
+  - `domain/periods.ts`: the last 30, 90 and 365 days; per-month scaling;
+    the days your data covers.
+  - `domain/metrics.ts`: one person's measures for a period from plain
+    rows: take-home, spending per preset key plus Uncategorized, kept,
+    saved, bills, subscriptions, no-spend days, lowest checking balance.
+  - `domain/cohort.ts`: the 10 below and 10 above you by take-home (20
+    nearest at the ends), group size, range and persona mix, quartiles,
+    neutral placement wording and the slight tints.
+  - `domain/workspace.ts`: stored rows → measures. The one path for both
+    sample figures and yours.
+  - `server/`: `getInsights` (viewer access, in the isolation matrix) and
+    the repository; `ui/`: the page.
+- **F-08:** `classifyStored` moved from the repository into the domain and
+  is exported from `client.ts`, so Insights and batch rollups compute
+  effective categories with F-08's own code. `listCategories` returns
+  `presetKey`.
+- **`insight_sample` table** (migration 0007, renumbered 0008 in HO-044): one row per sample person,
+  period and measure. `pnpm batch load` and `promote` write it in the
+  same transaction; **`pnpm batch rollup <batchId>`** recomputes it.
+- **The page** at `/w/[workspaceId]/insights`:
+  - Your take-home and the group's take-home range at the top, with the
+    persona mix.
+  - Period (30 days, 3 months, year) and People like you / Everyone as
+    links, so every state is in the URL.
+  - Spending by category with a small "Show as" dollars / share switch,
+    and a line saying how much is Uncategorized, linking to Transactions.
+  - Where you stand: strips with the middle half, typical and you, with
+    the placement in words. Pale green or warm tints echo the words.
+- **Batch-testing branch:** migrated to our `insight_sample` migration (also applied main's 0006);
+  `rollup` wrote 6,099 figures for `year-100-nc`. The page uses the
+  newest batch that has figures, so `first-50-nc` (no figures) is never
+  used.
+- **Line endings:** files that were checked out with CRLF were converted
+  back to LF, matching `.gitattributes`; git shows no content change.
+  `pnpm format:check` no longer flags them.
+- **Tests, now that Docker runs here:** domain, server (`getInsights`),
+  store (load, rollup, delete) and the isolation matrix; Playwright
+  `insights.spec.ts`. `categorization.spec.ts` expected 8 presets and now
+  expects 18 (ADR-057; it couldn't run here before). The whole e2e suite
+  passes (83), and every unit test except Simon's storage tests.
+- **Docs:** ADR-056 updated with what was settled while building;
+  ARCHITECTURE (`insight_sample`, `insights`), PROJECT (F-35), SYNTHETIC
+  (`rollup`), AGENTS.md section 5.
+
+### What's next
+- Commit the staged merge, then this work (Jacob).
+- Starter rules for the Nessie demo accounts (Q26), so a demo user's
+  spending isn't mostly Uncategorized.
+- `pnpm batch attach` / `detach` to make developers members of a sample
+  workspace; the retirement question (F-36).
+- Production: after Q21, `db:migrate:to production` and `batch promote`
+  (which writes the figures too).
+
+### Open problems
+- The 401(k) part of "saved" waits for F-36's answer; today saved counts
+  savings transfers, IRA and brokerage rows only.
+- Simon's storage tests need `.env.storage-tests` (`neon env pull --branch
+  storage-tests`); without it 6 unit tests fail locally. Everything else
+  passes.
+- ADR-055, ADR-056 and ADR-057 are still Proposed.
+
+## HO-044: Main merged again (agent worker #17, CSV import #18)
+
+- **Date:** 2026-10-11 (EDT)
+- **Author:** Jacob Heminway with Claude (Claude Code)
+- **Branch / PR:** `feat/insights` / not opened
+
+### What changed
+- Main's ADR-054 (CSV import), HO-039 and HO-040 keep their numbers; ours
+  are now ADR-055 (retirement and investing), ADR-056 (insights), ADR-057
+  (presets), HO-041, HO-042 and HO-043.
+- Both branches added a migration 0007. Main's
+  (`0007_import_batch_optional_balances`) is kept; ours is regenerated as
+  `0008_insight_sample`.
+- Batch-testing branch: the old `insight_sample` record and table were
+  removed, then `pnpm db:migrate:to branch` (9 of 9) and `pnpm batch
+  rollup` (6,099 figures, as before).
+- Main's assignments row for F-05 cited HO-039; it now cites HO-040.
+
+### What's next
+- Find which e2e page logs `RangeError: Money must be a whole number of
+  cents` on the server. No test fails.
+
+### Open problems
+- Simon's storage tests (8) need `.env.storage-tests` to run locally.

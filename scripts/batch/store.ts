@@ -1,13 +1,18 @@
 // Batch reads and writes. Loading is one database transaction: a failure
 // part-way leaves nothing behind (TEST-05).
-import { count, desc, eq, inArray, sql } from "drizzle-orm";
+import { asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { type NodePgDatabase, drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
+import { type WorkspaceData, sampleFigures } from "@/features/insights";
 import * as schema from "@/lib/db/schema";
+import { cents } from "@/lib/money";
 import type { BatchRows } from "./rows";
 
 const {
+  category,
+  categoryRule,
   financialAccount,
+  insightSample,
   organization,
   syntheticBatch,
   syntheticWorkspace,
@@ -15,6 +20,7 @@ const {
 } = schema;
 
 export type Db = NodePgDatabase<typeof schema>;
+type Executor = Pick<Db, "select" | "insert" | "delete">;
 
 export function connect(url: string): { db: Db; close: () => Promise<void> } {
   const pool = new pg.Pool({
@@ -53,6 +59,8 @@ export async function insertBatch(
       (r) => tx.insert(syntheticWorkspace).values(r),
       rows.markers,
     );
+    await insertChunked((r) => tx.insert(category).values(r), rows.categories);
+    await insertChunked((r) => tx.insert(categoryRule).values(r), rows.rules);
     await insertChunked(
       (r) => tx.insert(financialAccount).values(r),
       rows.accounts,
@@ -61,7 +69,114 @@ export async function insertBatch(
       (r) => tx.insert(transaction).values(r),
       rows.transactions,
     );
+    // Figures for the insights comparison, from the rows just written
+    // (ADR-056), so they can never disagree with them.
+    await writeSampleFigures(tx, batch.id, batch.asOf);
   });
+}
+
+/**
+ * Recomputes the batch's `insight_sample` rows from its database rows: the
+ * backfill for batches loaded before the table existed, or after developers
+ * edited a sample workspace (ADR-056). Returns how many rows it wrote.
+ */
+export async function rollupBatch(db: Db, batchId: string): Promise<number> {
+  const batch = await getBatch(db, batchId);
+  if (!batch) throw new Error(`No batch ${batchId}`);
+  return db.transaction((tx) => writeSampleFigures(tx, batchId, batch.asOf));
+}
+
+function byWorkspace<T extends { workspaceId: string }>(
+  rows: readonly T[],
+): Map<string, Omit<T, "workspaceId">[]> {
+  const map = new Map<string, Omit<T, "workspaceId">[]>();
+  for (const { workspaceId, ...rest } of rows) {
+    const list = map.get(workspaceId) ?? [];
+    list.push(rest);
+    map.set(workspaceId, list);
+  }
+  return map;
+}
+
+async function writeSampleFigures(
+  db: Executor,
+  batchId: string,
+  asOf: string,
+): Promise<number> {
+  const workspaces = db
+    .select({ id: syntheticWorkspace.workspaceId })
+    .from(syntheticWorkspace)
+    .where(eq(syntheticWorkspace.batchId, batchId));
+  // One connection inside the transaction: one query at a time.
+  const accounts = await db
+    .select({
+      workspaceId: financialAccount.workspaceId,
+      id: financialAccount.id,
+      type: financialAccount.type,
+      balance: financialAccount.currentBalanceCents,
+      balanceAsOf: financialAccount.balanceAsOf,
+    })
+    .from(financialAccount)
+    .where(inArray(financialAccount.workspaceId, workspaces));
+  const categories = await db
+    .select({
+      workspaceId: category.workspaceId,
+      id: category.id,
+      presetKey: category.presetKey,
+    })
+    .from(category)
+    .where(inArray(category.workspaceId, workspaces));
+  const rules = await db
+    .select({
+      workspaceId: categoryRule.workspaceId,
+      id: categoryRule.id,
+      categoryId: categoryRule.categoryId,
+      pattern: categoryRule.pattern,
+      matchType: categoryRule.matchType,
+      priority: categoryRule.priority,
+    })
+    .from(categoryRule)
+    .where(inArray(categoryRule.workspaceId, workspaces));
+  const transactions = await db
+    .select({
+      workspaceId: transaction.workspaceId,
+      accountId: transaction.financialAccountId,
+      postedOn: transaction.postedOn,
+      amount: transaction.amountCents,
+      descriptionRaw: transaction.descriptionRaw,
+      isTransfer: transaction.isTransfer,
+      categoryId: transaction.categoryId,
+      categoryIsManual: transaction.categoryIsManual,
+    })
+    .from(transaction)
+    .where(inArray(transaction.workspaceId, workspaces))
+    .orderBy(asc(transaction.postedOn));
+  const accountsOf = byWorkspace(accounts);
+  const categoriesOf = byWorkspace(categories);
+  const rulesOf = byWorkspace(rules);
+  const transactionsOf = byWorkspace(transactions);
+
+  const rows: (typeof insightSample.$inferInsert)[] = [];
+  for (const { id: workspaceId } of await workspaces) {
+    const own = transactionsOf.get(workspaceId) ?? [];
+    const workspace: WorkspaceData = {
+      accounts: (accountsOf.get(workspaceId) ?? []).map((a) => ({
+        ...a,
+        balance: cents(a.balance),
+      })),
+      categories: categoriesOf.get(workspaceId) ?? [],
+      rules: rulesOf.get(workspaceId) ?? [],
+      transactions: own.map((t) => ({ ...t, amount: cents(t.amount) })),
+      // Rows come oldest first.
+      dataFrom: own[0]?.postedOn ?? null,
+    };
+    for (const figure of sampleFigures(workspace, asOf)) {
+      rows.push({ batchId, workspaceId, ...figure });
+    }
+  }
+  await db.delete(insightSample).where(eq(insightSample.batchId, batchId));
+  await insertChunked((r) => db.insert(insightSample).values(r), rows);
+  return rows.length;
 }
 
 export type BatchCounts = {
@@ -95,6 +210,17 @@ export async function countBatchRows(
     accounts: a?.n ?? 0,
     transactions: t?.n ?? 0,
   };
+}
+
+export async function countSampleFigures(
+  db: Db,
+  batchId: string,
+): Promise<number> {
+  const [row] = await db
+    .select({ n: count() })
+    .from(insightSample)
+    .where(eq(insightSample.batchId, batchId));
+  return row?.n ?? 0;
 }
 
 export type BatchListing = {

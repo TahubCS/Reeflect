@@ -3,11 +3,13 @@
 // transactions. Its workspaces are ordinary workspaces in the same tables as
 // everyone else's; a `synthetic_workspace` row is the marker. No row = real.
 import {
+  bigint,
   date,
   index,
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -60,6 +62,38 @@ export const syntheticWorkspace = pgTable(
     uniqueIndex("synthetic_workspace_person_uidx").on(
       table.batchId,
       table.personKey,
+    ),
+  ],
+);
+
+/**
+ * Each sample person's figures for the insights comparison (ADR-056): one
+ * row per person, period and measure, computed by code at batch load or by
+ * `pnpm batch rollup`. Money measures are cents per month; counts are plain
+ * numbers (see `src/features/insights/domain/metrics.ts`). Deleted with the
+ * workspace or the batch.
+ */
+export const insightSample = pgTable(
+  "insight_sample",
+  {
+    batchId: text("batch_id")
+      .notNull()
+      .references(() => syntheticBatch.id, { onDelete: "cascade" }),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    /** 30, 90 or 365, ending on the batch's `as_of`. */
+    periodDays: integer("period_days").notNull(),
+    measure: text("measure").notNull(),
+    value: bigint("value", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.workspaceId, table.periodDays, table.measure],
+    }),
+    index("insight_sample_batch_period_idx").on(
+      table.batchId,
+      table.periodDays,
     ),
   ],
 );

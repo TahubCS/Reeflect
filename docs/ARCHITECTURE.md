@@ -83,6 +83,8 @@ batch generator, ADR-049).
 Built so far: `accounts` (F-03: add, edit and delete accounts; HO-030),
 `transactions` (F-04: add, edit and delete manual transactions; HO-031),
 `categorization` (F-08: category controls, rules and manual choices),
+`insights` (F-35: compare with sample people, ADR-056; its `index.ts` is
+pure for `scripts/batch`, and `server.ts` exports the page),
 `auth` (sign-in, sign-up, email verification and password reset, ADR-052),
 `cashflow` (the calendar, on sample
 data), `landing` (the home page) and `synthetic`. `accounts` and
@@ -128,7 +130,8 @@ have `updated_at`.
 | `transaction` | id, workspace_id, financial_account_id, posted_on (date), amount_cents (signed, ADR-008), description_raw, merchant_normalized, category_id (nullable), category_is_manual (bool), status (`pending`/`posted`), is_transfer, transfer_pair_id (nullable; both sides of a transfer share it), source, import_batch_id (nullable), external_id (nullable), fingerprint | Unique (financial_account_id, fingerprint). Built in migration 0002; category columns arrive in 0005; `import_batch_id` added in migration 0006 (set null if the batch is deleted). Manual rows use fingerprint `manual:<id>` and the balance rule in ADR-050 |
 | `synthetic_batch` | id, label, generator_version, seed, start_month, months, as_of, spec (jsonb), notes, created_by, promoted_from | A replayable recipe (ADR-049). Built |
 | `synthetic_workspace` | workspace_id (PK, cascade), batch_id (restrict), person_key, persona, summary | The synthetic marker: a row means the workspace is synthetic, no row means real (ADR-049). Built |
-| `category` | id, workspace_id, name, color_token, sort_order, is_preset, preset_key | Built in migration 0005. Eight presets initialized on the first authorized editor visit; unique (workspace_id, preset_key) preserves renames |
+| `insight_sample` | batch_id (cascade), workspace_id (cascade), period_days, measure, value; PK (workspace_id, period_days, measure) | Each sample person's Insights figures for the last 30, 90 and 365 days to the batch's as-of: cents per month, or plain counts (ADR-056). Written at batch load and by `pnpm batch rollup`. Built in migration 0008 |
+| `category` | id, workspace_id, name, color_token, sort_order, is_preset, preset_key | Built in migration 0005. Eighteen presets (ADR-057) initialized on the first authorized editor visit, and by the batch loader for sample workspaces; unique (workspace_id, preset_key) preserves renames |
 | `budget` | id, workspace_id, category_id, month (`YYYY-MM`), amount_cents | Unique (category_id, month) |
 | `category_rule` | id, workspace_id, pattern, match_type, category_id, priority, origin (`user`/`ai_confirmed`) | Built in migration 0005. Composite workspace/category FK; current rules are user-created |
 | `recurring_series` | id, workspace_id, financial_account_id, merchant_normalized, median_amount_cents, cadence (`weekly`/`monthly`), last_charged_on, user_intent (`none`/`keep`/`cancel`), manual (bool), kind (`subscription`/`bill`), next_due_on (nullable), due_date_source (`lender`/`user`/`predicted`), autopay (bool) | Subscriptions are `kind = subscription` only (ADR-030) |

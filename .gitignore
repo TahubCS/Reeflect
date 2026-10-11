@@ -46,7 +46,7 @@ yarn-error.log*
 next-env.d.ts
 
 # dynamic planning file, decisions and rules are stored in docs/agents, not here
-plan.md
+/*plan.md
 # outbox for emails when RESEND_API_KEY is unset (ADR-052)
 /.email-outbox/
 

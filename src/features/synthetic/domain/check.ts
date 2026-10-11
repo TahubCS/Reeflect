@@ -152,7 +152,7 @@ export function daysCovered(span: {
 /**
  * Averages per month over the days actually generated, so a span that ends
  * part-way through a month is not under-counted. Income and spending leave
- * out transfers (ADR-020).
+ * out transfers (ADR-020) and investing (ADR-055).
  */
 export function personStats(
   person: GeneratedPerson,
@@ -162,7 +162,10 @@ export function personStats(
   let otherIn = ZERO;
   let spending = ZERO;
   for (const t of person.transactions) {
-    if (t.kind === "transfer" || t.postedOn > span.asOf) continue;
+    // Transfers and money into retirement or investing are not spending
+    // (ADR-020, ADR-055).
+    if (t.kind === "transfer" || t.kind === "investment") continue;
+    if (t.postedOn > span.asOf) continue;
     if (t.kind === "income") income = add(income, t.amount);
     else if (t.amount > 0) otherIn = add(otherIn, t.amount);
     else spending = add(spending, absolute(t.amount));

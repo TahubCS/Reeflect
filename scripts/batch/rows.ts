@@ -1,8 +1,11 @@
 // Expansion → database rows. Each synthetic person becomes an ordinary
 // workspace with accounts and transactions, plus a `synthetic_workspace`
-// marker naming the batch (ADR-049).
-import type { Expansion } from "@/features/synthetic";
+// marker naming the batch (ADR-049), and F-08 categories and rules (ADR-057).
+import { PRESET_CATEGORIES } from "@/features/categorization/client";
+import { type Expansion, planCategories } from "@/features/synthetic";
 import type {
+  category,
+  categoryRule,
   financialAccount,
   organization,
   syntheticWorkspace,
@@ -12,6 +15,8 @@ import type {
 export type BatchRows = {
   organizations: (typeof organization.$inferInsert)[];
   markers: (typeof syntheticWorkspace.$inferInsert)[];
+  categories: (typeof category.$inferInsert)[];
+  rules: (typeof categoryRule.$inferInsert)[];
   accounts: (typeof financialAccount.$inferInsert)[];
   transactions: (typeof transaction.$inferInsert)[];
 };
@@ -28,6 +33,8 @@ export function buildRows(
   const rows: BatchRows = {
     organizations: [],
     markers: [],
+    categories: [],
+    rules: [],
     accounts: [],
     transactions: [],
   };
@@ -47,6 +54,32 @@ export function buildRows(
       persona: person.persona,
       summary: person.summary,
     });
+
+    // F-08's presets, as its first editor visit would seed them, plus the
+    // rules and manual choices that give each row its category (ADR-057).
+    const categoryIds = new Map<string, string>();
+    PRESET_CATEGORIES.forEach((preset, sortOrder) => {
+      const id = newId();
+      categoryIds.set(preset.key, id);
+      rows.categories.push({
+        id,
+        workspaceId,
+        name: preset.name,
+        colorToken: preset.colorToken,
+        sortOrder,
+        presetKey: preset.key,
+      });
+    });
+    const plan = planCategories(person.transactions);
+    for (const rule of plan.rules) {
+      rows.rules.push({
+        id: newId(),
+        workspaceId,
+        pattern: rule.pattern,
+        matchType: "exact",
+        categoryId: categoryIds.get(rule.presetKey)!,
+      });
+    }
 
     const accountIds = new Map<string, string>();
     for (const account of person.accounts) {
@@ -72,6 +105,7 @@ export function buildRows(
         transferPairId = pairIds.get(t.transferPair) ?? newId();
         pairIds.set(t.transferPair, transferPairId);
       }
+      const categorized = plan.byTransaction.get(t.id)!;
       rows.transactions.push({
         id: newId(),
         workspaceId,
@@ -80,8 +114,14 @@ export function buildRows(
         amountCents: t.amount,
         descriptionRaw: t.description,
         status: "posted",
-        isTransfer: t.transferPair !== null,
+        // Money into an IRA or brokerage leaves the workspace unpaired, but
+        // is marked so it never counts as spending (ADR-020, ADR-055).
+        isTransfer: t.transferPair !== null || t.kind === "investment",
         transferPairId,
+        categoryId: categorized.presetKey
+          ? categoryIds.get(categorized.presetKey)!
+          : null,
+        categoryIsManual: categorized.manual,
         source: "synthetic",
         // The generator's own id: the same row on every replay of the batch.
         externalId: t.id,

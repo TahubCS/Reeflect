@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { PRESET_CATEGORIES } from "@/features/categorization/client";
 import { GENERATOR_VERSION } from "@/features/synthetic";
 import example from "../../tests/fixtures/synthetic/example-spec.json";
 import { SpecError, prepareBatch } from "./prepare";
@@ -137,6 +138,83 @@ describe("buildRows", () => {
         .filter((t) => !t.isTransfer)
         .every((t) => t.transferPairId === null),
     ).toBe(true);
+  });
+});
+
+describe("buildRows categories (ADR-057)", () => {
+  const prepared = prepareBatch(structuredClone(example), options);
+  let n = 0;
+  const rows = buildRows(prepared.expansion, {
+    batchId: "batch-1",
+    now: new Date("2026-10-10T12:00:00Z"),
+    newId: () => `id-${(n += 1)}`,
+  });
+  const categoryWorkspace = new Map(
+    rows.categories.map((c) => [c.id!, c.workspaceId]),
+  );
+
+  it("seeds F-08's presets in each workspace, in F-08's order", () => {
+    for (const org of rows.organizations) {
+      const mine = rows.categories.filter((c) => c.workspaceId === org.id);
+      expect(mine.map((c) => [c.presetKey, c.name, c.sortOrder])).toEqual(
+        PRESET_CATEGORIES.map((p, i) => [p.key, p.name, i]),
+      );
+    }
+  });
+
+  it("only ever points at a category in the same workspace", () => {
+    expect(rows.rules.length).toBeGreaterThan(0);
+    for (const r of rows.rules) {
+      expect(r.matchType).toBe("exact");
+      expect(categoryWorkspace.get(r.categoryId)).toBe(r.workspaceId);
+    }
+    for (const t of rows.transactions) {
+      if (t.categoryId) {
+        expect(categoryWorkspace.get(t.categoryId)).toBe(t.workspaceId);
+      }
+    }
+  });
+
+  it("categorizes pay as income and leaves transfer pairs Uncategorized", () => {
+    const presetOf = new Map(rows.categories.map((c) => [c.id!, c.presetKey]));
+    const people = prepared.expansion.people.flatMap((p) => p.transactions);
+    const kindOf = new Map(people.map((t) => [t.id, t.kind]));
+    for (const t of rows.transactions) {
+      const kind = kindOf.get(t.externalId!);
+      if (kind === "income") expect(presetOf.get(t.categoryId!)).toBe("income");
+      if (kind === "transfer") {
+        expect(t.categoryId).toBeNull();
+        expect(t.categoryIsManual).toBe(false);
+      }
+    }
+  });
+});
+
+describe("buildRows with investing", () => {
+  it("marks money into an IRA or brokerage as not spending, with no pair (ADR-055)", () => {
+    const input = structuredClone(example);
+    (input.people[1] as Record<string, unknown>).investing = [
+      { name: "SCHWAB BROKERAGE TRANSFER", amountCents: 150_000, day: 20 },
+    ];
+    let n = 0;
+    const rows = buildRows(prepareBatch(input, options).expansion, {
+      batchId: "batch-1",
+      now: new Date("2026-10-10T12:00:00Z"),
+      newId: () => `id-${(n += 1)}`,
+    });
+    const invested = rows.transactions.filter(
+      (t) => t.descriptionRaw === "SCHWAB BROKERAGE TRANSFER",
+    );
+    expect(invested).toHaveLength(3);
+    for (const t of invested) {
+      expect(t).toMatchObject({
+        amountCents: -150_000,
+        isTransfer: true,
+        transferPairId: null,
+      });
+      const saved = rows.categories.find((c) => c.id === t.categoryId);
+      expect(saved?.presetKey).toBe("investing");
+    }
   });
 });
 

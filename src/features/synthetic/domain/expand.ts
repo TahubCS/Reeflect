@@ -28,8 +28,12 @@ import {
 import { type Random, randomFor } from "./random";
 import type { Category, PersonSpec, Persona, Schedule, Spec } from "./spec";
 
-/** Bump when a change would make the same spec and seed give different rows. */
-export const GENERATOR_VERSION = 1;
+/**
+ * Bump when a change would make the same spec and seed give different rows.
+ * v2: retirement and investing (ADR-055). A v1 checkout would read a spec
+ * that uses them and silently leave those rows out, so replay needs v2.
+ */
+export const GENERATOR_VERSION = 2;
 
 export type AccountKey = "checking" | "savings" | "card";
 export type AccountType = "checking" | "savings" | "credit_card";
@@ -41,7 +45,9 @@ export type TransactionKind =
   | "everyday"
   | "transfer"
   | "interest"
-  | "event";
+  | "event"
+  /** Money into retirement or a brokerage: saving, not spending (ADR-055). */
+  | "investment";
 
 export type GeneratedTransaction = {
   /** Stable for the same spec and seed: `<person>:<YYYY-MM>:<n>`. */
@@ -74,6 +80,8 @@ export type GeneratedPerson = {
   name: string;
   persona: Persona;
   summary: string;
+  /** Their retirement answer; null when not answered (ADR-055). */
+  retirement: PersonSpec["retirement"] | null;
   accounts: GeneratedAccount[];
   transactions: GeneratedTransaction[];
 };
@@ -290,6 +298,27 @@ export function expandPerson(
       );
     }
 
+    // Into an IRA or a brokerage: out of checking, to an account outside the
+    // workspace, counted as saving rather than spending (ADR-055).
+    const investments = person.investing.map((item) => ({
+      ...item,
+      category: "Investing" as Category,
+    }));
+    if (person.retirement?.plan === "own") {
+      investments.unshift({ ...person.retirement, category: "Retirement" });
+    }
+    for (const item of investments) {
+      rows.push({
+        account: "checking",
+        postedOn: dateIn(month, item.day),
+        amount: negate(settle(cents(item.amountCents))),
+        description: item.name,
+        kind: "investment",
+        category: item.category,
+        transferPair: null,
+      });
+    }
+
     person.spending.forEach((spending, j) => {
       const random = stream(month, `spending:${j}`);
       const count = random.int(spending.perMonth.min, spending.perMonth.max);
@@ -392,6 +421,7 @@ export function expandPerson(
     name: person.name,
     persona: person.persona,
     summary: person.summary,
+    retirement: person.retirement ?? null,
     accounts: openings.map(([key, opening]) =>
       account(key, opening, kept, randomFor(seed, person.key, "mask", key)),
     ),

@@ -8,7 +8,7 @@ a saved rule, or no match. Editors and owners can:
 - Save that choice as a merchant rule in the same operation.
 - Return a manual choice to automatic categorization.
 - Add, edit and delete literal merchant rules, with delete confirmation.
-- Rename the eight preset categories.
+- Rename the preset categories (eighteen, ADR-057).
 
 Viewers can read these results; they cannot write or initialize categories.
 Unknown merchants remain Uncategorized until a rule or manual choice exists.
@@ -23,7 +23,8 @@ additive: existing transactions start without a manual override. It does not
 change amounts, account balances, dates, transaction source or transfer flags.
 Run the migration before deploying this branch's application code.
 
-The first authorized editor visit initializes eight categories idempotently.
+The first authorized editor visit initializes the preset categories
+idempotently; a workspace seeded with fewer gains the new ones then.
 The seed key preserves renamed categories and avoids duplicates during
 concurrent visits. Categories and rules belong to one workspace; composite
 foreign keys prevent cross-workspace category assignments.

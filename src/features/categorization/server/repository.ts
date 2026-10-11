@@ -9,11 +9,7 @@ import {
   transaction,
 } from "@/lib/db/schema";
 import { cents } from "@/lib/money";
-import {
-  categorizeTransaction,
-  type Categorization,
-  type CategoryRule,
-} from "../domain/categorize";
+import { type CategoryRule, classifyStored } from "../domain/categorize";
 import { normalizeMerchant } from "../domain/normalize-merchant";
 import {
   MAX_RULES,
@@ -78,6 +74,7 @@ export async function listCategories(
       id: category.id,
       name: category.name,
       sortOrder: category.sortOrder,
+      presetKey: category.presetKey,
     })
     .from(category)
     .where(eq(category.workspaceId, workspaceId))
@@ -117,29 +114,6 @@ const engineRules = (rules: RuleSummary[]): CategoryRule[] =>
     matchType,
     priority,
   }));
-
-type CategorizedRow = {
-  descriptionRaw: string;
-  categoryId: string | null;
-  categoryIsManual: boolean;
-};
-function classify(row: CategorizedRow, rules: CategoryRule[]): Categorization {
-  const result = categorizeTransaction({
-    descriptionRaw: row.descriptionRaw,
-    rules,
-    manualOverride: row.categoryIsManual,
-    manualCategoryId: row.categoryIsManual ? row.categoryId : null,
-  });
-  if (result.success) return result.data;
-  // Historical/imported descriptions may exceed the form's bounds. Preserve
-  // manual choices and leave automatic results uncategorized, without guessing.
-  return {
-    merchantNormalized: normalizeMerchant(row.descriptionRaw),
-    categoryId: row.categoryIsManual ? row.categoryId : null,
-    matchedRuleId: null,
-    origin: row.categoryIsManual ? "manual" : "uncategorized",
-  };
-}
 
 export type CategorizationPageData = {
   categories: CategorySummary[];
@@ -204,7 +178,7 @@ export async function getCategorizationPage(
         rules,
         hasNextPage: rows.length > PAGE_SIZE,
         transactions: rows.slice(0, PAGE_SIZE).map((row) => {
-          const result = classify(row, activeRules);
+          const result = classifyStored(row, activeRules);
           return {
             id: row.id,
             postedOn: row.postedOn,
@@ -235,7 +209,7 @@ export async function getCategoryMetadata(
   },
   executor: Executor = db,
 ): Promise<{ categoryId: string | null; merchantNormalized: string }> {
-  const result = classify(
+  const result = classifyStored(
     { descriptionRaw, ...override },
     engineRules(await listRules(workspaceId, executor)),
   );
@@ -320,7 +294,7 @@ async function materialize(
   // One parameter per batch, rather than one database round trip per row.
   for (let start = 0; start < rows.length; start += 500) {
     const updates = rows.slice(start, start + 500).map((row) => {
-      const result = classify(row, rules);
+      const result = classifyStored(row, rules);
       return {
         id: row.id,
         category_id: result.categoryId,

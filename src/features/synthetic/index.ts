@@ -12,6 +12,11 @@ export {
   type Warning,
 } from "./domain/check";
 export {
+  planCategories,
+  PRESET_FOR,
+  type CategoryPlan,
+} from "./domain/categories";
+export {
   expandPerson,
   expandSpec,
   GENERATOR_VERSION,

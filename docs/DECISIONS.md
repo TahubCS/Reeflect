@@ -80,6 +80,9 @@ Rules:
 | ADR-052 | Email through Resend; verified email required | Proposed |
 | ADR-053 | Statement CSVs in Neon object storage (refines ADR-025) | Proposed |
 | ADR-054 | CSV import: Capital One exports in built-in formats (refines ADR-044) | Proposed |
+| ADR-055 | Retirement and investing count as saving, not spending (refines ADR-020) | Proposed |
+| ADR-056 | Insights: compare with sample people (refines ADR-049) | Proposed |
+| ADR-057 | More preset categories; sample people arrive categorized (refines ADR-015) | Proposed |
 
 ---
 
@@ -898,7 +901,6 @@ Rules:
   - F-27 (log spending by text) reuses `createTransaction`, so it follows the
     same rule.
 
-
 ### ADR-053: Statement CSVs in Neon object storage (refines ADR-025)
 
 - **Status:** Proposed (2026-10-10), from Simon. **The team should confirm it.**
@@ -1005,6 +1007,180 @@ Rules:
   check them against a real export (kept in a gitignored `private/`
   folder). A PDF and a CSV of the same period only dedupe where their
   descriptions match.
+
+### ADR-055: Retirement and investing count as saving, not spending (refines ADR-020)
+
+- **Status:** Proposed (2026-10-10), agreed by the team in conversation,
+  written by Jacob.
+- **Context:**
+  - ADR-020 counts money sent outside the workspace as spending unless the
+    user marks it. Money paid into an IRA or a brokerage account leaves the
+    workspace, so someone who saves would look like a big spender.
+  - A 401(k) is taken out of pay before it lands, so it never appears in
+    bank data. We can only know about it if the user tells us.
+  - AGENTS.md section 2 rules out investing features. Showing how much went
+    in is not one, but the line needs writing down.
+- **Decision:**
+  - **Saving, not spending.** Money moved into a retirement account (an
+    IRA) or an investment account (a brokerage) counts as saving, like a
+    transfer to savings. It is left out of spending and budgets, and shown
+    under the system categories "Retirement" and "Investing".
+  - **How it is recognised.** Until categories exist (F-08), such a
+    transaction is marked as a transfer with no pair. Afterwards,
+    categorization rules (ADR-013) put it in "Retirement" or "Investing",
+    and both are excluded from spending.
+  - **The retirement question.** Every workspace has one open question,
+    shown as an action-required item until it is answered: "Is money going
+    into a retirement plan for you?"
+
+| Answer | What we store | What we show |
+|---|---|---|
+| Through my employer (401(k), 403(b)) | Optional monthly amounts: what you put in, and what your employer adds | The amounts the user typed (ADR-035's rule for amounts the user gives) |
+| Into my own account (an IRA) | The answer only | The "Retirement" transactions we find |
+| Not right now | The answer only | Nothing more; we do not ask again |
+
+  - **Action required, without alarms (ADR-042).** The item sits in a
+    "Needs your answer" list on Insights and in Settings, in neutral words,
+    with no red, no badges that count up and no reminders by text. "Not
+    right now" is a complete answer.
+  - **Where the line is.** Reeflect shows how much money went in. It never
+    shows holdings, prices or returns, never trades, and never recommends a
+    plan, a fund or an amount.
+  - **Synthetic people** (docs/SYNTHETIC.md) carry a `retirement` answer and
+    `investing` transfers in the spec. Generator version 2.
+- **Alternatives considered:** Treating IRA and brokerage payments as
+  spending (wrong for savers); guessing a 401(k) from the gap between gross
+  and net pay (we never see gross pay).
+- **Consequences:**
+  - A table for the answer (workspace, plan, the two optional amounts, when
+    answered) needs a migration (ARCH-03).
+  - F-08's preset categories gain "Retirement" and "Investing", excluded
+    from spending.
+  - AGENTS.md section 2 and docs/SYNTHETIC.md rule 7 now say this.
+  - Batches made by generator v1 replay only from a v1 checkout. A v1 spec
+    reloaded with v2 gives the same rows.
+
+### ADR-056: Insights: compare with sample people (refines ADR-049)
+
+- **Status:** Proposed (2026-10-10), by Jacob; updated 2026-10-11 with the
+  details settled while building it (HO-043). Not in ADR-043's P0 or P1:
+  built as Later unless the team moves it up.
+- **Context:** ADR-049 asks for this record before a cross-workspace page is
+  built. Users want to see how their money compares with people like them.
+  Real-user aggregates wait for legal review (ADR-028), so the comparison is
+  with synthetic people only.
+- **Decision:**
+  - **Who you are compared with.** The synthetic workspaces of one batch:
+    the newest in the database the app points at. The batch-testing branch
+    and production can therefore show different figures. Every group
+    figure is labelled "Sample".
+  - **Each sample person's figures are computed once, by code, when a
+    batch is loaded**, and stored in an `insight_sample` table (one row per
+    person, period and measure) that references `synthetic_batch` and is
+    deleted with it. They are never hardcoded. A backfill command fills it
+    for batches loaded earlier.
+  - **Your figures are computed on request**, from your workspace only, by
+    the same function. The page reads your workspace and the stored sample
+    figures, never another workspace's transactions.
+  - **Periods:** the last 30, 90 and 365 days, shown per month (amount ×
+    30.4375 ÷ days). For the group they end at the batch's `asOf`; for you,
+    yesterday (UTC). When your data starts partway through a period, your
+    figures average over the days it covers, and the page says so.
+  - **Groups**, built on request from the stored figures (at most a few
+    hundred rows):
+    - **People like you:** the 10 sample people just above you and the 10
+      just below you by take-home pay for the period. At either end of the
+      range, the 20 nearest.
+    - **Everyone:** the whole batch.
+    - The page shows the group's size, its take-home range and its persona
+      mix. A batch needs at least 50 people; generating more is the answer
+      to small groups.
+  - **Measures:** spending per category (in dollars and as a share of
+    take-home), kept after spending, moved to savings, retirement and
+    investing (ADR-055), bills as a share of take-home, subscription count
+    and cost, lowest balance before payday, no-spend days.
+    - Categories are compared by **preset key** (ADR-057), so a renamed
+      category still matches, plus an Uncategorized bucket. A row's
+      category is its effective one (manual choice, else rule), worked out
+      by F-08's own `classifyStored`.
+    - **Take-home** is money in that isn't a transfer and is categorized as
+      Income or not at all. Money in under another category is a refund
+      and reduces that category's spending.
+    - **No-spend days** ignore bills and subscriptions. **Lowest balance**
+      is the lowest end-of-day total of checking accounts in the period.
+    - "Typical" is the group's median; the spread is its quartiles (linear,
+      rounded to the cent, `quantile` in `src/lib/money`).
+  - **Wording** stays neutral ("a bit higher than typical"), with no
+    rankings framed as failure (ADR-042). No number comes from a model
+    (ADR-019).
+  - **Slight tints**, asked for by the team: a pale green where a figure
+    reads as going well (more kept or saved, less spent) and a pale warm
+    tone where it doesn't, stronger only outside the middle half. The words
+    always say the same thing, so colour is never the only signal. No tint
+    for Uncategorized, or where the typical person spends nothing in a
+    category.
+- **Alternatives considered:** Hardcoded group figures (the same on every
+  branch, and they go stale); computing from transactions on each request
+  (reads other workspaces' rows on every visit); fixed take-home bands
+  (the team preferred neighbours above and below); a cash-flow window
+  (cash flow is what is being compared, so the groups look alike by
+  construction).
+- **Consequences:**
+  - A migration adds `insight_sample` (ARCH-03): migration 0008.
+  - `pnpm batch load` and `promote` write the figures in the same database
+    transaction, from the rows just written; `pnpm batch rollup` recomputes
+    them from the database (the backfill).
+  - Workspaces with no categorization rules (new Nessie-backed accounts)
+    show mostly Uncategorized; the page says how much and links to
+    Transactions to add rules.
+  - Developers see a sample workspace by being added to it as a member
+    (`pnpm batch attach`, still to be built), as `editor`. Their edits make
+    that workspace drift from its recipe: its stored figures go stale until
+    a backfill, and `promote` replays the recipe without the edits.
+
+### ADR-057: More preset categories; sample people arrive categorized (refines ADR-015)
+
+- **Status:** Proposed (2026-10-10), by Jacob. The first eight presets were
+  a starting set.
+- **Context:**
+  - ADR-015 starts workspaces with 6–8 preset categories. F-08 (ADR-013)
+    built eight: groceries, dining, transport, housing, utilities,
+    shopping, entertainment, income.
+  - Common spending had nowhere to go (health, insurance, travel), and
+    ADR-055 needs "Retirement" and "Investing".
+  - Insights (ADR-056) compares people by category, so sample people need
+    the same categories as everyone else.
+- **Decision:**
+  - **Eighteen presets.** The first eight stay as they are, in the same
+    order. Ten are added after them: health, insurance, loans,
+    subscriptions, personal care, kids & childcare, gifts, travel,
+    retirement, investing. All can be renamed. Existing workspaces gain the
+    new ones on the next editor visit, through the same idempotent seed.
+  - **Retirement and investing are saving**, never spending (ADR-055).
+  - **Sample people are categorized at batch load** like a real user would
+    be:
+    - Each person gets the presets.
+    - Each merchant that always means one preset gets an exact-match rule.
+    - A merchant used for two things gets manual choices instead.
+    - Each transaction is stored with its category.
+  - **Generator categories map onto presets** (`PRESET_FOR` in
+    `src/features/synthetic`). Categories with no preset (Other,
+    Education, card interest) and transfer pairs stay Uncategorized.
+  - **The generator's own categories stay finer** than the presets, so the
+    generated rows don't change: no new generator version.
+- **Alternatives considered:**
+  - Renaming the generator's categories to the presets: a generator v3,
+    and the detail would be lost.
+  - Storing categories on sample rows without rules: F-08 works out
+    automatic categories from rules on read, so those rows would show as
+    Uncategorized.
+  - Marking every sample row manual: the rules page would be empty, and a
+    developer's new rule would never apply.
+- **Consequences:**
+  - The budgets page (F-09) gets one row per preset; eighteen is the new
+    upper end of ADR-015's range.
+  - Nessie-backed and other real accounts still start with no rules.
+    Starter rules for the demo accounts are a separate decision.
 
 ---
 
