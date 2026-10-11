@@ -340,7 +340,8 @@ Rules:
   - **Password reset** by email: `sendResetPassword`, with
     `revokeSessionsOnPasswordReset: true`. The request page says the same
     thing whether or not the address has an account.
-  - **Every existing user is verified once:** a custom Drizzle migration
+  - **Every existing user is verified once:** custom Drizzle migration
+    `0003_verify_existing_users`
     runs `UPDATE "user" SET "email_verified" = true`. It applies to the
     users present when each database migrates, and does nothing afterwards.
     The migration runs on production **before** the code that requires
