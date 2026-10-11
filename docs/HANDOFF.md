@@ -46,7 +46,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-04 Manual transactions | A | Simon Ormond | `feat/manual-transactions` | Built: add, edit, delete, list by day, account filter (HO-031); ADR-050 Proposed |
 | F-05 CSV import | A | Unassigned | — | Not started |
 | F-06 PDF statement import (P0, ADR-044) | A | Unassigned | — | Not started |
-| F-08 Categorization | A | Codex | `feat/transaction-categorization` | Engine done (HO-035); full flow in progress on PR #12 |
+| F-08 Categorization | A | Codex | `feat/transaction-categorization` | Full feature implemented and verified (HO-037); PR #12 awaits merge |
 | F-09 Monthly budgets (P1) | A | Unassigned | — | Not started |
 | F-10 Subscriptions (detection P0, marks P1) | A | Unassigned | — | Not started |
 | F-12 Calendar home screen | B | Unassigned | — | Scaffolded on sample data (HO-019) |
@@ -1602,3 +1602,59 @@ recommendation, not a decision.
 ### Open problems
 - The full F-08 persistence and user-facing integration dependencies in HO-035
   remain. This PR contains the isolated engine milestone.
+
+---
+
+## HO-037: Complete F-08 categorization and transaction integration
+
+- **Date:** 2026-10-11 00:54 (UTC)
+- **Author:** Codex
+- **Branch / PR:** `feat/transaction-categorization` / [PR #12](https://github.com/TahubCS/Reeflect/pull/12)
+
+### What changed
+- Completed persisted, workspace-scoped categories and rules, manual overrides
+  with optional rule saving, explicit manual Uncategorized, return to automatic,
+  rule creation/editing/deletion and renaming eight presets. Saves and automatic
+  recategorization are atomic; manual choices survive rule and transaction edits.
+- Integrated main through `adc6312`: retained F-04 add/edit/delete, balances,
+  account filtering, grouping by day, instant navigation and verified signup.
+  Creation/editing computes category metadata inside the existing SQL transaction.
+  Transactions now paginate at 50 rows and have a route-local retry boundary.
+  A final fetch confirmed main still matches this integrated revision.
+- Generated additive `0005_categorization`, after phone linking's 0003 and
+  verification's 0004. Composite foreign keys reject foreign-workspace categories;
+  the composite unique index precedes its dependent foreign key in the SQL.
+  Only editors initialize categories; all five actions require editor access
+  before validation/writes and are covered by the shared isolation matrix.
+- Exact merchant matching now handles store numbers followed by US city/state.
+  Public read/write integration APIs and the separate pure client entry point
+  are documented. No categorization vendor, dependency or money-rule changes.
+- Final verification: **825 unit/database tests** and **74 non-external browser
+  tests**, including 12 new categorization flows, passed. Categorization domain
+  and server line coverage is 100%; branch coverage is 98.27% and 97.5% respectively.
+  All six migrations applied to an empty local database. Lint, format check,
+  strict types, docs checks, production build, client-bundle scan and diff checks
+  passed. Browser verification used a fresh production server on port 3101.
+- Browser signup polling now tolerates a partially written local outbox file
+  during parallel tests. Recovery coverage allows only React's expected #419
+  report from the deliberately broken fixture; normal flows allow no page errors.
+- [Desktop light](screenshots/categorization/desktop-light.png),
+  [desktop dark](screenshots/categorization/desktop-dark.png),
+  [phone light](screenshots/categorization/phone-light.png) and
+  [phone dark](screenshots/categorization/phone-dark.png) previews use synthetic
+  data. Verified at 1440px and 360px, including reduced motion and no overflow.
+- Engine handoffs were renumbered HO-035/HO-036 while retaining main's entries.
+  Updated the implementation plan, feature README, architecture, testing and demo.
+
+### What's next
+- Publish the full feature commit to the same PR, then use the required CI and
+  teammate review before merging. The user explicitly requested the entire
+  feature pushed to this PR and authorized follow-up commits.
+- Apply pending migrations, including 0005, before deploying the application.
+  Import/sync callers can use `applyCategoryRules` after committing rows and
+  must preserve manual category metadata on re-imports.
+
+### Open problems
+- No known F-08 regression from final local checks. No production migration
+  or deployment was performed; the existing shared-database migration record
+  concern in HO-026 still needs reconciliation before deployment.

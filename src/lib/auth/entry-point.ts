@@ -6,6 +6,8 @@ export type EntryPointTarget = {
   accountId: string;
   /** A transaction on `accountId`. */
   transactionId: string;
+  categoryId: string;
+  ruleId: string;
 };
 
 /**

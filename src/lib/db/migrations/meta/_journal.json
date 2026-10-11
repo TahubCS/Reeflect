@@ -36,6 +36,13 @@
       "when": 1791677777544,
       "tag": "0004_verify_existing_users",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791679415537,
+      "tag": "0005_categorization",
+      "breakpoints": true
     }
   ]
 }

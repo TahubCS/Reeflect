@@ -3,10 +3,20 @@ import { Suspense } from "react";
 import { PageLoading } from "@/components/ui/page-loading";
 import { accountIdSchema, listAccounts } from "@/features/accounts";
 import {
-  LIST_LIMIT,
-  TransactionList,
-  listTransactions,
-} from "@/features/transactions";
+  CategorizationPanels,
+  PAGE_SIZE,
+  TransactionCategory,
+  TransactionPagination,
+  createRuleAction,
+  deleteRuleAction,
+  ensureCategories,
+  getCategorizationPage,
+  pageNumberSchema,
+  renameCategoryAction,
+  saveOverrideAction,
+  updateRuleAction,
+} from "@/features/categorization";
+import { TransactionList, listTransactions } from "@/features/transactions";
 import { requireWorkspaceAccess } from "@/lib/auth/authz";
 import { roleAtLeast } from "@/lib/auth/roles";
 import { getSession } from "@/lib/auth/session";
@@ -24,27 +34,73 @@ async function Transactions({ params, searchParams }: Props) {
     workspaceId,
     "viewer",
   );
-  const accounts = await listAccounts(access.workspaceId);
-  // Only one of this workspace's own accounts narrows the list; anything
-  // else shows every account.
-  const requested = accountIdSchema.safeParse((await searchParams).account);
+  const canEdit = roleAtLeast(access.role, "editor");
+  if (canEdit) await ensureCategories(access.workspaceId);
+  const [accounts, query] = await Promise.all([
+    listAccounts(access.workspaceId),
+    searchParams,
+  ]);
+  const requested = accountIdSchema.safeParse(query.account);
   const accountId =
-    requested.success && accounts.some((a) => a.id === requested.data)
+    requested.success &&
+    accounts.some((account) => account.id === requested.data)
       ? requested.data
       : null;
-  const transactions = await listTransactions(access.workspaceId, {
+  const page = pageNumberSchema.parse(query.page ?? 1);
+  const rows = await listTransactions(access.workspaceId, {
     accountId: accountId ?? undefined,
+    limit: PAGE_SIZE + 1,
+    offset: (page - 1) * PAGE_SIZE,
   });
-
+  const transactions = rows.slice(0, PAGE_SIZE);
+  const data = await getCategorizationPage(
+    access.workspaceId,
+    1,
+    transactions.map((item) => item.id),
+  );
+  const categoryControls = Object.fromEntries(
+    data.transactions.map((item) => [
+      item.id,
+      <TransactionCategory
+        key={item.id}
+        item={item}
+        categories={data.categories}
+        canEdit={canEdit}
+        action={saveOverrideAction.bind(null, access.workspaceId)}
+      />,
+    ]),
+  );
   return (
     <TransactionList
       workspaceId={access.workspaceId}
       transactions={transactions}
       accounts={accounts}
       accountId={accountId}
-      truncated={transactions.length === LIST_LIMIT}
-      canEdit={roleAtLeast(access.role, "editor")}
-    />
+      canEdit={canEdit}
+      truncated={false}
+      categoryControls={categoryControls}
+      pagination={
+        <TransactionPagination
+          workspaceId={access.workspaceId}
+          accountId={accountId}
+          page={page}
+          hasNextPage={rows.length > PAGE_SIZE}
+        />
+      }
+    >
+      <CategorizationPanels
+        categories={data.categories}
+        rules={data.rules}
+        canEdit={canEdit}
+        createRuleAction={createRuleAction.bind(null, access.workspaceId)}
+        updateRuleAction={updateRuleAction.bind(null, access.workspaceId)}
+        deleteRuleAction={deleteRuleAction.bind(null, access.workspaceId)}
+        renameCategoryAction={renameCategoryAction.bind(
+          null,
+          access.workspaceId,
+        )}
+      />
+    </TransactionList>
   );
 }
 

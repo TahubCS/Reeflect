@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeMerchant } from "../index";
+import { normalizeMerchant } from "../client";
 
 describe("normalizeMerchant", () => {
   it.each([
@@ -10,6 +10,13 @@ describe("normalizeMerchant", () => {
     ["Corner Market loc #42", "corner market"],
     ["Corner Market #0042", "corner market"],
     ["Corner Market #0042 #0099", "corner market"],
+    ["WALMART #1234 RALEIGH NC", "walmart"],
+    ["WALMART #5678 DURHAM NC 27701", "walmart"],
+    ["Corner Market STORE #42 CHAPEL HILL NC REF ABC123", "corner market"],
+    ["Corner Market location: 42 NEW YORK NY 10001-1234", "corner market"],
+    ["Corner Market #0042 Unknown location", "corner market unknown location"],
+    [" #1 Chinese Restaurant ", "#1 chinese restaurant"],
+    ["Studio 54 Raleigh NC", "studio 54 raleigh nc"],
     ["#0042", ""],
     ["#1 Chinese Restaurant", "#1 chinese restaurant"],
     ["Corner Market #0042 REF ABC123", "corner market"],
@@ -39,6 +46,7 @@ describe("normalizeMerchant", () => {
     "CORNER MARKET #42 #99",
     "#42",
     "#1 Chinese Restaurant",
+    "WALMART #1234 RALEIGH NC",
   ])("normalizes %j idempotently without retaining regex state", (raw) => {
     const normalized = normalizeMerchant(raw);
 

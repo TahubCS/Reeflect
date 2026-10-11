@@ -27,6 +27,8 @@ export const categorizationInputSchema = z
     rules: z.array(categoryRuleSchema).max(1_000),
     /** Null or absent means there is no manual override. */
     manualCategoryId: identifier.nullable().optional(),
+    /** An explicit Uncategorized choice is still a manual override. */
+    manualOverride: z.boolean().optional(),
   })
   .superRefine(({ rules }, context) => {
     const seen = new Set<string>();
@@ -77,14 +79,15 @@ export function categorizeTransaction(input: unknown): CategorizationResult {
   const parsed = categorizationInputSchema.safeParse(input);
   if (!parsed.success) return parsed;
 
-  const { descriptionRaw, rules, manualCategoryId } = parsed.data;
+  const { descriptionRaw, rules, manualCategoryId, manualOverride } =
+    parsed.data;
   const merchantNormalized = normalizeMerchant(descriptionRaw);
-  if (manualCategoryId) {
+  if (manualCategoryId || manualOverride) {
     return {
       success: true,
       data: {
         merchantNormalized,
-        categoryId: manualCategoryId,
+        categoryId: manualCategoryId ?? null,
         matchedRuleId: null,
         origin: "manual",
       },

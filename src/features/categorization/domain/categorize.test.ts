@@ -4,7 +4,7 @@ import {
   type CategoryRule,
   categorizeTransaction,
   categoryRuleSchema,
-} from "../index";
+} from "../client";
 
 const rule = (overrides: Partial<CategoryRule> = {}): CategoryRule => ({
   id: "rule-groceries",
@@ -39,6 +39,21 @@ describe("categorizeTransaction", () => {
       origin: "rule",
     });
   });
+
+  it.each(["WALMART #1234 RALEIGH NC", "WALMART #5678 DURHAM NC 27701"])(
+    "an exact merchant rule matches location-bearing description %j",
+    (description) => {
+      expect(
+        classify(description, [
+          rule({ pattern: "walmart", matchType: "exact" }),
+        ]),
+      ).toMatchObject({
+        merchantNormalized: "walmart",
+        categoryId: "category-groceries",
+        origin: "rule",
+      });
+    },
+  );
 
   it.each([
     ["contains", "market", "corner market", true],
@@ -159,6 +174,46 @@ describe("categorizeTransaction", () => {
     expect(classify("market", []).origin).toBe("uncategorized");
   });
 
+  it("preserves an explicit manual Uncategorized choice over a matching rule", () => {
+    expect(
+      categorizeTransaction({
+        descriptionRaw: "market",
+        rules: [rule()],
+        manualOverride: true,
+        manualCategoryId: null,
+      }),
+    ).toEqual({
+      success: true,
+      data: {
+        merchantNormalized: "market",
+        categoryId: null,
+        matchedRuleId: null,
+        origin: "manual",
+      },
+    });
+  });
+
+  it("supports a manual override flag without a category id", () => {
+    const result = categorizeTransaction({
+      descriptionRaw: "market",
+      rules: [rule()],
+      manualOverride: true,
+    });
+    expect(result).toMatchObject({
+      success: true,
+      data: { categoryId: null, origin: "manual" },
+    });
+  });
+
+  it("continues matching when the manual override flag is false", () => {
+    const result = categorizeTransaction({
+      descriptionRaw: "market",
+      rules: [rule()],
+      manualOverride: false,
+    });
+    expect(result).toMatchObject({ success: true, data: { origin: "rule" } });
+  });
+
   it("does not mutate frozen input or reorder rules on repeated calls", () => {
     const rules = Object.freeze([
       Object.freeze(rule({ id: "b" })),
@@ -182,6 +237,7 @@ describe("categorizeTransaction", () => {
     { descriptionRaw: "market", rules: [null] },
     { descriptionRaw: "market", rules: [], manualCategoryId: " " },
     { descriptionRaw: "market", rules: [], manualCategoryId: 12 },
+    { descriptionRaw: "market", rules: [], manualOverride: "true" },
     {
       descriptionRaw: "market",
       rules: [rule({ matchType: "regex" as "exact" })],
