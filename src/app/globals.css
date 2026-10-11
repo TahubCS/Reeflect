@@ -35,12 +35,12 @@
      is the header's night band, grid and all, so the two read as one. */
   --page-grid: transparent;
 
-  /* Figures that should line up like a statement. */
-  --font-num: var(--font-mono), ui-monospace, Menlo, monospace;
-
   /* About the height of the sticky signed-in header (src/app/(app)/
      layout.tsx), so nothing sticky or scrolled-to hides under it. */
   --header-h: 7rem;
+
+  /* Figures that should line up like a statement. */
+  --font-num: var(--font-mono), ui-monospace, Menlo, monospace;
 
   /* "Sample" label (ADR-024) and Insights' slight comparison tints
      (ADR-056). Tints sit behind ink text: the words carry the meaning. */
