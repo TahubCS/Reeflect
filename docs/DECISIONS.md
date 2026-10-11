@@ -1941,3 +1941,48 @@ Rules:
   on recorded coverage and transfer marks. Apply migration 0010 to the intended
   deployment database before deploying the new page. Agent budget replies
   remain separate work.
+
+
+### ADR-063: Web Bills tracks invoices and explicit payment evidence
+
+- **Date:** 2026-10-11
+- **Status:** Accepted
+- **Owner:** Muhammad Tahub Khatri
+- **Context:** The user approved the revised web-only Bills plan and requested
+  implementation. Recurring patterns describe typical payments; variable
+  invoices need their own amount, due date and explicit payment state. Claude
+  owns the agent, Simon the dashboard and Jacob Insights/mock data.
+- **Decision:**
+  - Implement the complete Bills website only. Keep ADR-058's pattern detector
+    and canonical recurring schedules, with no new merchant or amount rules.
+  - Store current invoices separately from long-term estimates. Unknown differs
+    from zero. Keep a stable scheduled-date identity and original month-end
+    anchor; correcting a due date changes one invoice, not another obligation.
+  - Project at most 90 days on read, using America/New_York as elsewhere in the
+    app. Predictions are expected dates; explicit invoice dates are due dates.
+    Do not manufacture past unpaid obligations from imported history.
+  - Require explicit user confirmation to link owned posted outflows by payment
+    account, normalized payee and neighboring-cycle window. Do not allocate a
+    transaction twice. Sum valid partial payments in cents; show overpayment
+    without allocating excess. Pending/future rows and refunds are not proof.
+  - Permit explicitly configured debt repayment transfers without reclassifying
+    them as spending. Autopay is an annotation. Manual paid marks are reversible
+    and separate from posted evidence; an invoice correction clears an old mark.
+    Changed/deleted evidence requires review and contributes no copied amount.
+  - Compare recorded checking/savings cash with open cash-funded bills over
+    30 days plus unresolved user-dated past invoices. Separate known invoices
+    from estimates, show balance dates and account filters, and state that
+    everyday spending and one-off plans are outside these totals.
+  - Viewers read, editors/owners write. Preserve history when stopping/restoring
+    tracking or converting kind. Use ownership constraints, atomic transactions,
+    revisions and bounded reads/writes. Never mutate transactions or balances.
+- **Alternatives considered:** treating an estimated charge as an invoice;
+  applying a fixed amount tolerance to variable utilities; automatic settlement
+  from a nearby charge; creating years of historical unpaid invoices; extending
+  into the independently owned dashboard and message delivery.
+- **Consequences:** Migration 0014 adds bill details, cycles and evidence. The
+  Bills page has its own error/retry boundary and tests. This decision applies
+  to the web invoice experience; ADR-030's automated reminder matching and
+  delivery are unchanged. No worker, messaging, AI, cron, job, notification
+  preferences or dashboard integration is implemented here. Those integrations
+  must explicitly adopt these invoice semantics if they consume the public API.

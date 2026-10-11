@@ -1,0 +1,221 @@
+.page {
+  max-width: 86rem;
+  margin-inline: auto;
+}
+.heading,
+.cardHead,
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: start;
+  justify-content: space-between;
+}
+.heading {
+  margin-block: 1rem 1.5rem;
+}
+.note {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  margin-block: 0.5rem;
+  overflow-wrap: anywhere;
+}
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: 1rem;
+}
+.summary > div,
+.card,
+.panel,
+.add {
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  padding: 1rem;
+  background: var(--surface);
+  min-width: 0;
+}
+.summary dt {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+.summary dd {
+  margin: 0.5rem 0 0;
+  font-size: 1.55rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.add,
+.panel {
+  margin-block: 1.25rem;
+}
+.add summary,
+.panel summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-block: 1.5rem 1rem;
+}
+.tabs a {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 2rem;
+  text-decoration: none;
+  color: var(--ink);
+}
+.tabs a[aria-current="page"] {
+  background: var(--tint);
+  font-weight: 650;
+}
+.filters,
+.fields {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+}
+.filters {
+  align-items: end;
+  margin-block: 1rem;
+}
+.filters label,
+.field {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.field input,
+.field select,
+.filters select,
+.filters input {
+  box-sizing: border-box;
+  background: var(--surface-soft);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  padding: 0.6rem;
+  font: inherit;
+  width: 100%;
+  min-width: 0;
+}
+.field input[readonly] {
+  color: var(--ink-soft);
+}
+.form {
+  display: grid;
+  gap: 1rem;
+  margin-block: 1rem;
+}
+.form button,
+.operation button,
+.filters button {
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: var(--tint);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  width: fit-content;
+}
+.form button:disabled,
+.operation button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.form [aria-invalid="true"] {
+  border-color: var(--bill);
+}
+.check {
+  display: flex;
+  align-items: start;
+  gap: 0.6rem;
+}
+.check input {
+  flex: 0 0 auto;
+  margin-top: 0.2rem;
+}
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+  gap: 1rem;
+}
+.card h2,
+.panel h2 {
+  font-size: 1.25rem;
+  margin-block: 0 0.6rem;
+  overflow-wrap: anywhere;
+}
+.card a,
+.panel a {
+  color: var(--ink);
+  text-underline-offset: 0.2rem;
+}
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+  margin-block: 1rem;
+}
+.facts > div {
+  min-width: 8rem;
+}
+.facts dt {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+.facts dd {
+  margin: 0.35rem 0 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.status {
+  display: inline-block;
+  background: var(--tint);
+  border-radius: 1rem;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.85rem;
+}
+.evidence,
+.history {
+  padding-left: 1.25rem;
+}
+.evidence li,
+.history li {
+  padding-block: 0.65rem;
+  overflow-wrap: anywhere;
+}
+.operation {
+  margin-block: 0.65rem;
+}
+.pager {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-block: 1rem;
+}
+.pager a {
+  color: var(--ink);
+}
+.panel h3 {
+  font-size: 1rem;
+  margin-block: 1.5rem 0.75rem;
+}
+.page :focus-visible {
+  outline: 2px solid var(--in);
+  outline-offset: 3px;
+}
+.page p[role="alert"] {
+  font-weight: 500;
+}
+@media (max-width: 480px) {
+  .facts {
+    gap: 0.75rem;
+  }
+  .summary dd {
+    font-size: 1.3rem;
+  }
+}

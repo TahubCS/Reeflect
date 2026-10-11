@@ -9,3 +9,4 @@ export * from "./messaging";
 export * from "./synthetic";
 export * from "./recurring";
 export * from "./budgets";
+export * from "./bills";

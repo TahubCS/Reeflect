@@ -56,6 +56,19 @@ Coverage is measured over `src/` and `scripts/`, with these exceptions:
 Coverage is a floor, not the goal. Boundary cases below are required even
 when coverage is already met.
 
+The categorization batch regression checks that a rule list is validated once
+for 20,000 rows and that saved rules, built-in rules and manual categories keep
+their results. Different and invalid lists are checked independently. Unit CI
+does not enforce a wall-clock deadline on shared runners. To measure the same
+20,000-row workload without coverage instrumentation or a fixed time limit:
+
+```sh
+pnpm exec node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register-paths.ts tests/benchmarks/categorization.bench.ts
+```
+
+The opt-in benchmark prints five timings after warm-up; it uses synthetic data
+and never connects to a database.
+
 ## TEST-04: Required unit tests by area
 
 | Area | Must cover |
@@ -63,6 +76,7 @@ when coverage is already met.
 | `lib/money` | Parsing "$1,234.56", "(12.00)", "-12", "12.5" (→ 1250 cents); rejecting non-USD and malformed input; rounding half to even; splitting without losing cents (e.g. $10.00 / 3); formatting negatives; `Number.isSafeInteger` enforcement |
 | Money properties (fast-check) | Sum of category spending equals total spending; splitting then summing returns the original; add/subtract are inverse; no operation produces a non-integer |
 | Cash flow (`src/features/cashflow/domain`, ADR-042) | Per-day amount with balance above, equal to and below what is due before payday (never negative); payday tomorrow (N = 1) and no expected income; repeating items clamped to the last day of short months; a month's end balance equals its start plus its items; later months carry the earlier months' balance; a no-spend day needs nothing going out; yearly subscription cost and saving; every number shown has a text label |
+| Web Bills (ADR-063) | Stable monthly/day anchors; bounded projections without invented overdue history; explicit due/expected provenance; zero vs unknown invoice; variable amounts; partial/full/overpayment; manual marks; edited/deleted/pending/future/refund evidence; repayment transfers; integer cash coverage; validation and pagination |
 | Budgets | Calendar month boundaries and DST in the app's zone; leap years and year navigation; mid-month edits; posted/current-day cutoff; refunds including negative net spending; marked transfers, income and saving excluded; unknown credits not treated as refunds; zero vs unset; bounded progress; immutable paged reductions and integer overflow |
 | Categorization | Rule priority and deterministic ties; `contains` / `starts_with` / `exact`; merchant normalization (store numbers, reference codes); manual override including Uncategorized beats rules; form validation and limits |
 | Recurring (ADR-058) | Infer monthly, quarterly, yearly, fortnightly and arbitrary intervals from observed timing, including month ends and jitter. Variable utilities qualify without an amount band; irregular shopping, duplicate-day ambiguity, stale evidence, transfers, pending/future/positive rows do not. All suggestions require confirmation. Median/range, cents rounding, fixed price changes, matching credits in actual spending, preserved estimate sources, manual tracking, stale/deleted history, immutable inputs and bounds. Real PG: concurrent/idempotent refresh, atomic rollback/limits, owned account FK, cascades, saved corrections/dismissals/intent and paged history. All six actions join the isolation matrix |
@@ -224,3 +238,15 @@ to review.
 - Test names describe behaviour: `"blocks commit when closing balance is off by one cent"`.
 - No sleeps in Playwright; wait for visible text or network idle.
 - Each test creates its own workspace; tests never depend on order.
+
+
+Web Bills adds real PostgreSQL tests for canonical schedule/invoice rollback,
+optimistic revisions and concurrent links, unique allocation, composite ownership
+FKs, stale/deleted evidence, history limits, read snapshots, lifecycle preservation
+and unchanged financial rows. All Bills actions and both page loaders join the
+isolation matrix. The matrix's synthetic previews have no storage objects; it
+stubs the storage boundary while dedicated import/storage suites retain real
+Neon coverage. Playwright exercises variable invoices, posted partial/full
+payment, undo/unlink, stop/restore, invalid/stale forms, viewer/outsider access,
+pagination/filtering, mobile keyboard flows, themes and failed-read recovery.
+No agent, reminder delivery or dashboard feature is added by these tests.

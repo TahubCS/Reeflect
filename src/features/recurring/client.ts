@@ -16,4 +16,5 @@ export {
   type FormState,
   type FormAction,
   type PaymentInput,
+  paymentInputSchema,
 } from "./domain/forms";

@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   type CategoryRule,
+  categorizationInputSchema,
   categorizeTransaction,
   classifyStored,
 } from "./categorize";
@@ -193,15 +194,78 @@ describe("classifyStored with a list it has already checked", () => {
     }
   });
 
-  it("classifies a large month quickly", () => {
+  it("checks the rules once for 20,000 rows and preserves their categories", () => {
+    // A fresh list forces the first row to validate it. Later rows must reuse
+    // that validation; asserting work avoids dependence on CI CPU contention.
+    const batchRules = [...rules];
+    const rows = [
+      {
+        descriptionRaw: "Coffee beans",
+        categoryId: null,
+        categoryIsManual: false,
+      },
+      {
+        descriptionRaw: "Uber Eats",
+        categoryId: null,
+        categoryIsManual: false,
+      },
+      { descriptionRaw: "Market", categoryId: null, categoryIsManual: false },
+      {
+        descriptionRaw: "Coffee",
+        categoryId: "category-gifts",
+        categoryIsManual: true,
+      },
+    ];
+    const categories = [
+      "category-shopping",
+      "category-dining",
+      null,
+      "category-gifts",
+    ];
+    const check = vi.spyOn(categorizationInputSchema, "safeParse");
+    try {
+      const results = Array.from(
+        { length: 20_000 },
+        (_, i) => classifyStored(rows[i % rows.length]!, batchRules).categoryId,
+      );
+      expect(results).toEqual(
+        Array.from(
+          { length: 20_000 },
+          (_, i) => categories[i % categories.length],
+        ),
+      );
+      expect(check).toHaveBeenCalledOnce();
+    } finally {
+      check.mockRestore();
+    }
+  });
+
+  it("checks new and invalid lists independently of a previously used list", () => {
+    const firstRules = [...rules];
+    const secondRules = rules.map((rule) => ({
+      ...rule,
+      categoryId: "another-category",
+    }));
+    const brokenRules = [...rules, rules[0]!];
     const row = {
-      descriptionRaw: "Market",
+      descriptionRaw: "Coffee beans",
       categoryId: null,
       categoryIsManual: false,
     };
-    const start = performance.now();
-    for (let i = 0; i < 20_000; i += 1) classifyStored(row, rules);
-    // Was about 5 s with the rules checked per row; now well under 1 s.
-    expect(performance.now() - start).toBeLessThan(1_000);
+    const check = vi.spyOn(categorizationInputSchema, "safeParse");
+    try {
+      for (let i = 0; i < 2; i += 1) {
+        expect(classifyStored(row, firstRules).categoryId).toBe(
+          "category-shopping",
+        );
+        expect(classifyStored(row, secondRules).categoryId).toBe(
+          "another-category",
+        );
+        expect(classifyStored(row, brokenRules).categoryId).toBeNull();
+      }
+      expect(check).toHaveBeenCalledTimes(3);
+    } finally {
+      check.mockRestore();
+    }
   });
 });

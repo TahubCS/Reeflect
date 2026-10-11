@@ -184,6 +184,10 @@ export const transaction = pgTable(
   },
   (table) => [
     index("transaction_workspace_idx").on(table.workspaceId),
+    uniqueIndex("transaction_workspace_id_uidx").on(
+      table.workspaceId,
+      table.id,
+    ),
     index("transaction_workspace_posted_idx").on(
       table.workspaceId,
       table.postedOn,
