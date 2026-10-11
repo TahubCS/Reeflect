@@ -41,10 +41,14 @@ const names = {
   dining: "Eating out",
 };
 const accounts = [
-  { type: "checking" as const, balance: cents(150_025) },
-  { type: "savings" as const, balance: cents(400_000) },
-  { type: "credit_card" as const, balance: cents(-32_010) },
-  { type: "loan" as const, balance: cents(-1_200_000) },
+  { type: "checking" as const, nickname: "Everyday", balance: cents(150_025) },
+  { type: "savings" as const, nickname: "Rainy Day", balance: cents(400_000) },
+  {
+    type: "credit_card" as const,
+    nickname: "Quicksilver",
+    balance: cents(-32_010),
+  },
+  { type: "loan" as const, nickname: "Car", balance: cents(-1_200_000) },
 ];
 
 /** No payday confirmed and nothing waiting: the calendar adds nothing. */
@@ -52,6 +56,7 @@ const noPayday: CalendarFigures = {
   payday: null,
   dueTotal: cents(0),
   dueCount: 0,
+  upcoming: [],
   freeToSpend: cents(550_025),
   perDay: cents(0),
   suggestions: 0,
@@ -62,6 +67,7 @@ const payday = (changes: Partial<CalendarFigures> = {}): CalendarFigures => ({
   payday: { writtenOut: "Thursday, October 15", daysAway: 7 },
   dueTotal: cents(31_000),
   dueCount: 2,
+  upcoming: [],
   freeToSpend: cents(519_025),
   perDay: cents(74_146),
   suggestions: 0,
@@ -91,6 +97,9 @@ describe("buildFacts", () => {
     ).toEqual({
       state: "no_accounts",
       values: {},
+      described: {},
+      categories: [],
+      accounts: [],
       owes: false,
       gap: null,
       payday: null,
@@ -108,9 +117,9 @@ describe("buildFacts", () => {
   it("owes nothing when cards and loans are at zero or in credit", () => {
     const facts = buildFacts({
       accounts: [
-        { type: "checking", balance: cents(10_000) },
-        { type: "credit_card", balance: cents(0) },
-        { type: "credit_card", balance: cents(2_500) },
+        { type: "checking", nickname: "Everyday", balance: cents(10_000) },
+        { type: "credit_card", nickname: "Blue", balance: cents(0) },
+        { type: "credit_card", nickname: "Green", balance: cents(2_500) },
       ],
       calendar: noPayday,
       measures: null,
@@ -125,7 +134,9 @@ describe("buildFacts", () => {
 
   it("shows an overdrawn checking account as negative cash", () => {
     const facts = buildFacts({
-      accounts: [{ type: "checking", balance: cents(-4_500) }],
+      accounts: [
+        { type: "checking", nickname: "Everyday", balance: cents(-4_500) },
+      ],
       calendar: noPayday,
       measures: null,
       categoryNames: names,
@@ -452,7 +463,11 @@ describe("the prompt", () => {
     const input = buildUserInput("how am I doing?", facts);
 
     expect(new Set(labelsIn(input))).toEqual(
-      new Set([...Object.keys(facts.values), "kept"]),
+      new Set([
+        ...Object.keys(facts.values),
+        ...Object.keys(facts.described),
+        "kept",
+      ]),
     );
     expect(input).toContain(`{cash_total}: ${LABELS.cash_total}`);
   });

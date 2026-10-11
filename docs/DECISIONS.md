@@ -1384,10 +1384,42 @@ Rules:
     For "how am I doing?" the reply leads with them. With no payday
     confirmed, the reply says where to confirm one, as the website
     does.
+  - **Categories, budgets, payments and accounts (F-28, added
+    2026-10-11).** Still one request per text: code looks everything up
+    first and the model picks from the labels. Three more groups:
+    - *This month so far*, from the Budgets page's own `readBudgetMonth`:
+      for up to twelve categories with spending or a budget, largest
+      spending first, its name, what was spent, its budget, and what is
+      left or how far over; and `{month_spent}`, the month's total. Only
+      this month is answered; for any other period the reply says so. If
+      that read fails, these labels are left out and the rest still
+      answers.
+    - *The next three payments before payday*, from the same `summarize`:
+      each one's name, amount and written-out date, soonest first.
+    - *Each account, up to six*: its nickname and its balance; for a card
+      or a loan, what is owed.
+
+    The descriptions of the category and account labels are written per
+    workspace. A category's description names the category, so the model
+    can match "food" or a misspelling to it; this is the one place a
+    name the person chose reaches the model, and a name holding a digit
+    or a brace is not sent. An account's description says only what kind
+    of account it is; its nickname and a payment's name are only ever a
+    label's value, filled in by code.
+  - **The code-built reply picks its sentences from the question (F-28,
+    added 2026-10-11).** When no model answers, code reads the text's
+    words: a category's name (one typo forgiven, and "food" for Dining
+    and Groceries) gives that category's spending and budget; "bill",
+    "due", "upcoming", "owe" or "coming up" gives the next payments; an
+    account's kind or nickname gives its balance; anything else gives
+    the general summary as before. A wrong reading costs a plain answer
+    to the wrong question, never a wrong figure.
   - **Two checks on every draft, the same for every model:** no digit
     outside a label, and only labels that have a value. A draft that fails,
     or is too long for a text, is dropped and the reply is built by code
-    from the same figures.
+    from the same figures. A draft that uses a monthly average must say
+    "a month", and one that uses a figure for this month so far must say
+    "this month" (added 2026-10-11), so neither can pass for the other.
   - **A chain of at most six models,** tried in order. The deployed app
     uses the users' chain: `gemini-3.8-flash`, `gemini-3.7-flash`,
     `gemini-3.6-flash`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`.
@@ -1401,9 +1433,10 @@ Rules:
     sent. A reply the model did not finish counts as a failure.
   - **Nothing is kept at Google** (`store: false`) and the agent has no
     conversation memory: each text is answered on its own.
-  - **Tool calling is not used yet.** With one thing to look up, code does
-    it up front, which halves the requests per text. It arrives with the
-    first feature that has a choice of lookups (F-28).
+  - **Tool calling is not used.** Code does every lookup up front, which
+    halves the requests per text. F-28 was expected to bring it in and
+    was built without it (decided by Muhammad, 2026-10-11): its lookups
+    are few and cheap enough to do for every text.
   - **The current key is used for real users' texts for now.** ADR-019's
     rule that only a billing-enabled key may see real users' data is set
     aside until billing is sorted out. What reaches the model is the
