@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     "coverage/**",
     "playwright-report/**",
     "test-results/**",
+    // Other agents' checkouts of this repository; each lints itself.
+    ".claude/worktrees/**",
   ]),
   {
     // Skipped and focused tests must not reach main (TEST-09).

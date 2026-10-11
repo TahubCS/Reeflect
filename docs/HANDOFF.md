@@ -3644,14 +3644,18 @@ recommendation, not a decision.
 ### Verified
 - The four real texts reproduced against the parser before the change, and
   as a conversation in `runAgentTurn.test.ts` after it.
-- `pnpm lint`, `typecheck`, `docs:check`, `build` pass. `format:check`
-  reports only files under the untracked `.claude/worktrees/`.
-- `pnpm test:unit`: 2000 pass, 10 fail, none in the agent: 8 are the
-  storage tests that need `.env.storage-tests`; `scripts/db/
-  budgets-migration.test.ts` failed in the full run and passed alone;
-  `recurring/server/repository.test.ts` compares rows without an order.
-- Playwright: `agent-log.spec.ts` and `agent-link.spec.ts`, 11 pass. The
-  whole `pnpm test:e2e` was not run.
+- `pnpm lint`, `format:check`, `typecheck`, `docs:check`, `build` and
+  `scan:bundle`: see the results reported with the follow-up commit.
+- **Follow-up, same session:** `.claude/worktrees/` (other agents'
+  checkouts) is ignored by git, ESLint and Prettier, so lint and format
+  check this checkout only. `recurring/server/repository.test.ts` compared
+  rows in whatever order the database returned and failed about two runs
+  in three; it now compares by id. The two tests that build a whole
+  database (`budgets-migration`, `migration-0004`) have 30 seconds, not
+  the default 5, which they passed in full runs on this machine.
+- `pnpm test:unit` after that, twice: 2002 pass; the 8 that fail are the
+  storage tests that need `.env.storage-tests` (no Neon CLI or login on
+  this machine).
 
 ### What's next
 - Apply migration 0015 to the Neon branch and production before deploying
@@ -3665,3 +3669,50 @@ recommendation, not a decision.
   in the first text; its number in the list works.
 - Expired rows are ignored and replaced, not swept.
 - Not tried with a real iMessage yet.
+
+## HO-074: F-29 receipt photos planned; the follow-up branch pushed
+
+- **Date:** 2026-10-11 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `fix/agent-log-account-followup` (pushed, `3f5f8cb`) / not opened
+
+### What changed
+- The ADR-065 work (HO-072, migration 0015) was committed and pushed so
+  other agents can build on it. No code changed in this session.
+- A second agent wrote a plan for F-29 (receipt photos). Nothing is built.
+  It was asked to run in the cloud but ran **on this machine**, in the
+  worktree `.claude/worktrees/agent-a503939b6c667a740`, on a local branch
+  `feat/agent-receipt-photos` at `3f5f8cb`. That branch is not on GitHub.
+- Decided by Muhammad for F-29: receipt reading is behind an env switch,
+  off by default; tests and the demo use generated receipts only (ADR-040);
+  plan first, build only after he approves the plan.
+- The handoff number just below this entry's, and the next decision
+  number, are left free for the F-28 work on `feat/agent-questions`.
+
+### Verified
+- Before the push: `pnpm typecheck` and `pnpm docs:check` pass. ESLint
+  passes with `.claude/` ignored; plain `pnpm lint` fails on files inside
+  the other agent's worktree. Prettier passes on the committed code files.
+- `pnpm test:unit`, full run: 11 to 12 of 2010 fail. Most are the storage
+  tests that need `.env.storage-tests`. `scripts/db/budgets-migration.test.ts`
+  timed out at 5 seconds in full runs; it, `migration-0004.test.ts` and
+  `recurring/server/repository.test.ts` pass when run on their own.
+  `insights/server/insights.test.ts` failed once and was not re-run alone.
+- Not run: `pnpm build`, `pnpm test:e2e`.
+
+### What's next
+- Muhammad reviews the F-29 plan and answers its open questions (tapback
+  as yes, a limit on photo reads, captions, `pnpm ai:check receipt`, the
+  date, 3 MB base64 or multipart, yes/no with nothing open).
+- After approval: build on `feat/agent-receipt-photos`, with migration
+  0016 and a new decision record. F-28 may also want 0016 and edits `runAgentTurn.ts`;
+  whichever merges second regenerates its migration.
+
+### Open problems
+- The plan was made by reading only: no Gemini image call, no real phone.
+  Image support per model, `response_format` on this key and image latency
+  are unverified.
+- A threaded (swipe) reply is dropped by the worker today, so an account
+  answer sent that way is lost (found while planning; not fixed).
+- The full unit run is not clean on this machine while another agent's
+  worktree is active.
