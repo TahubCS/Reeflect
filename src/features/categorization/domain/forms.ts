@@ -11,7 +11,22 @@ export const PRESET_CATEGORIES = [
   { key: "shopping", name: "Shopping", colorToken: "bar" },
   { key: "entertainment", name: "Entertainment", colorToken: "sub" },
   { key: "income", name: "Income", colorToken: "in" },
+  // ADR-055: added after the first eight, so existing workspaces keep their
+  // sort order and gain these on the next editor visit.
+  { key: "health", name: "Health", colorToken: "bar" },
+  { key: "insurance", name: "Insurance", colorToken: "bill" },
+  { key: "loans", name: "Loans", colorToken: "bill" },
+  { key: "subscriptions", name: "Subscriptions", colorToken: "sub" },
+  { key: "personal_care", name: "Personal care", colorToken: "bar" },
+  { key: "kids", name: "Kids & childcare", colorToken: "bar" },
+  { key: "gifts", name: "Gifts", colorToken: "bar" },
+  { key: "travel", name: "Travel", colorToken: "bar" },
+  // Saving, never spending (ADR-053).
+  { key: "retirement", name: "Retirement", colorToken: "save" },
+  { key: "investing", name: "Investing", colorToken: "save" },
 ] as const;
+
+export type PresetKey = (typeof PRESET_CATEGORIES)[number]["key"];
 
 export const objectIdSchema = z.uuid();
 export const MAX_RULES = 1_000;

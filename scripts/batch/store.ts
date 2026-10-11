@@ -7,6 +7,8 @@ import * as schema from "@/lib/db/schema";
 import type { BatchRows } from "./rows";
 
 const {
+  category,
+  categoryRule,
   financialAccount,
   organization,
   syntheticBatch,
@@ -53,6 +55,8 @@ export async function insertBatch(
       (r) => tx.insert(syntheticWorkspace).values(r),
       rows.markers,
     );
+    await insertChunked((r) => tx.insert(category).values(r), rows.categories);
+    await insertChunked((r) => tx.insert(categoryRule).values(r), rows.rules);
     await insertChunked(
       (r) => tx.insert(financialAccount).values(r),
       rows.accounts,

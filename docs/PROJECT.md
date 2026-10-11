@@ -89,7 +89,7 @@ Priorities follow ADR-043. Lanes: A = Data, B = Web, C = Agent.
 | F-06 | PDF statement import | P0 | A | Text-based PDF statements parsed by code with a per-institution template (Capital One first), with identity check and reconciliation. No AI in parsing. | ADR-010, ADR-044 |
 | F-07 | Bank linking (Plaid) | Later | A | Link accounts through Plaid Link (Sandbox) and sync transactions. | ADR-012 |
 | F-08 | Categorization | P0 | A | Keyword rules on the normalized merchant name, with a manual override that can be saved as a rule. | ADR-013 |
-| F-09 | Monthly budgets | P1 | A | One budget per category per calendar month; 6–8 preset categories, renameable. Own page, not the home screen. | ADR-015 |
+| F-09 | Monthly budgets | P1 | A | One budget per category per calendar month; preset categories (eighteen since ADR-055), renameable. Own page, not the home screen. | ADR-015, ADR-055 |
 | F-10 | Subscriptions | P0 (detection), P1 (keep / cancel marks) | A | Detect recurring charges; show monthly and yearly cost; the user marks keep or planning to cancel. The app never cancels anything. | ADR-014, ADR-030 |
 | F-11 | Savings goal | Later | B | One active goal with target amount and date, shown as a progress line on the home screen. | ADR-042 |
 | F-12 | Calendar home screen | P0 | B | The per-day headline with its sum, the month calendar, the balance line and the selected-day panel, plus an "Upcoming bills" list once F-22 exists. | ADR-042 |

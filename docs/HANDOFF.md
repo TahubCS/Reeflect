@@ -63,7 +63,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-32 Agent worker | C | Unassigned | — | Not started |
 | F-22 Bill reminders (P1) | A + C | Unassigned | — | Not started |
 | F-15 Gemini summary on the website (P1, ADR-045) | C | Unassigned | — | Not started |
-| F-35 Compare with people like you (Later, ADR-054) | A + B | Jacob Heminway | `feat/insights` | Planned; ADR-054 Proposed; 100-person year batch loaded on the batch-testing branch (HO-038) |
+| F-35 Compare with people like you (Later, ADR-054) | A + B | Jacob Heminway | `feat/insights` | Planned; ADR-054 and ADR-055 Proposed; categorized 100-person year batch on the batch-testing branch (HO-039) |
 | F-36 Retirement question (Later, ADR-053) | B | Jacob Heminway | `feat/insights` | Planned; generator models the answers (HO-038) |
 | Later (ADR-043): Plaid, household, debt tab, savings goal, receipt photos, recaps, forecast, audit log | — | Unassigned | — | Only if time remains |
 
@@ -1720,3 +1720,66 @@ recommendation, not a decision.
   Production was not touched.
 - **No Docker on Jacob's machine:** the 38 database-backed unit tests and
   the e2e suite were not run for this change.
+
+---
+
+## HO-039: Eighteen preset categories (ADR-055); sample people arrive categorized
+
+- **Date:** 2026-10-10 23:10 (EDT)
+- **Author:** Jacob Heminway with Claude (Claude Code)
+- **Branch / PR:** `feat/insights` (uncommitted, on top of the merge of
+  main) / not opened
+
+### What changed
+- **ADR-055 (Proposed):** F-08's presets go from eight to eighteen. The
+  first eight are unchanged and in the same order. Added after them:
+  health, insurance, loans, subscriptions, personal care, kids & childcare,
+  gifts, travel, retirement, investing. Existing workspaces gain them on the
+  next editor visit (same idempotent seed). `PRESET_CATEGORIES` and a
+  `PresetKey` type are now exported from `@/features/categorization/client`.
+- **Generator → presets:** `PRESET_FOR` and `planCategories` in
+  `src/features/synthetic/domain/categories.ts`.
+  - The generator keeps its finer categories, so the rows are unchanged and
+    it stays at generator v2.
+  - **Rules:** a merchant that always means one preset gets an exact rule.
+  - **Manual choices:** a merchant used for two things gets these instead.
+  - **Uncategorized:** Other, Education, card interest and transfer pairs.
+  - **Tested against F-08's own engine:** every generated row gets the
+    category `categorizeTransaction` computes from the plan.
+- **Batch loader** (`scripts/batch/rows.ts`, `store.ts`): every sample
+  workspace gets the presets, its rules and a `category_id` on every row.
+  `pnpm batch delete` removes them through the workspace cascade.
+- **Batch-testing branch:**
+  - **Migrated:** `pnpm db:migrate:to branch` applied 0004 (the branch's
+    3 users marked email-verified) and 0005 (categories).
+  - **The "1 recorded migration not in this checkout"** is an old draft
+    stamped between 0000 and 0001, so it is harmless.
+  - **`year-100-nc` reloaded** with seed `year100` and as-of 2026-10-10.
+    Same 48,743 transactions; new id
+    `01a128e5-20d4-7f2c-acbe-1c3c2ee6f056`. The old id `01a12882-…` was
+    deleted.
+  - **Result:** 1,800 categories, 18–40 rules per person and 195 manual
+    rows. About $35.7k of $3.9M spending is Uncategorized.
+- **Docs:**
+  - DECISIONS (ADR-055).
+  - ARCHITECTURE (category table row).
+  - PROJECT (F-09).
+  - SYNTHETIC (how the loader categorizes).
+  - The categorization README.
+
+### What's next
+- Muhammad (F-08 owner) to look over ADR-055 and the new presets.
+- Insights steps 4 onward in Jacob's `insights_plan.md`: `quantile`, then
+  `insights/domain` (periods, metrics by preset key, cohort).
+- Starter rules for the Nessie demo accounts: Jacob, on a separate branch,
+  later.
+
+### Open problems
+- **Not run here (no Docker):**
+  - The new store test.
+  - The updated categorization repository test.
+  - The other database-backed tests.
+  - The e2e suite.
+  CI must cover them.
+- `first-50-nc` (generator v1, no categories) is still on the branch.
+

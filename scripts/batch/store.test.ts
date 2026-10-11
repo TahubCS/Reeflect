@@ -1,7 +1,9 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import { uuidv7 } from "@/lib/db/id";
 import {
+  category,
+  categoryRule,
   financialAccount,
   organization,
   syntheticBatch,
@@ -55,6 +57,38 @@ describe("batch store", () => {
     const listed = (await listBatches(db)).find((b) => b.id === batchId);
     expect(listed).toMatchObject({ workspaces: 3, months: 3 });
     await deleteBatch(db, batchId);
+  });
+
+  it("loads categories and rules with the batch, and deletes them with it (ADR-055)", async () => {
+    const { batchId, rows } = await load("store-categories");
+    const workspaces = rows.organizations.map((o) => o.id!);
+    const categories = () =>
+      db
+        .select({ id: category.id })
+        .from(category)
+        .where(inArray(category.workspaceId, workspaces));
+    const rules = () =>
+      db
+        .select({ id: categoryRule.id })
+        .from(categoryRule)
+        .where(inArray(categoryRule.workspaceId, workspaces));
+    expect(await categories()).toHaveLength(rows.categories.length);
+    expect(await rules()).toHaveLength(rows.rules.length);
+    const categorized = await db
+      .select({ id: transaction.id })
+      .from(transaction)
+      .where(
+        and(
+          inArray(transaction.workspaceId, workspaces),
+          isNotNull(transaction.categoryId),
+        ),
+      );
+    expect(categorized).toHaveLength(
+      rows.transactions.filter((t) => t.categoryId).length,
+    );
+    await deleteBatch(db, batchId);
+    expect(await categories()).toEqual([]);
+    expect(await rules()).toEqual([]);
   });
 
   it("writes nothing when any row fails", async () => {

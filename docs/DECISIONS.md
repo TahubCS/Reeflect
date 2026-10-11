@@ -80,6 +80,7 @@ Rules:
 | ADR-052 | Email through Resend; verified email required | Proposed |
 | ADR-053 | Retirement and investing count as saving, not spending (refines ADR-020) | Proposed |
 | ADR-054 | Insights: compare with sample people (refines ADR-049) | Proposed |
+| ADR-055 | More preset categories; sample people arrive categorized (refines ADR-015) | Proposed |
 ---
 
 ## Product
@@ -1003,6 +1004,50 @@ Rules:
     (`pnpm batch attach`, still to be built), as `editor`. Their edits make
     that workspace drift from its recipe: its stored figures go stale until
     a backfill, and `promote` replays the recipe without the edits.
+
+### ADR-055: More preset categories; sample people arrive categorized (refines ADR-015)
+
+- **Status:** Proposed (2026-10-10), by Jacob. The first eight presets were
+  a starting set.
+- **Context:**
+  - ADR-015 starts workspaces with 6–8 preset categories. F-08 (ADR-013)
+    built eight: groceries, dining, transport, housing, utilities,
+    shopping, entertainment, income.
+  - Common spending had nowhere to go (health, insurance, travel), and
+    ADR-053 needs "Retirement" and "Investing".
+  - Insights (ADR-054) compares people by category, so sample people need
+    the same categories as everyone else.
+- **Decision:**
+  - **Eighteen presets.** The first eight stay as they are, in the same
+    order. Ten are added after them: health, insurance, loans,
+    subscriptions, personal care, kids & childcare, gifts, travel,
+    retirement, investing. All can be renamed. Existing workspaces gain the
+    new ones on the next editor visit, through the same idempotent seed.
+  - **Retirement and investing are saving**, never spending (ADR-053).
+  - **Sample people are categorized at batch load** like a real user would
+    be:
+    - Each person gets the presets.
+    - Each merchant that always means one preset gets an exact-match rule.
+    - A merchant used for two things gets manual choices instead.
+    - Each transaction is stored with its category.
+  - **Generator categories map onto presets** (`PRESET_FOR` in
+    `src/features/synthetic`). Categories with no preset (Other,
+    Education, card interest) and transfer pairs stay Uncategorized.
+  - **The generator's own categories stay finer** than the presets, so the
+    generated rows don't change: no new generator version.
+- **Alternatives considered:**
+  - Renaming the generator's categories to the presets: a generator v3,
+    and the detail would be lost.
+  - Storing categories on sample rows without rules: F-08 works out
+    automatic categories from rules on read, so those rows would show as
+    Uncategorized.
+  - Marking every sample row manual: the rules page would be empty, and a
+    developer's new rule would never apply.
+- **Consequences:**
+  - The budgets page (F-09) gets one row per preset; eighteen is the new
+    upper end of ADR-015's range.
+  - Nessie-backed and other real accounts still start with no rules.
+    Starter rules for the demo accounts are a separate decision.
 
 ---
 

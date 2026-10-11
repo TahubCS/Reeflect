@@ -172,6 +172,16 @@ How the generator behaves:
   workspace, so they are stored marked as transfers and never count as
   spending (ADR-053).
 
+How the loader categorizes (ADR-055):
+- Every sample workspace gets F-08's preset categories.
+- Each generator category maps to a preset (`PRESET_FOR`); Other, Education,
+  card interest and transfer pairs map to none and stay Uncategorized.
+- A merchant whose rows always map to one preset gets an exact-match rule,
+  as a user would have saved. A merchant used for two things (Amazon.com
+  for shopping and for gifts) gets manual choices instead.
+- Every transaction is stored with the category F-08 would compute, so the
+  Transactions page and Insights agree.
+
 ---
 
 ## Later

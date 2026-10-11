@@ -10,3 +10,4 @@ export {
   categoryRuleSchema,
 } from "./domain/categorize";
 export { normalizeMerchant } from "./domain/normalize-merchant";
+export { PRESET_CATEGORIES, type PresetKey } from "./domain/forms";

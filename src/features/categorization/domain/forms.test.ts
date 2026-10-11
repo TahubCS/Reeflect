@@ -7,6 +7,7 @@ import {
   overrideFormInput,
   overrideInputSchema,
   pageNumberSchema,
+  PRESET_CATEGORIES,
   rejectedForm,
   ruleFormInput,
   ruleInputSchema,
@@ -231,5 +232,31 @@ describe("safe errors and names", () => {
   it("accepts bounded page numbers", () => {
     expect(pageNumberSchema.parse("2")).toBe(2);
     expect(pageNumberSchema.parse("100000")).toBe(100000);
+  });
+});
+
+describe("PRESET_CATEGORIES", () => {
+  it("keeps the first eight in place, so seeded sort orders never move (ADR-055)", () => {
+    expect(PRESET_CATEGORIES.slice(0, 8).map((p) => p.key)).toEqual([
+      "groceries",
+      "dining",
+      "transport",
+      "housing",
+      "utilities",
+      "shopping",
+      "entertainment",
+      "income",
+    ]);
+  });
+  it("has unique keys and unique names, ignoring case", () => {
+    const keys = PRESET_CATEGORIES.map((p) => p.key);
+    const names = PRESET_CATEGORIES.map((p) => p.name.toLowerCase());
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(new Set(names).size).toBe(names.length);
+  });
+  it("includes retirement and investing as saving categories (ADR-053)", () => {
+    expect(PRESET_CATEGORIES.map((p) => p.key)).toEqual(
+      expect.arrayContaining(["retirement", "investing"]),
+    );
   });
 });
