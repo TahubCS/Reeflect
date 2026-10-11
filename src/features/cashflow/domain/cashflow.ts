@@ -4,10 +4,11 @@ import {
   absolute,
   add,
   divideFloor,
+  fraction,
   positivePart,
   sum,
-  times,
 } from "@/lib/money";
+import { dayOf, shiftDays, shiftMonths } from "@/features/recurring/client";
 import {
   type IsoDate,
   type YearMonth,
@@ -49,14 +50,32 @@ export type Entry = {
   removable?: boolean;
 };
 
-/** Something that repeats on the same day every month. */
+/**
+ * Something that repeats: a confirmed payday, bill or subscription from
+ * Recurring payments (F-10, ADR-058, ADR-061). It falls every `every` days or
+ * calendar months from `nextOn`; a monthly date past the end of a short month
+ * falls on its last day.
+ */
 export type Recurring = {
   id: string;
   name: string;
+  /** Signed: positive for pay, negative for a bill or subscription. */
   amount: Cents;
   kind: Exclude<Kind, "everyday">;
   category: string;
-  day: number;
+  unit: "days" | "months";
+  every: number;
+  /** The next expected date: predicted, or entered by the person. */
+  nextOn: IsoDate;
+  /** True on a credit card: it does not move the balance line (ADR-024). */
+  onCard?: boolean;
+  /** Positive estimates from F-10, so the calendar and that page agree. */
+  monthly: Cents;
+  yearly: Cents;
+  /** Subscriptions only: the person's keep / planning-to-cancel choice. */
+  userIntent?: "none" | "keep" | "cancel";
+  /** Which saved payment this is, for saving the choice. */
+  target?: { accountId: string; merchant: string };
 };
 
 export type CashflowData = {
@@ -105,6 +124,34 @@ const amounts = (items: readonly { amount: Cents }[]) =>
 const balanceChange = (items: readonly Item[]) =>
   amounts(items.filter((item) => !item.onCard));
 
+/** Most dates one repeating item can have in a month: one a day. */
+const MAX_PER_MONTH = 31;
+
+/** The dates in `month` on which a repeating item falls. */
+export function occurrences(rule: Recurring, month: YearMonth): IsoDate[] {
+  const first = toIso(month.year, month.month, 1);
+  const last = toIso(month.year, month.month, daysInMonth(month));
+  const anchor = dayOf(rule.nextOn);
+  const at = (step: number) =>
+    rule.unit === "months"
+      ? shiftMonths(rule.nextOn, step * rule.every, anchor)
+      : shiftDays(rule.nextOn, step * rule.every);
+  // Jump close to the month first, so a far-off month costs no long walk.
+  let step =
+    rule.unit === "months"
+      ? Math.max(
+          0,
+          Math.floor(monthsApart(monthOf(rule.nextOn), month) / rule.every),
+        )
+      : Math.max(0, Math.floor(daysBetween(rule.nextOn, first) / rule.every));
+  const dates: IsoDate[] = [];
+  for (let date = at(step); date <= last; date = at((step += 1))) {
+    if (date >= first) dates.push(date);
+    if (dates.length >= MAX_PER_MONTH) break;
+  }
+  return dates;
+}
+
 /** Real entries for the month, plus each repeating item that has not happened yet. */
 function monthItems(
   data: CashflowData,
@@ -112,22 +159,24 @@ function monthItems(
   today: IsoDate,
 ): Item[] {
   const prefix = monthPrefix(month);
-  const lastDay = daysInMonth(month);
   const real = data.entries
     .filter((entry) => entry.date.startsWith(prefix))
     .map((entry): Item => ({ ...entry, planned: entry.date > today }));
-  const expected = data.recurring
-    .map((rule): Item => ({
-      id: `${rule.id}@${prefix}`,
-      date: toIso(month.year, month.month, Math.min(rule.day, lastDay)),
-      name: rule.name,
-      amount: rule.amount,
-      kind: rule.kind,
-      category: rule.category,
-      planned: true,
-      recurringId: rule.id,
-    }))
-    .filter((item) => item.date > today);
+  const expected = data.recurring.flatMap((rule) =>
+    occurrences(rule, month)
+      .filter((date) => date > today)
+      .map((date): Item => ({
+        id: `${rule.id}@${date}`,
+        date,
+        name: rule.name,
+        amount: rule.amount,
+        kind: rule.kind,
+        category: rule.category,
+        onCard: rule.onCard,
+        planned: true,
+        recurringId: rule.id,
+      })),
+  );
   return [...real, ...expected];
 }
 
@@ -293,12 +342,13 @@ export function subscriptionCosts(
     (rule) => rule.kind === "subscription",
   );
   const marked = subscriptions.filter((rule) => cancelPlans.has(rule.id));
-  const monthly = absolute(amounts(subscriptions));
+  // The same rounding as the Recurring payments page: a year, then a twelfth.
+  const yearly = sum(subscriptions.map((rule) => rule.yearly));
   return {
     count: subscriptions.length,
-    monthly,
-    yearly: times(monthly, 12),
+    monthly: fraction(yearly, 1, 12),
+    yearly,
     markedCount: marked.length,
-    yearlySavingIfCancelled: times(absolute(amounts(marked)), 12),
+    yearlySavingIfCancelled: sum(marked.map((rule) => rule.yearly)),
   };
 }

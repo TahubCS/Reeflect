@@ -93,6 +93,11 @@ test.beforeAll(async ({ browser, baseURL }) => {
   // An editor's first Transactions visit seeds the preset categories.
   await page.goto("/transactions");
   await expect(page).toHaveURL(/\/w\/[^/]+\/transactions$/);
+  // The page streams in after the URL is reached; the categories exist
+  // only once it has rendered.
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Transactions",
+  );
   workspaceId = new URL(page.url()).pathname.split("/")[2]!;
 
   const accountId = crypto.randomUUID();

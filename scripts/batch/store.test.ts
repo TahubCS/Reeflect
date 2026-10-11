@@ -222,7 +222,7 @@ describe("batch store", () => {
   });
 });
 
-describe("giving a developer a sample year (ADR-060)", () => {
+describe("giving a developer a sample year (ADR-082)", () => {
   const userIds: string[] = [];
 
   afterAll(async () => {

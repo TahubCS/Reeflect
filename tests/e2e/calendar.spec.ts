@@ -5,6 +5,7 @@ import {
   expect,
   test,
 } from "@playwright/test";
+import { Pool } from "pg";
 import { hydrated, signUpVerified } from "./support";
 
 // F-12 and F-13 (TEST-07): the calendar home screen on the workspace's own
@@ -202,4 +203,96 @@ test("a card purchase shows as spending on card without moving the balance", asy
   await expect(
     page.getByRole("region", { name: /What we noticed/ }),
   ).toContainText("$30.00");
+});
+
+// F-10 with ADR-061: paydays and subscriptions confirmed on Recurring payments
+// show on the calendar. History goes straight into the test database, as in
+// recurring.spec.ts, so the patterns are there without typing every row.
+const pool = new Pool({
+  connectionString:
+    process.env.DATABASE_URL ?? "postgres://test:test@localhost:5433/app_test",
+  max: 2,
+});
+test.afterAll(() => pool.end());
+
+const shiftDays = (iso: string, days: number) =>
+  new Date(Date.parse(`${iso}T00:00:00Z`) + days * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+const monthStart = (offset: number) => {
+  const [y, m] = today.split("-").map(Number) as [number, number];
+  return new Date(Date.UTC(y, m - 1 + offset, 1)).toISOString().slice(0, 10);
+};
+
+async function seedHistory(workspaceId: string) {
+  const accountId = crypto.randomUUID();
+  await pool.query(
+    `INSERT INTO financial_account (id, workspace_id, institution_name, type, nickname, source, current_balance_cents) VALUES ($1,$2,'Synthetic bank','checking','Everyday','synthetic',200000)`,
+    [accountId, workspaceId],
+  );
+  const add = (description: string, postedOn: string, amountCents: number) =>
+    pool.query(
+      `INSERT INTO "transaction" (id, workspace_id, financial_account_id, description_raw, posted_on, amount_cents, source, fingerprint) VALUES ($1,$2,$3,$4,$5,$6,'csv',$1)`,
+      [
+        crypto.randomUUID(),
+        workspaceId,
+        accountId,
+        description,
+        postedOn,
+        amountCents,
+      ],
+    );
+  for (const daysAgo of [42, 28, 14, 0])
+    await add("ACME PAYROLL", shiftDays(today, -daysAgo), 145000);
+  for (const offset of [-2, -1, 0])
+    await add("Stream Service", monthStart(offset), -1599);
+}
+
+test("confirmed paydays and subscriptions fill the headline and the subscriptions list", async ({
+  browser,
+  baseURL,
+}) => {
+  const page = await newUserPage(browser, baseURL);
+  await page.goto("/dashboard");
+  await expect(page).toHaveURL(/\/w\/[^/]+\/dashboard$/);
+  const workspaceId = new URL(page.url()).pathname.split("/")[2]!;
+  await seedHistory(workspaceId);
+  await openDashboard(page);
+
+  // Suggestions wait for the person (ADR-058).
+  await expect(headline(page)).toHaveText("You have $2,000.00 today.");
+  await expect(
+    page.getByRole("link", { name: "2 recurring payments to review" }),
+  ).toBeVisible();
+
+  await page.goto("/subscriptions");
+  for (const name of ["acme payroll", "stream service"]) {
+    const card = page.getByRole("article", { name, exact: true });
+    await card
+      .getByRole("button", { name: "Confirm recurring payment" })
+      .click();
+    await expect(card).toContainText("Tracking");
+  }
+  await expect(
+    page.getByRole("article", { name: "acme payroll", exact: true }),
+  ).toContainText("Payday · Every two weeks");
+
+  await openDashboard(page);
+  await expect(headline(page)).toContainText("a day until payday.");
+  await expect(page.locator(".hero-why")).toContainText("14 days away");
+
+  const subscriptions = page.getByRole("region", { name: "Subscriptions" });
+  await expect(subscriptions).toContainText("stream service");
+  await expect(subscriptions).toContainText("$191.88 a year");
+  await subscriptions.getByRole("button", { name: "Keeping" }).click();
+  await expect(
+    subscriptions.getByRole("button", { name: "Planning to cancel" }),
+  ).toBeVisible();
+  await expect(subscriptions.locator(".saving")).toContainText("$191.88");
+
+  // The choice is saved where Recurring payments reads it.
+  await page.goto("/subscriptions");
+  await expect(
+    page.getByRole("article", { name: "stream service", exact: true }),
+  ).toContainText("Choice: Planning to cancel");
 });

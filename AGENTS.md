@@ -209,6 +209,7 @@ fails if this table and `package.json` differ.
 | `pnpm db:migrate` | Apply migrations (uses `DATABASE_URL_UNPOOLED` when set) |
 | `pnpm db:migrate:to` | Apply migrations to a named database: `local`, `branch` or `production` (ADR-049) |
 | `pnpm db:whoami` | Show which database a target is and which migrations it has; no secrets printed |
+| `pnpm ai:check` | Ask each model in the agent's chain one test question with the real `GEMINI_API_KEY` from `.env.local`; prints which answer (ADR-059) |
 | `pnpm batch` | Synthetic batches: `load`, `list`, `report`, `delete`, `promote`, `rollup`; `give` and `take-back` for developer accounts (`docs/SYNTHETIC.md`) |
 
 Not defined yet. Add each script, and its row above, in the PR that adds the
@@ -326,6 +327,26 @@ exported `index.ts`.
 Append a new entry to `docs/HANDOFF.md` using its template (what changed,
 what's next, open problems). Do this even if the session ended early or the
 work is unfinished.
+
+### Reserved numbers
+
+Each developer numbers new ADRs and handoff entries from their own block
+(ADR-084), so two open branches never take the same number. Numbers up to
+ADR-061 and HO-054 were shared and are all used. Use the lowest unused
+number in the block of the developer you are working for (the git user, or
+ask). Gaps
+inside a block are expected; `pnpm docs:check` allows them and fails on a
+number outside every block. When a block is full, add the next 20 numbers
+after the highest block to this table, in their own commit.
+
+| Developer | ADR numbers | HO numbers |
+|---|---|---|
+| Muhammad Tahub Khatri | 062–081 | 055–074 |
+| Jacob Heminway | 082–101 | 075–094 |
+| Simon Ormond | 102–121 | 095–114 |
+
+ARCH and TEST sections are rarely added and stay shared: take the next
+number after the highest one on `main`.
 
 ## 10. Team
 

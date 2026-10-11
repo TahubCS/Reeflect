@@ -20,8 +20,9 @@ by ADR-042) and ADR-039 (free-tier Gemini limits, replaced by ADR-040).
 Rules:
 - From here on, never edit the Decision of an Accepted ADR. Write a new ADR
   that supersedes it and change only the old one's status line.
-- New ADRs take the next free number after the highest in the Index. Use the
-  template at the bottom.
+- New ADRs take the lowest unused number in your own block (AGENTS.md
+  section 9, "Reserved numbers"); list them in the Index in number order.
+  Use the template at the bottom.
 - When the team confirms a Proposed ADR, change its status to Accepted and add
   the date.
 
@@ -84,8 +85,12 @@ Rules:
 | ADR-056 | Insights: compare with sample people (refines ADR-049) | Proposed |
 | ADR-057 | More preset categories; sample people arrive categorized (refines ADR-015) | Proposed |
 | ADR-058 | Recurring payment patterns, confirmation and variable bills | Accepted |
-| ADR-060 | Sample years in the developers' own accounts (exception to ADR-049) | Accepted |
-| ADR-061 | Ask the user to categorize large uncategorized payments (refines ADR-055, ADR-057) | Proposed |
+| ADR-059 | Agent replies: one request with labels, and a chain of models (refines ADR-019, ADR-040) | Proposed |
+| ADR-060 | Monthly budget interactions and recorded actual spending (refines ADR-015) | Accepted |
+| ADR-061 | Paydays found in deposits, confirmed like recurring payments (refines ADR-058) | Proposed |
+| ADR-082 | Sample years in the developers' own accounts (exception to ADR-049) | Accepted |
+| ADR-083 | Ask the user to categorize large uncategorized payments (refines ADR-055, ADR-057) | Proposed |
+| ADR-084 | Reserved ADR and handoff numbers for each developer | Accepted |
 
 ---
 
@@ -1352,6 +1357,51 @@ Rules:
 - **Consequences:** `logSpending` rejects any amount that does not appear in
   the user's message text.
 
+### ADR-059: Agent replies: one request with labels, and a chain of models (refines ADR-019, ADR-040)
+
+- **Status:** Proposed (2026-10-11), by Muhammad
+- **Context:** F-25 makes the agent answer "how am I doing?". ADR-019 says a
+  model may never produce a number, and ADR-040 says every model call needs
+  a fallback. The key's daily allowance is small for the strongest models
+  (20 requests a day each) and large for the lite ones (500).
+- **Decision:**
+  - **One request per text, with labels.** Code works out the figures first
+    (the Insights measures for the last 30 days, ADR-056, and the account
+    balances). The model is given only label names such as `{cash_total}`
+    and plain-word notes, never an amount, count, date or account name. It
+    writes the sentences; code fills the labels in.
+  - **Two checks on every draft, the same for every model:** no digit
+    outside a label, and only labels that have a value. A draft that fails,
+    or is too long for a text, is dropped and the reply is built by code
+    from the same figures.
+  - **A chain of at most six models,** tried in order: `gemini-3.8-flash`,
+    `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-3.5-flash`,
+    `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`. `GEMINI_MODELS`
+    overrides the list. A model that fails is skipped and left alone for
+    five minutes (an hour for a name the API does not know). About 4
+    seconds per attempt and 14 in total; after that the code-built reply is
+    sent. A reply the model did not finish counts as a failure.
+  - **Nothing is kept at Google** (`store: false`) and the agent has no
+    conversation memory: each text is answered on its own.
+  - **Tool calling is not used yet.** With one thing to look up, code does
+    it up front, which halves the requests per text. It arrives with the
+    first feature that has a choice of lookups (F-28).
+  - **The current key is used for real users' texts for now.** ADR-019's
+    rule that only a billing-enabled key may see real users' data is set
+    aside until billing is sorted out. What reaches the model is the
+    person's own message and label names.
+  - `pnpm ai:check` asks each model in the chain one test question with the
+    real key and reports which answer.
+- **Alternatives considered:** Gemini's tool-calling loop (two requests per
+  text for one lookup); one model with no chain (20 answers a day); giving
+  the model the figures (breaks ADR-019).
+- **Consequences:**
+  - The agent's figures match the Insights page, since both use
+    `workspaceMeasures`.
+  - Follow-up questions ("and last month?") do not work yet.
+  - Once the stronger models' daily allowance is spent, replies come from
+    the lite models; the same checks apply.
+
 ### ADR-038: Proactive messages
 
 - **Status:** Accepted (2026-10-06)
@@ -1590,7 +1640,45 @@ Rules:
   account isolation and actual-versus-estimated totals. Use a new additive
   recurring-series migration and a public post-import refresh API.
 
-### ADR-060: Sample years in the developers' own accounts (exception to ADR-049)
+---
+
+### ADR-061: Paydays found in deposits, confirmed like recurring payments (refines ADR-058)
+
+- **Status:** Proposed (2026-10-11), from Simon. **Muhammad (F-10 owner)
+  should confirm it.**
+- **Context:** The calendar's headline needs the next payday (ADR-042, which
+  says recurring income must be detected). ADR-058 finds recurring payments
+  in money going out only. The team chose code, not Gemini, to find paydays.
+- **Decision:**
+  - **Same rules, other direction.** ADR-058's timing rules (three or more
+    dated rows, a learned interval or calendar-month cadence, the same
+    dispersion limits, inactive after two missed intervals) also read posted
+    deposits into **checking and savings**. They become recurring payments
+    of kind `income`, shown as "Payday". Card credits and transfers are not
+    read.
+  - **One account and payee, one payment.** A payee that has charges on an
+    account is not also read as pay there, so a shop's refunds never become
+    a payday.
+  - **Confirmation as before.** A detected payday is a suggestion until the
+    person confirms it on Recurring payments; they can also add one by hand
+    or correct its schedule and amount. Only confirmed, active paydays reach
+    the calendar.
+  - **Pay is not a cost.** Paydays stay out of the recurring cost totals and
+    the payment count; the page shows them as "Expected pay" a month.
+    Keep / planning to cancel applies to subscriptions only.
+  - **The calendar** (F-12) reads confirmed recurring payments: pay, bills
+    and subscriptions fall on their expected dates after today, using F-10's
+    estimated amounts, so the calendar and the Recurring payments page
+    agree. A card's payments do not move the balance line (ADR-024). The
+    headline's next payday is the next confirmed payday.
+- **Consequences:**
+  - Migration `0011_recurring_income` widens `recurring_series.kind`.
+  - A payday needs three deposits before it is suggested; until then the
+    person can add it by hand.
+  - Someone paid irregularly gets no suggestion and the headline shows the
+    balance only, as ADR-042 already allows.
+
+### ADR-082: Sample years in the developers' own accounts (exception to ADR-049)
 
 - **Status:** Accepted (2026-10-11)
 - **Context:** To test Insights against the sample people, the three
@@ -1609,7 +1697,7 @@ Rules:
   rows, labelled by their accounts. Take the data back before using these
   accounts for anything real. Categories and rules that were added stay.
 
-### ADR-061: Ask the user to categorize large uncategorized payments (refines ADR-055, ADR-057)
+### ADR-083: Ask the user to categorize large uncategorized payments (refines ADR-055, ADR-057)
 
 - **Status:** Proposed
 - **Context:** Some large payments match no rule and no preset: a car
@@ -1640,6 +1728,29 @@ Rules:
   - Tests: which payments qualify (threshold, transfers excluded, the 90
     days), each answer, and that an answered question stays answered.
 
+### ADR-084: Reserved ADR and handoff numbers for each developer
+
+- **Status:** Accepted (2026-10-11)
+- **Context:** All three developers took "the next number" for ADRs and
+  handoff entries. With several branches open at once, two branches took
+  the same numbers, and every merge of main meant renumbering and resolving
+  conflicts in DECISIONS.md and HANDOFF.md.
+- **Decision:** Each developer gets their own block of 20 ADR numbers and
+  20 HO numbers, listed in AGENTS.md section 9 ("Reserved numbers"), and
+  numbers new entries from it. Numbers up to ADR-061 and HO-054 stay as
+  they are. Gaps inside a block are allowed. A full block gets the next 20
+  numbers after the highest block, added to the table in their own commit.
+  ARCH and TEST numbers stay shared. `pnpm docs:check` reads the table:
+  it allows the unused numbers in a block and fails on an ADR or HO number
+  above the shared range that is in no block.
+- **Alternatives considered:** Renumbering at merge time, which is what
+  kept happening. Dates or initials in the ids (HO-JH-3), which would break
+  the existing citations and the docs check's number rules.
+- **Consequences:** HO numbers are no longer in date order; the newest
+  entry is the one at the bottom. The Index stays in number order, so two
+  branches can still both add index rows next to each other, but the
+  conflict is two additions and no renumbering.
+
 ---
 
 ## Template
@@ -1653,3 +1764,40 @@ Rules:
 - **Alternatives considered:** Optional.
 - **Consequences:** What follows, including costs and follow-up work.
 ```
+
+### ADR-060: Monthly budget interactions and recorded actual spending (refines ADR-015)
+
+- **Status:** Accepted (2026-10-11), user approved the complete monthly-budget plan.
+- **Context:** recurring patterns describe repeating payments, while Insights
+  shows rolling averages. Users also need to compare a deliberate category
+  allocation with recorded spending for one calendar month. The feature must
+  stay independent of concurrent dashboard and Insights work.
+- **Decision:**
+  - Keep budgets on their own page. One allocation per workspace, spending
+    category and calendar month; nonnegative USD cents. Zero is a saved plan,
+    distinct from removing a budget.
+  - Default to the current month in the existing app zone, America/New_York.
+    Inspect historical months read-only; edit this month or next month. Do not
+    add workspace time-zone settings under this feature.
+  - Actuals use posted ledger dates: through today for this month, the full
+    range for historical months, and no future actuals. Current rules and
+    manual choices determine effective categories; renaming preserves IDs.
+  - Refunds reduce spending, including negative net spending. Exclude marked
+    transfers, Income, Retirement and Investing using the current category
+    definitions. Unknown credits are not inferred refunds. Show Uncategorized
+    and unbudgeted spending, and state that these are recorded activity totals.
+  - Explicit copying fills missing allocations only; preserve existing zero
+    and nonzero allocations. Copy is atomic and repeatable, without rollover.
+  - Viewers read; editors and owners write. Budget operations change metadata,
+    never ledger rows or balances. Consistent bounded reads fail into a local
+    retry state rather than returning partial or fabricated zero totals.
+- **Alternatives considered:** editing past allocations (changes saved history);
+  automatic rollover/overwrite (changes the user's plan); using Insights'
+  rolling averages as actuals (different date range); inferring transfers
+  from merchant text (ambiguous, belongs to transfer pairing).
+- **Consequences:** F-09 is independent of the calendar and recurring estimates.
+  Historical actuals can change when current categorization changes, while
+  saved allocation amounts stay in their original months. Accuracy depends
+  on recorded coverage and transfer marks. Apply migration 0010 to the intended
+  deployment database before deploying the new page. Agent budget replies
+  remain separate work.

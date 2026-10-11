@@ -64,6 +64,7 @@ async function ledger(
         isTransfer: transaction.isTransfer,
         categoryKey: category.presetKey,
         source: transaction.source,
+        accountType: financialAccount.type,
       })
       .from(transaction)
       .innerJoin(

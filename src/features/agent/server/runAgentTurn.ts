@@ -8,6 +8,7 @@ import {
 } from "@/features/messaging";
 import { parseCommand } from "../domain/parse";
 import { REPLIES } from "../domain/replies";
+import { answer } from "./answer";
 
 // The brain's entry point for one inbound message (ARCH-13). Linking and
 // unlinking are executed by code (ADR-040). A phone that is not linked gets
@@ -38,6 +39,8 @@ export async function runAgentTurn(turn: TurnRequest): Promise<string> {
     return revoked ? REPLIES.stopped : REPLIES.notLinked;
   }
 
+  // The workspace comes from the verified link and nowhere else (ADR-034).
   const identity = await findIdentity(turn.platform, turn.handle);
-  return identity ? REPLIES.linked : REPLIES.signUp;
+  if (!identity) return REPLIES.signUp;
+  return answer(turn.text, identity.workspaceId);
 }

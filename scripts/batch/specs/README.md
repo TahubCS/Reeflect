@@ -3,7 +3,7 @@
 Population specs for `pnpm batch load`, written by following
 [docs/SYNTHETIC.md](../../../docs/SYNTHETIC.md). Invented people only.
 
-## devs.json: the developers' own accounts (ADR-060)
+## devs.json: the developers' own accounts (ADR-082)
 
 Nine one-year histories, three pay levels for each developer. The keys are
 `jacob-low|mid|high`, `simon-low|mid|high` and `muhammad-low|mid|high`. Each

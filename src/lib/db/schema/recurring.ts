@@ -34,7 +34,7 @@ export const recurringSeries = pgTable(
     })
       .notNull()
       .default("candidate"),
-    kind: text("kind", { enum: ["bill", "subscription"] }).notNull(),
+    kind: text("kind", { enum: ["bill", "subscription", "income"] }).notNull(),
     amountMode: text("amount_mode", { enum: ["fixed", "variable"] }).notNull(),
     unit: text("schedule_unit", { enum: ["days", "months"] }).notNull(),
     every: integer("schedule_every").notNull(),
@@ -79,7 +79,7 @@ export const recurringSeries = pgTable(
     ),
     check(
       "recurring_choice_check",
-      sql`${table.decision} IN ('candidate', 'confirmed', 'dismissed') AND ${table.kind} IN ('bill', 'subscription') AND ${table.amountMode} IN ('fixed', 'variable') AND ${table.userIntent} IN ('none', 'keep', 'cancel')`,
+      sql`${table.decision} IN ('candidate', 'confirmed', 'dismissed') AND ${table.kind} IN ('bill', 'subscription', 'income') AND ${table.amountMode} IN ('fixed', 'variable') AND ${table.userIntent} IN ('none', 'keep', 'cancel')`,
     ),
     check(
       "recurring_merchant_check",

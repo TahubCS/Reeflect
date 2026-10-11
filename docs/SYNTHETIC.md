@@ -57,7 +57,7 @@ it is labelled "Sample".
   workspaces have none yet. Until a developer viewer exists, use
   `batch report`, or query the branch in the Neon SQL editor.
 
-### Developer accounts (ADR-060)
+### Developer accounts (ADR-082)
 
 For the hackathon only, a developer can get one spec person's year in the
 account they sign in with, to test Insights against the sample people.

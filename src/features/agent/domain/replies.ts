@@ -11,6 +11,4 @@ export const REPLIES = {
   alreadyLinked: "This phone is already linked. Text STOP to unlink it first.",
   stopped: `Done. This phone is unlinked and ${APP_NAME} won't text it. You can link again from Settings.`,
   notLinked: "This phone isn't linked, so there is nothing to stop.",
-  /** Until the agent can answer questions (F-25). */
-  linked: "You're linked. I can't answer questions here yet; that's coming.",
 } as const;

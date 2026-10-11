@@ -6,6 +6,7 @@ import { z } from "zod";
 import { DEFAULT_TIME_ZONE } from "@/config/app";
 import { isoDateIn } from "@/features/accounts";
 import { listCategories, saveOverride } from "@/features/categorization";
+import { setPaymentIntent } from "@/features/recurring";
 import {
   createTransaction,
   deleteTransaction,
@@ -112,4 +113,32 @@ export async function removeDayEntryAction(
   if (!existing?.editableInFull) notFound();
   if (!(await deleteTransaction(verified, id.data))) notFound();
   refresh();
+}
+
+const intentInputSchema = z.object({
+  accountId: z.uuid(),
+  merchant: z.string().trim().min(1).max(500),
+  intent: z.enum(["none", "keep", "cancel"]),
+});
+
+/**
+ * Saves keep / planning to cancel on a confirmed subscription, the same
+ * choice the Recurring payments page shows (ADR-058). It only records the
+ * plan: nothing is cancelled with the provider.
+ */
+export async function setSubscriptionIntentAction(
+  workspaceId: unknown,
+  input: unknown,
+): Promise<DayEntryResult> {
+  const verified = await editorAccess(workspaceId);
+  const read = intentInputSchema.safeParse(input);
+  if (!read.success) notFound();
+
+  const { accountId, merchant, intent } = read.data;
+  const result = await setPaymentIntent(verified, accountId, merchant, intent);
+  if (result === "not_found") notFound();
+  if (result !== "ok")
+    return { ok: false, message: "Only subscriptions can be marked." };
+  refresh();
+  return { ok: true };
 }

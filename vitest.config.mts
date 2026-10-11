@@ -28,6 +28,11 @@ export default defineConfig({
       BETTER_AUTH_SECRET: "test-only-not-a-real-secret-0123456789",
       BETTER_AUTH_URL: "http://localhost:3000",
       AGENT_SERVICE_TOKEN: "test-only-agent-service-token-0123456789",
+      // No Gemini key, whatever the environment sets (CI has a dummy one):
+      // the agent then answers with replies built by code, and no unit
+      // test can call Google (ADR-059).
+      GEMINI_API_KEY: "",
+      GEMINI_MODELS: "",
       // The Neon `storage-tests` branch's bucket (ADR-053), never
       // production's: from CI secrets or .env.storage-tests.
       ...testStorageEnv(),

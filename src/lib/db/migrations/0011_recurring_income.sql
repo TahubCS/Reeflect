@@ -1,0 +1,2 @@
+ALTER TABLE "recurring_series" DROP CONSTRAINT "recurring_choice_check";--> statement-breakpoint
+ALTER TABLE "recurring_series" ADD CONSTRAINT "recurring_choice_check" CHECK ("recurring_series"."decision" IN ('candidate', 'confirmed', 'dismissed') AND "recurring_series"."kind" IN ('bill', 'subscription', 'income') AND "recurring_series"."amount_mode" IN ('fixed', 'variable') AND "recurring_series"."user_intent" IN ('none', 'keep', 'cancel'));

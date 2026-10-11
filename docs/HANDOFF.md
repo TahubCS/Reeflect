@@ -9,7 +9,9 @@ bottom.
 - **End of every session:** append a new entry using the template below, even
   if work is unfinished or the session ended early.
 - Entries are numbered HO-001, HO-002, … and never edited after being written
-  (add a new entry to correct an old one).
+  (add a new entry to correct an old one). New entries take a number from
+  your own block (AGENTS.md section 9, "Reserved numbers"), so numbers are
+  not in date order; the newest entry is still the one at the bottom.
 - Keep each entry short and factual. Link PRs, issues, and ADRs instead of
   repeating them.
 
@@ -47,20 +49,20 @@ Update this table when work is assigned or finished. Features are listed in
 | F-05 CSV import | A | Simon Ormond | `feat/csv-statement-import` | Built for Capital One 360 and credit-card CSV exports (HO-040, ADR-054 Proposed); no mapping screen yet |
 | F-06 PDF statement import (P0, ADR-044) | A | Simon Ormond | `feat/pdf-statement-import` | Built for Capital One 360 checking and savings (HO-038); CSV kept in Neon object storage (ADR-053 Proposed); needs `neon deploy` and Vercel vars |
 | F-08 Categorization | A | Codex | `feat/transaction-categorization` | Full feature merged in PR #12 (HO-037) |
-| F-09 Monthly budgets (P1) | A | Unassigned | — | Not started |
+| F-09 Monthly budgets (P1) | A | Codex | `feat/monthly-budgets` | Complete page and persistence built; validation and migration rollout recorded in the latest handoff |
 | F-10 Recurring payments (detection P0, marks P1) | A | Codex | `feat/subscriptions` | Full website built (HO-045, ADR-058); local checks pass; external Neon storage regressions pending |
-| F-12 Calendar home screen | B | Simon Ormond | `feat/real-cashflow-dashboard` | On real accounts and transactions (HO-048); paydays, bills and subscriptions not yet read from recurring payments (F-10) |
+| F-12 Calendar home screen | B | Simon Ormond | `feat/calendar-recurring` | On real accounts and transactions (HO-048); confirmed paydays, bills and subscriptions from F-10 (HO-054, ADR-061 Proposed) |
 | F-13 Drill-down | B | Simon Ormond | `feat/real-cashflow-dashboard` | Day panel adds and removes real typed transactions (HO-048) |
 | F-18 Themes and accessibility | B | Unassigned | — | Not started |
 | F-19 Delete data | B | Unassigned | — | Not started |
 | F-21 Demo seed (incl. Nessie) | A | Jacob Heminway | — | Synthetic generator and batch scripts merged (HO-026, PR #7); Nessie seeding and `pnpm db:seed` not started |
 | F-23 Nessie import and sync | A | Unassigned | — | Not started |
 | F-24 Phone linking | C | Muhammad Tahub Khatri | `feat/photon-agent` | Built (HO-032); real texts need the worker (F-32) |
-| F-25 "How am I doing?" + week-ahead image | C | Unassigned | — | Not started |
+| F-25 "How am I doing?" + week-ahead image | C | Muhammad Tahub Khatri | `feat/agent-answers` | Answers built (HO-050): balances and the last 30 days. Owed before payday, the per-day figure and the image wait for bills and paydays |
 | F-26 Subscription alerts | C | Unassigned | — | Not started |
 | F-27 Log spending by text | C | Unassigned | — | Not started |
 | F-28 Category and balance questions | C | Unassigned | — | Not started |
-| F-32 Agent worker | C | Muhammad Tahub Khatri | `feat/agent-worker` | Built, replies only (HO-039); not yet deployed to Render |
+| F-32 Agent worker | C | Muhammad Tahub Khatri | `feat/agent-worker` | Done, replies only (HO-039, PR #17); live on Render (HO-049) |
 | F-22 Bill reminders (P1) | A + C | Unassigned | — | Not started |
 | F-15 Gemini summary on the website (P1, ADR-045) | C | Unassigned | — | Not started |
 | F-35 Compare with people like you (Later, ADR-056) | A + B | Jacob Heminway | `feat/insights` | Built: the Insights page, stored sample figures and `pnpm batch rollup` (HO-043); ADR-056 and ADR-057 Proposed |
@@ -2379,7 +2381,346 @@ recommendation, not a decision.
 - **The Subscriptions category** reads as spending, not as a subscription,
   until the calendar reads recurring payments.
 
-## HO-051: A sample year in the developers' own accounts (ADR-060)
+---
+
+---
+
+## HO-049: Agent worker live on Render; replies are placeholders for now
+
+- **Date:** 2026-10-11 01:30 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `feat/agent-answers` (uncommitted) / not opened
+
+### What changed
+- **The worker (F-32) is deployed on Render** as a free web service from
+  `main`, calling the production app. Nothing in the code changed.
+  - Build command `pnpm install --frozen-lockfile`, start command
+    `pnpm --filter agent-worker start`, health check path `/health`,
+    `NODE_VERSION=24`.
+  - `AGENT_SERVICE_TOKEN` is set on Render and on Vercel (Production) with
+    the same value.
+- **Tested from three phones** on Photon's free plan: the owner's and two
+  more added under Photon dashboard > Spectrum > Users. All got replies.
+- **What a phone gets today is a placeholder.** The sign-up reply, LINK,
+  Approve on the website and STOP are real. Any other text from a linked
+  phone gets the fixed line "You're linked. I can't answer questions here
+  yet; that's coming." Real answers arrive with F-25.
+
+### What's next
+- **Keep-awake backup (ADR-041):** add a free monitor (UptimeRobot or
+  cron-job.org) that requests the service's `/health` every 5 minutes. The
+  worker already pings itself every 10 minutes; the monitor also wakes it
+  after a restart.
+- **Render redeploys the worker on every merge to `main`.** A Build Filter
+  for `agent-worker/**`, `packages/**` and `pnpm-lock.yaml` limits that.
+- **F-25** is next: Gemini answers "how am I doing?" from accounts and
+  transactions.
+
+### Open problems
+- `/health` says the process is up, not that the Photon connection is
+  healthy. If texts stop getting replies while the monitor is green, read
+  the Render logs.
+- Only people in Photon's Users list (10 on the free plan) can use the
+  agent, each on their own "Texts on" number.
+- Not tried: a text from a phone that is not in the Users list.
+
+---
+
+## HO-050: F-25 "how am I doing?": Gemini writes the reply, code supplies every figure
+
+- **Date:** 2026-10-11 03:00 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `feat/agent-answers` (uncommitted) / not opened
+
+### What changed
+- **ADR-059 (Proposed):** one model request per text with labels, two checks
+  on every draft, a chain of up to six models, nothing kept at Google, no
+  conversation memory, and the current key used for real users' texts for
+  now.
+- **A linked phone now gets a real answer.** `runAgentTurn` sends any text
+  that is not LINK or STOP to `answer` (`src/features/agent/server/`):
+  1. `getSummary` works out the figures: cash, what is owed, and the last
+     30 days from Jacob's `workspaceMeasures`, so they match the Insights
+     page.
+  2. The model gets label names (`{cash_total}`, `{spending}`, …) and the
+     person's text, never a figure, and writes two or three sentences.
+  3. Code rejects a draft with a digit of its own, an unknown label, a
+     stray brace or too many characters, then fills the labels in.
+  4. If no model answers or the draft is rejected, code builds the reply
+     from the same figures.
+- **`src/lib/ai/`** (ARCH-07): the chain, the Google transport, label
+  filling and the digit scan. New dependency: `@google/genai` 2.28.0.
+- **`pnpm ai:check`** tests the real key against each model. Run on
+  2026-10-11: `gemini-3.6-flash`, `gemini-3.5-flash`,
+  `gemini-3.5-flash-lite` and `gemini-3.1-flash-lite` answered and followed
+  the label rule. `gemini-3.8-flash` and `gemini-3.7-flash` were overloaded
+  or rate-limited at the time; both accept the request shape.
+- **Settings:** `GEMINI_API_KEY` and `GEMINI_MODELS`, both optional, in
+  `src/lib/env.ts`, `.env.example` and ARCH-09 (which called the second
+  `GEMINI_MODEL`). Playwright sets the key to empty, so tests never call
+  Google.
+- **Jacob's file:** `src/features/insights/server.ts` now also exports
+  `loadWorkspaceData` and `yesterday`.
+- **Tests:** Vitest for the chain, transport, filling, digit scan, facts,
+  prompt, code-built replies and `answer` (against the Docker database,
+  with a fake model); `agent-link.spec.ts` expects an answer, not the
+  placeholder.
+
+### What's next
+- **To go live:** add `GEMINI_API_KEY` to Vercel (Production) and redeploy.
+  Until then the live agent answers with the code-built reply.
+- **Production is missing migration `0009_recurring_payments`** (checked
+  with `pnpm db:whoami` on 2026-10-11). The agent does not read those
+  tables, but the Subscriptions page does.
+- **F-28** (category and balance questions) is next: it adds lookups and
+  with them Gemini's tool calling.
+
+### Open problems
+- **Not in this feature:** "owed before payday", the per-day figure and the
+  week-ahead image. They need bills and paydays, which do not exist yet.
+- The figures are monthly amounts based on the days covered, as on the
+  Insights page, not exact 30-day totals.
+- No conversation memory: "and last month?" gets a fresh answer, not a
+  follow-up.
+- A model that is slow rather than failing costs up to 4 seconds before the
+  next one is tried; after one such wait it is left alone for five minutes.
+- The model chain's "leave it alone" memory is per server instance.
+- ADR-019's rule about which kind of key may see real users' text is set
+  aside for now (ADR-059).
+
+
+## HO-051: Next-feature review recommends complete monthly budgets (F-09)
+
+- **Date:** 2026-10-11 05:36 (UTC)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `chore/next-feature-review` / not opened
+
+### What changed
+- Reviewed main `b852d82`, product/architecture/decisions/testing docs, all
+  current feature areas and the ledger/category boundaries for candidate work.
+- User confirmed Simon owns dashboard integration and Jacob owns Insights
+  and a previous year of mock activity for the team's accounts.
+- Added [NEXT_FEATURE_PLAN](NEXT_FEATURE_PLAN.md): recommends full F-09 on
+  `feat/monthly-budgets`, with scope, competing candidates, financial rules,
+  ownership boundaries, domain/PostgreSQL/browser tests and migration rollout.
+- Verified main's CI and CodeQL passed on the reviewed commit. No application
+  changes, database writes, commits, pushes or PR were made.
+
+### What's next
+- User reviews the proposal. If approved, build the complete budgets page,
+  persistence, permissions and tests from fresh main, keeping dashboard,
+  Insights, mock-data generation and imports with their existing owners.
+
+### Open problems
+- Imports do not automatically pair transfers/card payments; budget accuracy
+  requires correct transfer marks and categories. Document recorded-data scope.
+- Shared schema/migration metadata, isolation registration and docs can still
+  conflict with concurrent branches; synchronize before final verification.
+
+## HO-052: Complete F-09 monthly budgets, with migration and regression evidence
+
+- **Date:** 2026-10-11 02:20 (EDT)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `feat/monthly-budgets` / not opened; worktree `/workspace/Reeflect-budgets`
+
+### What changed
+
+- User approved the complete [budget plan](NEXT_FEATURE_PLAN.md). Built the
+  page, pure calculations, server read/actions, allocation persistence and
+  generated migration `0010_monthly_budgets.sql`. ADR-060 records the approved
+  interactions; [feature README](../src/features/budgets/README.md) documents
+  the behavior, APIs and rollout.
+- Current/next-month allocations, historical reads, copy into missing plans,
+  zero vs unset, refund-adjusted actuals, unbudgeted/Uncategorized visibility,
+  editor controls, read-only viewers, validation, success/pending states and
+  retry recovery are included. No dashboard, Insights, import, generator or
+  agent implementation was changed.
+- Reads use owned account/category joins, effective rules/manual choices and
+  one repeatable-read snapshot. Writes are workspace-scoped and serialized;
+  copy is atomic, idempotent and never overwrites existing zero allocations.
+  No budget operation changes ledger rows or balances.
+- Synced with main `8c4a472f5c1e4009d99fd23dae8f47392874f0ae` (agent PR #22),
+  checked again at the end. Preserved main's ADR-059 and HO-049/HO-050; moved
+  the previously uncommitted planning entry to HO-051. Application files
+  merged without conflicts; the handoff append was resolved.
+- Validation:
+  - 95 budget Vitest tests pass. Domain and server operation files have 100%
+    line/branch coverage; registration callbacks are exercised separately by
+    all 16 budget cases in the shared isolation matrix, which pass.
+  - All 9 budget Playwright flows plus auth setup pass against the production
+    build. Synthetic phone/desktop light/dark screenshots are in
+    `docs/screenshots/budgets/`.
+  - Production build, bundle scan, lint, types, formatting and docs checks pass.
+  - Fresh local database accepts all 11 migrations. A separately seeded
+    main-schema database upgrades from 10 to 11 with every existing account,
+    transaction and category row unchanged. `pnpm db:migrate` was rerun on
+    `reeflect_budgets_test` after the changes, as requested; regeneration
+    reports no schema drift.
+  - Attempted full regressions: 1,477/1,503 unit tests passed; 26 tests and two
+    cleanup hooks timed out on blocked Neon storage. Full browser run had
+    96/102 pass: five storage-dependent failures and one budget navigation
+    assertion race. The race was corrected; the full budget browser suite
+    then passed. Full regression gates remain incomplete, not waived.
+
+### What's next
+
+- Restore managed Neon networking, then rerun the complete unit/browser
+  regressions and apply `pnpm db:migrate` to the verified production direct
+  endpoint before deploying the new route. Production was checked through
+  Neon: database `neondb`, 10 migrations, recurring table present, budget
+  table absent. No production migration or fixture writes were made.
+- Obtain explicit commit/push/PR authorization under [AGENTS.md](../AGENTS.md)
+  section 7 before publishing this new feature. Suggested commit:
+  `feat(budgets): add complete monthly category budgets`.
+- Required CI, CodeQL and teammate review still gate merging. The feature is
+  uncommitted, with its complete code/tests/docs available for review.
+
+### Open problems
+
+- The user saved networking changes, but this running environment continues
+  to report enforced revision 25 without Neon hosts. Storage HTTPS returns
+  proxy 403; the configured TCP proxy refuses connections and its destination
+  grants are empty. Tools can inspect but cannot edit that configuration.
+- Financial coverage depends on recorded rows and marked transfers. Automatic
+  transfer/card-payment pairing is still separate work. Historical actuals
+  follow current category rules; saved allocation amounts remain unchanged.
+
+## HO-053: Publish complete budgets feature after checking current main
+
+- **Date:** 2026-10-11 02:34 (EDT)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `feat/monthly-budgets` / publishing into `main` at the user's request
+
+### What changed
+
+- User explicitly requested resolving all conflicts with main and opening a
+  PR. Fetched main again: it remains `8c4a472f5c1e4009d99fd23dae8f47392874f0ae`,
+  already included in this branch. `git merge --ff-only origin/main` reports
+  up to date; there are no unmerged paths or conflict markers in the feature.
+- The earlier handoff append conflict is resolved, preserving main's entries.
+  Publish the entire F-09 implementation, tests, generated migration, docs and
+  synthetic screenshots together using
+  `feat(budgets): add complete monthly category budgets`.
+- No application changes were needed after HO-052's successful feature,
+  isolation, browser, build and migration checks. Recheck documentation and
+  the staged diff before committing; verify GitHub mergeability after opening
+  the PR.
+
+### What's next
+
+- Required CI, CodeQL and teammate review must pass before merging. The PR
+  description records the completed checks and incomplete full regressions.
+- Apply `pnpm db:migrate` to the verified production direct endpoint before
+  deploying budgets. Local migration checks passed; production remains pending
+  because managed networking blocks its connection.
+
+### Open problems
+
+- Runtime configuration now reports enforced revision 26, but its effective
+  allowed hosts still omit Neon. A fresh storage connectivity check returns
+  proxy HTTP 403. Full storage-dependent regression checks remain blocked;
+  this is not a waived test gate.
+
+## HO-054: Paydays from deposits (ADR-061); the calendar reads confirmed recurring payments
+
+- **Date:** 2026-10-11 (EDT)
+- **Author:** Simon Ormond with Claude (Claude Code)
+- **Branch / PR:** `feat/calendar-recurring` / not opened
+
+### What changed
+- **Gemini is not used for detection.** The team chose code: F-10's own
+  timing rules (ADR-058).
+- **ADR-061 (Proposed, Muhammad should confirm):** paydays are found in
+  deposits into checking and savings with ADR-058's rules. They are kind
+  `income`, shown as "Payday", and are confirmed like any payment. Pay stays
+  out of cost totals.
+- **Migration `0011_recurring_income`:** `recurring_series.kind` allows
+  `income`. Run `pnpm db:migrate:to production` after merge.
+- **F-10 (`src/features/recurring`):**
+  - **Detection:** `groupCharges` takes a direction, and `groupAll` merges
+    both. A payee with charges on an account is never read as pay there.
+    Charges carry `accountType`.
+  - **Totals:** `summarizePayments` leaves pay out of costs and adds
+    `income`. A payday's `actual` is deposits this month.
+  - **UI:**
+    - Payday in the add/edit form and the kind filter
+    - "Payday · …" on cards
+    - "Expected pay" in the totals
+    - deposit wording on payday cards
+  - **Client exports:** `client.ts` also exports `dayOf`, `shiftDays` and
+    `shiftMonths`.
+- **Calendar (`src/features/cashflow`):**
+  - **Schedule shape:** `Recurring` is a schedule (`unit`, `every`,
+    `nextOn`), with F-10's `monthly`/`yearly`, `userIntent`, `target` and
+    `onCard`. `occurrences()` lists an item's dates in a month, and
+    `monthItems` shows those after today.
+  - **Costs:** `subscriptionCosts` uses F-10's yearly estimates, so
+    quarterly or weekly items aren't counted as monthly.
+  - **Mapping:** `toRecurring` (`domain/from-payments.ts`) keeps confirmed,
+    active payments with a next date. It signs amounts (pay +), marks card
+    payments and leaves out loan accounts.
+  - **Loading:** `loadDashboard` reads `listRecurringPayments`. If that read
+    fails, the calendar shows the month without repeating items. It also
+    passes the number of suggestions to review.
+  - **Choices:** `setSubscriptionIntentAction` saves keep / planning to
+    cancel through F-10's `setPaymentIntent`. The dashboard shows the choice
+    straight away with `useOptimistic`, and it is the same choice the
+    Recurring payments page shows.
+  - **Dashboard:**
+    - **Headline:** the per-day headline and "Payday is …" come back once a
+      payday is confirmed. Without one, a line links to Recurring payments.
+    - **Subscriptions:** the list shows "$X, monthly · next Oct 20, $Y a
+      year" and the saving line. Viewers see the marks but can't change
+      them.
+    - **Suggestions:** "N recurring payments to review" links to the
+      suggestions.
+    - **Day panel:** expected items read "Expected payday" or "Expected
+      bill".
+- **Tests:**
+  - Vitest:
+    - payday detection (every two weeks, monthly on savings, card credits
+      and unknown account types ignored, irregular deposits, a shop's
+      refunds, totals, form and filter)
+    - repository (suggest, confirm and refuse intent on a payday; a payday
+      added by hand)
+    - `occurrences` (every 14 days, quarterly, weekly, before the next
+      date), card items, costs from yearly estimates, `toRecurring`
+    - the loader with saved payments, and the intent action (editor,
+      viewer, stranger, unsaved payment, pay refused)
+    - one new entry in the isolation matrix
+  - Playwright: `calendar.spec.ts` seeds deposits every two weeks and a
+    monthly charge, and confirms both on Recurring payments. The dashboard
+    then shows the per-day headline, "14 days away" and the subscription
+    with its yearly cost, and the mark shows on Recurring payments.
+  - Results:
+    - `pnpm test:unit`: 1421 passed (twice). The first run had two failures
+      in a new test whose lookup wasn't scoped to its workspace; fixed.
+    - `pnpm test:e2e`: 94 passed.
+    - `lint`, `typecheck`, `format:check`, `build`, `scan:bundle` and
+      `docs:check` pass.
+- **Docs:**
+  - ADR-061 and its index row
+  - the F-10 README
+  - PROJECT's F-10 row
+  - PITCH's note: confirm the demo workspace's payday and bills before
+    the 1:00 step
+
+### What's next
+- **Muhammad:** confirm ADR-061 (it changes F-10).
+- **F-25:** "owed before payday" and the per-day figure can now use
+  confirmed paydays and bills. The cashflow domain's `summarize` already
+  computes them.
+- **Demo seed (F-21):** create confirmed paydays and bills for the demo
+  workspace, or the headline shows the balance only.
+
+### Open problems
+- A payday on the 29th to 31st whose next date falls in a short month keeps
+  that shorter day afterwards: the calendar anchors on the next date's day,
+  and F-10 doesn't expose its anchor day.
+- Someone paid by the same payee into two accounts gets two paydays; both
+  count.
+
+## HO-075: A sample year in the developers' own accounts (ADR-082)
 
 - **Date:** 2026-10-11 (EDT)
 - **Author:** Jacob Heminway with Claude (Claude Code)
@@ -2390,7 +2731,7 @@ recommendation, not a decision.
   batch-testing branch (`01a128e5-…`) was promoted to production. The
   promote first failed because production lacked migration 0008
   (`insight_sample`); Jacob migrated production and reran it.
-- **ADR-060 (Accepted):** the hackathon exception to ADR-049. The three
+- **ADR-082 (Accepted):** the hackathon exception to ADR-049. The three
   developers may get one spec person's year in their own Personal
   workspace; the Nessie demo customer is the only other exception.
 - **`pnpm batch give <spec.json> --user <personKey>=<userId> …`**
@@ -2428,15 +2769,17 @@ recommendation, not a decision.
   The Postgres code is on `error.cause` (drizzle 0.45); fixing that is
   still to do.
 
-## HO-052: Fuller developer histories; ask about large uncategorized payments
+## HO-076: Fuller developer histories; ask about large uncategorized payments
 
 - **Date:** 2026-10-11 (EDT)
 - **Author:** Jacob Heminway with Claude (Claude Code)
 - **Branch / PR:** `feat/dev-sample-data` / not opened
 
 ### What changed
-- **Renumbered:** main took ADR-059 (agent replies) and HO-049/HO-050 in
-  PR #22, so this branch's ADR is now ADR-060 and its handoff HO-051.
+- **Renumbered:** PRs #22–#24 took ADR-059 to ADR-061 and HO-049 to
+  HO-054 while this branch was open. Its entries moved into Jacob's
+  reserved blocks (AGENTS.md section 9): ADR-082 and ADR-083, HO-075 and
+  HO-076.
 - **`devs.json` revised:** every developer has a savings account with a
   monthly transfer, and spends in most preset categories (health, personal
   care, entertainment, shopping, gifts, travel). Rent, food and utilities
@@ -2450,7 +2793,7 @@ recommendation, not a decision.
   checking.
 - **`scripts/batch/specs/README.md`:** the exact give, swap, count and
   take-back commands, with the three user ids.
-- **ADR-061 (Proposed):** a large uncategorized payment becomes an
+- **ADR-083 (Proposed):** a large uncategorized payment becomes an
   optional question in the "Needs your answer" list from ADR-055.
 - **Simon saw no sample accounts.** Nothing in the app hides synthetic
   accounts, so the give most likely never reached production (the CLI's
@@ -2460,9 +2803,38 @@ recommendation, not a decision.
 
 ### What's next
 - Run the production give from the README with `--replace`.
-- Merge main into this branch (conflicts are only in AGENTS.md,
-  DECISIONS.md and HANDOFF.md), then open the PR.
-- ADR-061 needs an owner, and the "Needs your answer" list needs building.
+- Open the PR once the merge of main is committed.
+- ADR-083 needs an owner, and the "Needs your answer" list needs building.
 
 ### Open problems
 - The batch CLI still prints only "Failed (Error)" for database errors.
+
+## HO-077: Reserved ADR and handoff numbers; main merged into the dev-data branch
+
+- **Date:** 2026-10-11 (EDT)
+- **Author:** Jacob Heminway with Claude (Claude Code)
+- **Branch / PR:** `feat/dev-sample-data` / not opened
+
+### What changed
+- **ADR-084 (Accepted):** each developer numbers new ADRs and handoff
+  entries from a block of 20 in AGENTS.md section 9 ("Reserved numbers"):
+  Muhammad ADRs 062–081 and HOs 055–074, Jacob ADRs 082–101 and HOs
+  075–094, Simon ADRs 102–121 and HOs 095–114. The rules in DECISIONS.md and HANDOFF.md point there.
+- **`pnpm docs:check`** reads the table (`reservedBlocks`): unused numbers
+  inside a block are fine, a number above the shared range in no block
+  fails, and gaps in the shared numbers still fail. Tests in
+  `scripts/docs-check.test.ts`.
+- **Merged main (#22 to #24) into this branch.** The conflicts in
+  AGENTS.md, DECISIONS.md and HANDOFF.md were additions on both sides; main's
+  entries kept their numbers and this branch's moved to ADR-082, ADR-083,
+  HO-075 and HO-076, with the citations in `scripts/batch` and the docs
+  updated to match.
+
+### What's next
+- Simon and Muhammad: take numbers from your own blocks from now on. Any
+  open branch that already used an ADR number above 061 or an HO
+  number above 054 outside its own block moves into it before merging.
+- Open the PR for `feat/dev-sample-data`.
+
+### Open problems
+- None new.

@@ -86,6 +86,7 @@ Built so far: `accounts` (F-03: add, edit and delete accounts; HO-030),
 `insights` (F-35: compare with sample people, ADR-056; its `index.ts` is
 pure for `scripts/batch`, and `server.ts` exports the page),
 `recurring` (F-10: confirmed patterns, variable bills and manual tracking, ADR-058),
+`budgets` (F-09: calendar-month allocations, posted actuals and history, ADR-060),
 `auth` (sign-in, sign-up, email verification and password reset, ADR-052),
 `cashflow` (the calendar, on sample
 data), `landing` (the home page) and `synthetic`. `accounts` and
@@ -133,9 +134,9 @@ have `updated_at`.
 | `synthetic_workspace` | workspace_id (PK, cascade), batch_id (restrict), person_key, persona, summary | The synthetic marker: a row means the workspace is synthetic, no row means real (ADR-049). Built |
 | `insight_sample` | batch_id (cascade), workspace_id (cascade), period_days, measure, value; PK (workspace_id, period_days, measure) | Each sample person's Insights figures for the last 30, 90 and 365 days to the batch's as-of: cents per month, or plain counts (ADR-056). Written at batch load and by `pnpm batch rollup`. Built in migration 0008 |
 | `category` | id, workspace_id, name, color_token, sort_order, is_preset, preset_key | Built in migration 0005. Eighteen presets (ADR-057) initialized on the first authorized editor visit, and by the batch loader for sample workspaces; unique (workspace_id, preset_key) preserves renames |
-| `budget` | id, workspace_id, category_id, month (`YYYY-MM`), amount_cents | Unique (category_id, month) |
+| `budget` | id, workspace_id, category_id, month (`YYYY-MM`), amount_cents, created_at, updated_at | Built in 0010 (ADR-060). Unique (workspace_id, month, category_id); composite workspace/category FK and workspace FK cascade; month and nonnegative amount checks. Writes change allocation metadata only |
 | `category_rule` | id, workspace_id, pattern, match_type, category_id, priority, origin (`user`/`ai_confirmed`) | Built in migration 0005. Composite workspace/category FK; current rules are user-created |
-| `recurring_series` | id, workspace_id, financial_account_id, merchant_normalized, name, decision (`candidate`/`confirmed`/`dismissed`), kind (`subscription`/`bill`), amount_mode (`fixed`/`variable`), schedule_unit (`days`/`months`), schedule_every, amount_cents (nullable override), baseline_amount_cents, next_on (nullable user date), manual, user_intent (`none`/`keep`/`cancel`), last_charged_on, observed_amount_cents | Built in 0009 (ADR-058). Unique (workspace_id, account, payee); composite workspace/account FK cascades. Recurring metadata never changes ledger rows or balances. Lender dates/autopay remain F-22/F-23 additions |
+| `recurring_series` | id, workspace_id, financial_account_id, merchant_normalized, name, decision (`candidate`/`confirmed`/`dismissed`), kind (`subscription`/`bill`/`income`), amount_mode (`fixed`/`variable`), schedule_unit (`days`/`months`), schedule_every, amount_cents (nullable override), baseline_amount_cents, next_on (nullable user date), manual, user_intent (`none`/`keep`/`cancel`), last_charged_on, observed_amount_cents | Built in 0009 (ADR-058); `income` added in 0011 (ADR-061). Unique (workspace_id, account, payee); composite workspace/account FK cascades. Recurring metadata never changes ledger rows or balances. Lender dates/autopay remain F-22/F-23 additions |
 | `reminder` | id, workspace_id, recurring_series_id, due_on, remind_on, status (`scheduled`/`sent`/`cancelled_paid`/`dismissed`), channel (`in_app`/`imessage`), low_balance_warning (bool), sent_at | Unique (recurring_series_id, due_on) so each cycle reminds once |
 | `savings_goal` | id, workspace_id, name, target_cents, saved_cents, target_date, active | One active goal in MVP |
 | `import_batch` | id, workspace_id, financial_account_id, kind (`csv`/`pdf`/`plaid`/`nessie`), file_sha256 (nullable), statement_institution, statement_last4, product_name, period_start, period_end, opening_balance_cents (nullable), closing_balance_cents (nullable), reconciliation (`passed`/`failed`/`not_applicable`), rows_parsed, rows_imported, rows_skipped_duplicate, checks (jsonb), csv_object_key, csv_sha256, status (`previewed`/`committed`/`rejected`), created_by, committed_at | Unique (financial_account_id, file_sha256). Built (migration 0006) for PDF imports, used by CSV imports too; balances are null when the file has none, like a card's CSV export (migration 0007, ADR-054); `csv_object_key` and `csv_sha256` locate and verify the stored CSV (ADR-053). Blocked previews write no row, so `rejected` is unused so far |
@@ -242,13 +243,20 @@ Governed by: ADR-014, ADR-018, ADR-026, ADR-042
 
 ## ARCH-07: AI layer
 
-Governed by: ADR-019, ADR-045
+Governed by: ADR-019, ADR-045, ADR-059
 
-- `src/lib/ai/client.ts`: Google Gemini API wrapper using the `@google/genai`
-  SDK (server-only). Nothing outside `lib/ai` imports the SDK directly.
-- `src/lib/ai/fill.ts`: replaces placeholders with formatted values from code.
-- `src/lib/ai/digitScan.ts`: rejects outputs containing digits not inserted by
-  `fill.ts`; on rejection, fall back to a fixed template.
+- `src/lib/ai/google.ts`: the only file that imports the `@google/genai`
+  SDK. One stateless request (`store: false`) to Gemini's Interactions API.
+- `src/lib/ai/chain.ts` and `models.ts`: try up to six models in order,
+  skipping one that fails and leaving it alone while it cools off (ADR-059).
+- `src/lib/ai/client.ts` (server-only): `generateText`, the chain bound to
+  `GEMINI_API_KEY` and `GEMINI_MODELS`. Without a key it reports
+  "unavailable" and callers use their code-built reply.
+- `src/lib/ai/fill.ts`: replaces `{labels}` with formatted values from code;
+  refuses an unknown label or a stray brace.
+- `src/lib/ai/digitScan.ts`: finds a digit the model wrote itself (digits
+  inside label names do not count); on a hit, fall back to the code-built
+  reply.
 - "Ask Reeflect" exposes read-only tools (for example
   `getCategorySpend(workspaceId, month, categoryId)`) that call the same
   repository functions as the UI, with the same authorization.
@@ -292,8 +300,8 @@ Governed by: ADR-006, ADR-007, ADR-010, ADR-012, ADR-019, ADR-025
 | `STATEMENTS_BUCKET` | `lib/storage`: the bucket name, `statements` (ADR-053) | No |
 | `ENCRYPTION_KEY` | `lib/security/crypto.ts` (32 bytes, base64) | Yes |
 | `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_ENV` | Plaid client | Yes (secret) |
-| `GEMINI_API_KEY` | `lib/ai` (Google Gemini API) | Yes |
-| `GEMINI_MODEL` | `lib/ai` (model name, set at kickoff) | No |
+| `GEMINI_API_KEY` | `lib/ai` (Google Gemini API); optional, the agent answers with code-built replies without it | Yes |
+| `GEMINI_MODELS` | `lib/ai`: models to try in order, comma-separated, six at most; optional, defaults to the chain in `src/lib/ai/models.ts` (ADR-059) | No |
 | `NESSIE_API_KEY` | `features/nessie` (sent as a query parameter; logs must redact it) | Yes |
 | `NESSIE_BASE_URL` | `features/nessie`: `https://api.nessieisreal.com` (ADR-048) | No |
 | `AGENT_SERVICE_TOKEN` | Next.js and worker (shared secret, 32+ characters). Optional in Next.js: without it `/api/agent/turn` answers 404 to everyone | Yes |
@@ -483,8 +491,8 @@ sequenceDiagram
 | Protocol types | `packages/agent-protocol/` | Zod schemas shared by worker and brain, and the list of platforms. `terminal` is refused by a deployed app (`src/features/agent/server/platform.ts`) |
 | Turn endpoint | `src/app/api/agent/turn/route.ts` | Token check (`src/features/agent/server/service-token.ts`, 404 without it), zod parse, call `runAgentTurn` |
 | Identity | `src/features/messaging/server/link.ts`, `actions.ts` | Link codes, the request a user approves, `messaging_identity`, STOP and Disconnect (ADR-051). The Settings card is `src/features/messaging/ui/` |
-| Brain | `src/features/agent/server/runAgentTurn.ts` | Gemini loop with tools, reply composition. Today: LINK, STOP and fixed replies only (F-24); Gemini arrives with F-25 |
-| Tools | `src/features/agent/server/tools/` | `getSummary`, `getCategory`, `listSubscriptions`, `listUpcomingBills`, `logSpending`, `setSubscriptionIntent` |
+| Brain | `src/features/agent/server/runAgentTurn.ts`, `answer.ts` | LINK and STOP in code; any other text from a linked phone goes to `answer`: figures from code, one model request with labels, the draft checked and filled, the code-built reply on any failure (F-25, ADR-059). `domain/summary.ts`, `prompt.ts`, `draft.ts` and `fallback.ts` hold the pure parts |
+| Tools | `src/features/agent/server/tools/` | Built: `getSummary` (balances, and the last 30 days from the Insights measures). Planned: `getCategory`, `listSubscriptions`, `listUpcomingBills`, `logSpending`, `setSubscriptionIntent` |
 | Intent parsing | `src/features/agent/domain/parse.ts` | Code-only commands (ADR-040): LINK, TRY, STOP, keep / cancel / yes / UNDO / DETAILS, quiet hours, amounts from user text (ADR-035) |
 | Quiet hours | `src/features/messaging/domain/quietHours.ts` | Parse times, handle ranges across midnight, decide whether a message may be sent now |
 | Demo mode | `src/features/messaging/server/demo.ts`, `scripts/demo-judges.ts`, `scripts/demo-reset.ts` | Judge workspaces, TRY linking, expiry, reset (ADR-034) |

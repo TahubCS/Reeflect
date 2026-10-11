@@ -12,7 +12,7 @@ export const targetSchema = z.object({
 export const paymentInputSchema = targetSchema
   .extend({
     name: z.string().trim().min(1, "Enter a payment name.").max(80),
-    kind: z.enum(["bill", "subscription"]),
+    kind: z.enum(["bill", "subscription", "income"]),
     amountMode: z.enum(["fixed", "variable"]),
     unit: z.enum(["days", "months"]),
     every: z.number().int().min(1).max(730),
@@ -85,7 +85,7 @@ export function rejectedForm(error: z.ZodError, form: FormData): FormState {
   return { errors, values: formValues(form) };
 }
 export const querySchema = z.object({
-  kind: z.enum(["all", "bill", "subscription"]).catch("all"),
+  kind: z.enum(["all", "bill", "subscription", "income"]).catch("all"),
   state: z.enum(["all", "confirmed", "candidate", "dismissed"]).catch("all"),
   intent: intentSchema.or(z.literal("all")).catch("all"),
   page: z.coerce.number().int().min(1).max(1000).catch(1),

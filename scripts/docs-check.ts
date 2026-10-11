@@ -57,6 +57,31 @@ export function retiredAdrIds(decisions: string): string[] {
   return paragraph.replace(/\([^)]*\)/g, "").match(/\bADR-\d+\b/g) ?? [];
 }
 
+export type ReservedBlock = {
+  readonly owner: string;
+  readonly kind: "ADR" | "HO";
+  readonly from: number;
+  readonly to: number;
+};
+
+/**
+ * Each developer's ADR and HO numbers, from the "Reserved numbers" table in
+ * AGENTS.md section 9. Rows read `| Name | 062–081 | 055–074 |`.
+ */
+export function reservedBlocks(agentsMd: string): ReservedBlock[] {
+  const start = agentsMd.indexOf("### Reserved numbers");
+  if (start === -1) return [];
+  const rest = agentsMd.slice(agentsMd.indexOf("\n", start) + 1);
+  const end = rest.search(/^#{1,3} /m);
+  const section = end === -1 ? rest : rest.slice(0, end);
+  const row =
+    /^\|\s*([^|]+?)\s*\|\s*(\d+)\s*[–-]\s*(\d+)\s*\|\s*(\d+)\s*[–-]\s*(\d+)\s*\|/gm;
+  return [...section.matchAll(row)].flatMap(([, owner, a1, a2, h1, h2]) => [
+    { owner: owner!, kind: "ADR" as const, from: Number(a1), to: Number(a2) },
+    { owner: owner!, kind: "HO" as const, from: Number(h1), to: Number(h2) },
+  ]);
+}
+
 function checkCitations(input: DocsCheckInput): string[] {
   const decisions = findFile(input.files, HEADINGS.ADR.file)?.text ?? "";
   const known = new Set([
@@ -78,10 +103,16 @@ function checkCitations(input: DocsCheckInput): string[] {
 function checkSequences(input: DocsCheckInput): string[] {
   const decisions = findFile(input.files, HEADINGS.ADR.file)?.text ?? "";
   const retired = new Set(retiredAdrIds(decisions).map(numberOf));
+  const blocks = reservedBlocks(findFile(input.files, "AGENTS.md")?.text ?? "");
   const problems: string[] = [];
 
   for (const kind of ID_KINDS) {
     const ids = headingIds(input.files, kind);
+    const own = blocks.filter((block) => block.kind === kind);
+    // Below the first block, numbers were shared and run without gaps.
+    const shared = Math.min(Infinity, ...own.map((block) => block.from)) - 1;
+    const reserved = (value: number) =>
+      own.some((block) => value >= block.from && value <= block.to);
     const numbers = ids.map(numberOf);
     const seen = new Set<number>();
     for (const [index, value] of numbers.entries()) {
@@ -92,10 +123,16 @@ function checkSequences(input: DocsCheckInput): string[] {
       if (kind === "ADR" && retired.has(value)) {
         problems.push(`${HEADINGS[kind].file}: ${ids[index]} is retired`);
       }
+      if (value > shared && !reserved(value)) {
+        problems.push(
+          `${HEADINGS[kind].file}: ${ids[index]} is outside every reserved block (AGENTS.md section 9)`,
+        );
+      }
     }
     const highest = Math.max(0, ...numbers);
     for (let expected = 1; expected <= highest; expected += 1) {
-      const skipped = kind === "ADR" && retired.has(expected);
+      const skipped =
+        (kind === "ADR" && retired.has(expected)) || reserved(expected);
       if (!seen.has(expected) && !skipped) {
         problems.push(
           `${HEADINGS[kind].file}: ${kind} number ${expected} is missing`,

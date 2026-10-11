@@ -23,7 +23,7 @@ import {
   type Pattern,
   type ScheduleUnit,
   findPatterns,
-  groupCharges,
+  groupAll,
   paymentKey,
   typicalAmounts,
 } from "./patterns";
@@ -90,7 +90,7 @@ export function buildPayments(
   saved: readonly SavedPayment[],
   today: string,
 ): Payment[] {
-  const groups = groupCharges(charges, today);
+  const { groups } = groupAll(charges, today);
   const actualByPayee = new Map<string, Cents>();
   for (const charge of charges) {
     if (
@@ -170,7 +170,11 @@ export function buildPayments(
       high: amounts?.high ?? amount,
       monthly: fraction(yearly, 1, 12),
       yearly,
-      actual: actualByPayee.get(key) ?? ZERO,
+      // Charges net of credits; for pay, deposits net of anything sent back.
+      actual:
+        kind === "income"
+          ? negate(actualByPayee.get(key) ?? ZERO)
+          : (actualByPayee.get(key) ?? ZERO),
       nextOn,
       dateSource: row?.nextOn ? "user" : "predicted",
       lastOn,
@@ -196,10 +200,17 @@ export function buildPayments(
 }
 
 export function summarizePayments(payments: readonly Payment[]) {
-  const confirmed = payments.filter(
+  const confirmedAll = payments.filter(
     (payment) => payment.decision === "confirmed",
   );
+  // Pay is money in: it never counts toward recurring costs (ADR-061).
+  const confirmed = confirmedAll.filter((payment) => payment.kind !== "income");
   const active = confirmed.filter((payment) => payment.active);
+  const pay = sum(
+    confirmedAll
+      .filter((payment) => payment.kind === "income" && payment.active)
+      .map((payment) => payment.yearly),
+  );
   const yearly = sum(active.map((payment) => payment.yearly));
   const bills = sum(
     active
@@ -225,6 +236,8 @@ export function summarizePayments(payments: readonly Payment[]) {
         )
         .map((payment) => payment.yearly),
     ),
+    /** Expected pay a month, from confirmed active paydays. */
+    income: fraction(pay, 1, 12),
     candidates: payments.filter((payment) => payment.decision === "candidate")
       .length,
     count: active.length,

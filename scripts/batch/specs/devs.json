@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "label": "Developer accounts: three students × three pay levels (ADR-060)",
+  "label": "Developer accounts: three students × three pay levels (ADR-082)",
   "request": "3 histories for each dev, low to high income, same basic persona with income and a few parameters changed. Jacob: spends very little, big car down payment mid-year, saving, big on food and travel, very few subscriptions, two-week pay. Simon: bought a car outright about 2 months ago, no rent, food, regular subscriptions, a lot on Christmas presents, decent pay, two-week pay. Muhammed: out-of-state tuition paid in pieces, works a lot, weekly contract pay, decent subscriptions, a lot of eating out, a lot of gas, low rent. Revised: everyone has a savings account and spends in most categories, nudged toward the sample students' averages.",
   "startMonth": "2025-10",
   "months": 13,

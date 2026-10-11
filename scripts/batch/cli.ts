@@ -10,7 +10,7 @@
 //   pnpm batch rollup <batchId>    recompute its Insights figures (ADR-056)
 //   pnpm batch give <spec.json> --user <personKey>=<userId> […] [--seed s] [--as-of …] [--replace] [--dry-run] [--yes]
 //   pnpm batch take-back --user <userId> [--yes]
-//                                  a developer's own account (ADR-060)
+//                                  a developer's own account (ADR-082)
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";

@@ -16,15 +16,20 @@ Agent Track, Best Use of Nessie with Capital One, MLH Best Use of Gemini API
 > by code) is now one of the four main features. The demo script in section 5
 > does not show a statement upload yet; add a step once the import works.
 
-> **Updated 2026-10-11 (HO-048):** the website calendar now runs on the
-> workspace's own accounts and transactions; the sample data and the chat
-> simulator are gone. The calendar does not read recurring payments (F-10,
-> ADR-058) yet, so paydays, bills and subscriptions still to come are not
-> on it. Until then the
-> headline shows today's balance, not the per-day amount, and the 1:00 step
-> must not say that upcoming paydays and bills are on the calendar.
+> **Updated 2026-10-11 (HO-048, HO-054):** the website calendar runs on the
+> workspace's own accounts and transactions, and shows the paydays, bills
+> and subscriptions confirmed on Recurring payments (ADR-058, ADR-061). For
+> the 1:00 step, the demo workspace's payday and bills must be confirmed
+> before the demo, or the headline shows the balance only.
 
 ---
+
+> **F-09 on the budgets branch (ADR-060):** after its migration and deployment,
+> an optional website demonstration can set a $500 groceries plan and show
+> $320 of recorded net spending with $180 remaining. Editing or copying
+> allocations leaves account balances and transactions intact. This page
+> does not calculate cash available until payday, and budget replies by text
+> remain F-27/F-28 work.
 
 ## 1. One line
 

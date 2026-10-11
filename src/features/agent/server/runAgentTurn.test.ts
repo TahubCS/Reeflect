@@ -76,7 +76,11 @@ describe("runAgentTurn", () => {
 
     await approveLink(me.userId, me.workspaceId);
 
-    expect(await text(handle, "how am I doing?")).toBe(REPLIES.linked);
+    // Linked: now it gets an answer about its own workspace (F-25). No
+    // model key is set under test, so the reply is the one built by code.
+    expect(await text(handle, "how am I doing?")).toContain(
+      "no accounts for you yet",
+    );
     expect(await text(handle, `LINK ${code}`)).toBe(REPLIES.alreadyLinked);
   });
 
