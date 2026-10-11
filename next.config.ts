@@ -5,6 +5,13 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   // A workspace package shipped as TypeScript source (ADR-032).
   transpilePackages: ["@reeflect/agent-protocol"],
+  experimental: {
+    serverActions: {
+      // Statement PDFs may be up to 10 MB (ADR-044), plus the form's own
+      // overhead. Vercel still caps a request body at 4.5 MB (ADR-053).
+      bodySizeLimit: "11mb",
+    },
+  },
   partialPrefetching: true,
   turbopack: {
     rules: {

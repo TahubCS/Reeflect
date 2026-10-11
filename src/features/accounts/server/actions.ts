@@ -3,6 +3,8 @@
 import { notFound, redirect } from "next/navigation";
 import { requireWorkspaceAccess } from "@/lib/auth/authz";
 import { getSession } from "@/lib/auth/session";
+import { statementStore } from "@/lib/storage";
+import { accountPrefix } from "@/lib/storage/keys";
 import {
   ACCOUNT_FORM_FIELDS,
   type AccountFieldErrors,
@@ -95,5 +97,13 @@ export async function deleteAccountAction(
   const id = parseAccountId(accountId);
 
   if (!(await deleteAccount(verified, id))) notFound();
+  // The account's statement CSVs go with it (ADR-025, ADR-053). The rows
+  // are already gone, so a failure here leaves files nothing points to;
+  // it is logged by id and does not undo the delete.
+  try {
+    await statementStore()?.deletePrefix(accountPrefix(verified, id));
+  } catch {
+    console.error("accounts: statement files not deleted", { accountId: id });
+  }
   redirect(`/w/${verified}/accounts`);
 }

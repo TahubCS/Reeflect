@@ -9,11 +9,19 @@ import {
 } from "@/features/categorization/server/repository";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { category, categoryRule, transaction } from "@/lib/db/schema";
+import { uuidv7 } from "@/lib/db/id";
+import {
+  category,
+  categoryRule,
+  importBatch,
+  transaction,
+} from "@/lib/db/schema";
 import {
   createAccount,
   listAccounts,
 } from "@/features/accounts/server/repository";
+import { IMPORT_ENTRY_POINTS } from "@/features/imports/server/entry-points";
+import { listPreviews } from "@/features/imports/server/repository";
 import { MESSAGING_ENTRY_POINTS } from "@/features/messaging/server/entry-points";
 import { TRANSACTION_ENTRY_POINTS } from "@/features/transactions/server/entry-points";
 import { createTransaction } from "@/features/transactions/server/repository";
@@ -32,6 +40,7 @@ import type { EntryPoint, EntryPointTarget } from "./entry-point";
 // nothing and change nothing in B.
 const ENTRY_POINTS: EntryPoint[] = [
   ...ACCOUNT_ENTRY_POINTS,
+  ...IMPORT_ENTRY_POINTS,
   ...MESSAGING_ENTRY_POINTS,
   ...TRANSACTION_ENTRY_POINTS,
   ...CATEGORIZATION_ENTRY_POINTS,
@@ -72,6 +81,7 @@ async function snapshotB() {
       .select()
       .from(transaction)
       .where(eq(transaction.workspaceId, b.workspaceId)),
+    previews: await listPreviews(b.workspaceId),
   };
 }
 
@@ -102,10 +112,32 @@ async function newTarget(workspaceId: string): Promise<EntryPointTarget> {
       status: "posted",
     },
   });
+  const importBatchId = uuidv7();
+  await db.insert(importBatch).values({
+    id: importBatchId,
+    workspaceId,
+    financialAccountId: accountId,
+    kind: "pdf",
+    fileSha256: importBatchId,
+    statementInstitution: "Bank",
+    statementLast4: "0000",
+    productName: "Checking",
+    periodStart: "2026-01-01",
+    periodEnd: "2026-01-31",
+    openingBalanceCents: 0,
+    closingBalanceCents: 0,
+    reconciliation: "passed",
+    rowsParsed: 0,
+    checks: [],
+    csvObjectKey: `isolation/${importBatchId}.csv`,
+    csvSha256: "0",
+    status: "previewed",
+  });
   return {
     workspaceId,
     accountId,
     transactionId: transactionId!,
+    importBatchId,
     categoryId,
     ruleId,
   };
@@ -143,10 +175,12 @@ describe.each(ENTRY_POINTS)("$name", (entry) => {
 
     await outcome(entry, { ...a, accountId: b.accountId });
     await outcome(entry, { ...a, transactionId: b.transactionId });
+    await outcome(entry, { ...a, importBatchId: b.importBatchId });
     await outcome(entry, {
       ...a,
       accountId: b.accountId,
       transactionId: b.transactionId,
+      importBatchId: b.importBatchId,
     });
     await outcome(entry, { ...a, categoryId: b.categoryId });
     await outcome(entry, { ...a, ruleId: b.ruleId });

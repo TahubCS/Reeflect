@@ -45,7 +45,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-03 Financial accounts | A | Simon Ormond | `feat/financial-accounts` | Done: manual accounts, list, edit, delete (HO-030) |
 | F-04 Manual transactions | A | Simon Ormond | `feat/manual-transactions` | Built: add, edit, delete, list by day, account filter (HO-031); ADR-050 Proposed |
 | F-05 CSV import | A | Unassigned | — | Not started |
-| F-06 PDF statement import (P0, ADR-044) | A | Unassigned | — | Not started |
+| F-06 PDF statement import (P0, ADR-044) | A | Simon Ormond | `feat/pdf-statement-import` | Built for Capital One 360 checking and savings (HO-038); CSV kept in Neon object storage (ADR-053 Proposed); needs `neon deploy` and Vercel vars |
 | F-08 Categorization | A | Codex | `feat/transaction-categorization` | Full feature implemented and verified (HO-037); PR #12 awaits merge |
 | F-09 Monthly budgets (P1) | A | Unassigned | — | Not started |
 | F-10 Subscriptions (detection P0, marks P1) | A | Unassigned | — | Not started |
@@ -60,7 +60,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-26 Subscription alerts | C | Unassigned | — | Not started |
 | F-27 Log spending by text | C | Unassigned | — | Not started |
 | F-28 Category and balance questions | C | Unassigned | — | Not started |
-| F-32 Agent worker | C | Muhammad Tahub Khatri | `feat/agent-worker` | Built, replies only (HO-038); not yet deployed to Render |
+| F-32 Agent worker | C | Muhammad Tahub Khatri | `feat/agent-worker` | Built, replies only (HO-039); not yet deployed to Render |
 | F-22 Bill reminders (P1) | A + C | Unassigned | — | Not started |
 | F-15 Gemini summary on the website (P1, ADR-045) | C | Unassigned | — | Not started |
 | Later (ADR-043): Plaid, household, debt tab, savings goal, receipt photos, recaps, forecast, audit log | — | Unassigned | — | Only if time remains |
@@ -1661,7 +1661,107 @@ recommendation, not a decision.
 
 ---
 
-## HO-038: F-32 agent worker: relays texts between Photon and the app
+## HO-038: PDF statement import (F-06), with the CSV kept in Neon object storage
+
+- **Date:** 2026-10-10 (EDT)
+- **Author:** Simon Ormond with Claude (Claude Code)
+- **Branch / PR:** `feat/pdf-statement-import` / not opened
+
+### What changed
+- **ADR-053 (Proposed):** each import keeps one canonical CSV of its rows in
+  a private Neon bucket `statements`; the PDF is still never stored (only
+  its SHA-256). ADR-025's status line now says it is refined by ADR-053.
+  **The team should confirm it.**
+- **Migration `0006_import_batch`** (after categorization's 0005): new `import_batch` table (ARCH-03 plus
+  `statement_*`, `rows_parsed`, `checks`, `csv_object_key`, `csv_sha256`,
+  `committed_at`) and `transaction.import_batch_id`.
+- **`src/features/imports/`:**
+  - text extraction with `unpdf`
+  - line grouping, and the Capital One 360 template
+    (`domain/templates/capital-one.ts`), built from Capital One's public
+    sample eStatement. It picks the section for the account's last 4 digits.
+  - canonical CSV writer and strict reader
+  - ADR-010 fingerprints
+  - checks: identity, account type, USD, reconciliation, running balance,
+    stated totals, CSV round trip, duplicate file, duplicate rows, period
+    overlap or gap, continuity with the last import
+  - the preview → commit pipeline: commit re-downloads the CSV, compares
+    its SHA-256, re-parses and reconciles it, and imports the stored rows
+  - server actions and the `/import` page: upload, a blocked result with
+    its checks, preview, first-import confirmation, commit, discard, and
+    waiting previews
+- **`src/lib/storage/`:** the statements bucket through Neon's Files SDK adapter,
+  and keys `w/<ws>/a/<account>/<batch>.csv`. Deleting an account deletes
+  its CSVs. Env vars: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
+  `AWS_ENDPOINT_URL_S3`, `AWS_REGION`, `STATEMENTS_BUCKET`, all five or
+  none. Without them import is switched off; they are **not** required on
+  Vercel, so deploys don't break.
+- **`neon.ts`** declares the bucket (`@neon/config`).
+- **Storage is Neon everywhere (no emulator):** the app uses Neon's Files
+  SDK adapter (`files-sdk@2.6.0`, pinned; `files-sdk/neon`). Our code never
+  imports `@aws-sdk`, but the adapter needs four `@aws-sdk/*` packages
+  installed. Tests and local development use a new **schema-only Neon
+  branch `storage-tests`** (`br-polished-hall-b439q9bu`) with its own
+  `statements` bucket. Credentials come from gitignored
+  `.env.storage-tests`, and Vitest and Playwright read only the storage
+  variables from it (`tests/support/storage-env.ts`). CI reads four
+  repository secrets: `NEON_TEST_STORAGE_ACCESS_KEY_ID`,
+  `NEON_TEST_STORAGE_SECRET_ACCESS_KEY`, `NEON_TEST_STORAGE_ENDPOINT`,
+  `NEON_TEST_STORAGE_REGION`.
+- `next.config.ts`: server action body limit 11 MB.
+- `src/lib/money`: `parseStatementAmount`, `toDecimalString`,
+  `parseDecimalString`.
+- **Fixtures:** `tests/fixtures/pdf/`, synthetic PDFs drawn by
+  `generate.ts` from `specs.ts`; regenerating gives identical bytes.
+  `.gitignore` now ignores `tests/fixtures/**/private/`. The earlier rule
+  missed `tests/fixtures/synthetic/private/`, where the sample statement is.
+- **Isolation matrix:** `EntryPointTarget` gained `importBatchId`; the
+  three import actions are in it.
+- **Tests:** `pnpm test:unit` (779) and `pnpm test:e2e` (67, including the
+  new `pdf-import.spec.ts`) pass. `pnpm lint`, `typecheck`, `format:check`,
+  `docs:check` and `scan:bundle` pass. Storage tests ran against the Neon
+  `storage-tests` bucket.
+
+### What's next
+- **Add the four CI secrets** (GitHub → Settings → Secrets and variables →
+  Actions), with the values from `.env.storage-tests`; until then CI's
+  storage tests fail. Teammates pull `.env.storage-tests` themselves with
+  the command in AGENTS.md section 5.
+- **Deploy:**
+  1. `neon link`, then `neon deploy` to create the bucket.
+  2. Set the five storage vars on Vercel (Production and Preview), with
+     `STATEMENTS_BUCKET=statements`.
+  3. Merge, then `pnpm db:migrate:to production`, then deploy.
+- Upload one statement on a preview deployment to check Neon storage end
+  to end.
+- Add a statement upload step to the demo script in `docs/PITCH.md`.
+- F-05 CSV import can reuse the pipeline after parsing: `rows`, checks,
+  CSV and commit.
+- Gemini reading the stored CSVs is a later feature: only synthetic or
+  sandbox statements while the key is on the free tier (ADR-019, ADR-040).
+
+### Open problems
+- ADR-053 is Proposed, not Accepted.
+- Only Capital One 360 deposit statements. Card statements have another
+  layout and fail with "no account activity". A real statement with a
+  layout that differs from the public sample (for example, descriptions
+  that wrap onto a second line) may need template changes. A dropped row
+  can't go unnoticed, because reconciliation blocks the import.
+- Vercel caps request bodies at 4.5 MB, below ADR-044's 10 MB.
+- E2E runs leave objects in the `storage-tests` bucket; nothing clears it
+  yet.
+- One full E2E run on 2026-10-10 failed across unrelated specs (calendar,
+  auth, import) with ~2.7-minute timeouts. The next full run and the import
+  spec alone passed. Cause not found; watch for it in CI.
+- Deleting a workspace (F-19, not built) must also delete `w/<ws>/` from
+  the bucket.
+- A failed storage delete leaves an orphaned CSV, logged by id.
+- Imported rows are not categorized or paired as transfers yet (F-08,
+  ADR-020).
+
+---
+
+## HO-039: F-32 agent worker: relays texts between Photon and the app
 
 - **Date:** 2026-10-10 22:30 (EDT)
 - **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
