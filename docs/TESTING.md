@@ -181,6 +181,11 @@ The workspace isolation matrix (TEST-06) includes `/api/agent/turn`: a
 linked handle for user A can never cause a tool call against user B's
 workspace, whatever the message text says.
 
+Its before/after snapshots compare every row and column in a stable primary-key
+order. PostgreSQL may change scan plans without changing data; a regression test
+switches between sequential and index scans to verify that this cannot produce
+a false isolation failure.
+
 The phone-link server actions are in the matrix
 (`src/features/messaging/server/entry-points.ts`). They have one rule the
 matrix cannot express, tested in

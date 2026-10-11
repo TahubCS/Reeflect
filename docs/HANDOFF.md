@@ -2241,3 +2241,41 @@ recommendation, not a decision.
   storage host. HO-045 lists the local storage regressions that remain blocked.
   The PR discloses these exclusions; GitHub CI uses the existing repository
   test-storage credentials to run the full suite. No tests are disabled in code.
+
+## HO-047: Fix the recurring PR's CI isolation snapshot failure
+
+- **Date:** 2026-10-11 01:05 (America/New_York, EDT)
+- **Author:** Muhammad Tahub Khatri with Codex
+- **Branch / PR:** `feat/subscriptions` / [PR #20](https://github.com/TahubCS/Reeflect/pull/20)
+
+### What changed
+- CI run `38113112063` passed 1,307 unit tests and failed one workspace
+  isolation assertion. The category rows and values were unchanged, but an
+  unordered SQL query returned them in a different order. Browser, lint/types
+  and dependency audit jobs passed, including the real Neon import tests.
+- Order every directly queried isolation snapshot table by its primary key.
+  The test still compares all rows and columns, including recurring metadata;
+  unauthorized inserts, updates or deletes still fail the comparison.
+- Add a real PostgreSQL regression that switches between sequential and
+  index scans with transaction-local planner settings and no data changes.
+  It fails before the fix and passes afterwards. Documented in TEST-06.
+- This follow-up changes tests and documentation only. Main is still `c75ec7d`;
+  no application code, schema, CI configuration or storage credentials change.
+
+### Verification
+- All 106 workspace isolation tests pass locally, including the new regression.
+  Strict app/worker types, lint and formatting pass.
+- The broader local suite passes 1,265 tests in 84 files with coverage
+  thresholds passing (95.51% lines, 91.52% branches), using HO-045's disclosed
+  storage exclusions. Two timeouts during concurrent lint/type checks pass
+  when rerun with two workers and those checks complete; no deadlines changed.
+  The full suite and real storage checks run in GitHub CI after pushing the fix.
+
+### What's next
+- Push the fix to PR #20 under the user's existing publication authorization,
+  then verify the full unit job passes on that commit. No tests are disabled.
+- CI and teammate review still gate merging; production has not been migrated.
+
+### Open problems
+- HO-045's local Neon storage network restriction remains. CI can reach the
+  test bucket and passed its storage/import tests in the initial PR run.

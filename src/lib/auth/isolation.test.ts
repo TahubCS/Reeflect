@@ -7,7 +7,7 @@ import {
   listCategories,
   listRules,
 } from "@/features/categorization/server/repository";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { uuidv7 } from "@/lib/db/id";
 import {
@@ -71,25 +71,31 @@ async function outcome(entry: EntryPoint, target: EntryPointTarget) {
   }
 }
 
-async function snapshotB() {
+async function snapshotB(executor: Pick<typeof db, "select"> = db) {
+  // SQL row order is unspecified without ORDER BY. Compare every column in
+  // a stable order so planner changes cannot look like unauthorized writes.
   return {
     accounts: await listAccounts(b.workspaceId),
-    categories: await db
+    categories: await executor
       .select()
       .from(category)
-      .where(eq(category.workspaceId, b.workspaceId)),
-    rules: await db
+      .where(eq(category.workspaceId, b.workspaceId))
+      .orderBy(category.id),
+    rules: await executor
       .select()
       .from(categoryRule)
-      .where(eq(categoryRule.workspaceId, b.workspaceId)),
-    recurring: await db
+      .where(eq(categoryRule.workspaceId, b.workspaceId))
+      .orderBy(categoryRule.id),
+    recurring: await executor
       .select()
       .from(recurringSeries)
-      .where(eq(recurringSeries.workspaceId, b.workspaceId)),
-    transactions: await db
+      .where(eq(recurringSeries.workspaceId, b.workspaceId))
+      .orderBy(recurringSeries.id),
+    transactions: await executor
       .select()
       .from(transaction)
-      .where(eq(transaction.workspaceId, b.workspaceId)),
+      .where(eq(transaction.workspaceId, b.workspaceId))
+      .orderBy(transaction.id),
     previews: await listPreviews(b.workspaceId),
   };
 }
@@ -217,6 +223,19 @@ describe.each(ENTRY_POINTS)("$name", (entry) => {
 });
 
 describe("the matrix", () => {
+  it("compares the same workspace rows when PostgreSQL changes scan plans", async () => {
+    await db.transaction(async (tx) => {
+      // Planner settings are local to this transaction and change no data.
+      await tx.execute(sql`SET LOCAL enable_indexscan = off`);
+      await tx.execute(sql`SET LOCAL enable_bitmapscan = off`);
+      const before = await snapshotB(tx);
+
+      await tx.execute(sql`SET LOCAL enable_seqscan = off`);
+      await tx.execute(sql`SET LOCAL enable_indexscan = on`);
+      expect(await snapshotB(tx)).toEqual(before);
+    });
+  });
+
   it("covers at least one entry point per registered feature", () => {
     expect(ENTRY_POINTS.length).toBeGreaterThan(0);
     expect(new Set(ENTRY_POINTS.map((e) => e.name)).size).toBe(
