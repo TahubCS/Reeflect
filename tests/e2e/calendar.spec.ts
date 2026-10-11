@@ -1,8 +1,70 @@
-import { type Locator, type Page, expect, test } from "@playwright/test";
-import { SIGNED_IN_STATE, hydrated } from "./support";
+import {
+  type Browser,
+  type Locator,
+  type Page,
+  expect,
+  test,
+} from "@playwright/test";
+import { hydrated, signUpVerified } from "./support";
 
-// The dashboard runs on sample data pinned to Wednesday, October 7, 2026, so
-// every figure below is fixed (src/features/cashflow/domain/demo-data.ts).
+// F-12 and F-13 (TEST-07): the calendar home screen on the workspace's own
+// accounts and transactions. Each test signs up its own user, so its Personal
+// workspace starts empty. Today is today in the app's time zone
+// (DEFAULT_TIME_ZONE), so no figure depends on the date.
+
+const TIME_ZONE = "America/New_York";
+const today = new Intl.DateTimeFormat("en-CA", {
+  timeZone: TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+}).format(new Date());
+const todayLong = new Intl.DateTimeFormat("en-US", {
+  timeZone: TIME_ZONE,
+  weekday: "long",
+  month: "long",
+  day: "numeric",
+}).format(new Date());
+
+async function newUserPage(
+  browser: Browser,
+  baseURL: string | undefined,
+): Promise<Page> {
+  const context = await browser.newContext();
+  await signUpVerified(context.request, baseURL, {
+    name: "Calendar Tester",
+    email: `e2e-calendar-${crypto.randomUUID()}@example.test`,
+  });
+  return context.newPage();
+}
+
+// By role, so the hidden copy Next keeps of the previous page never matches.
+const field = (page: Page, name: string) =>
+  page.getByRole("textbox", { name, exact: true });
+
+async function addAccount(
+  page: Page,
+  account: { type?: string; nickname: string; balance: string },
+) {
+  await page.goto("/accounts");
+  await page.getByRole("link", { name: "Add an account" }).click();
+  await hydrated(page, "form select");
+  if (account.type) {
+    await page.getByLabel("Account type").selectOption({ label: account.type });
+  }
+  await field(page, "Bank or card issuer").fill("Capital One");
+  await field(page, "Nickname").fill(account.nickname);
+  await page
+    .getByRole("textbox", { name: /Current balance|Amount owed/ })
+    .fill(account.balance);
+  await page.getByRole("button", { name: "Add account" }).click();
+  await expect(page).toHaveURL(/\/w\/[^/]+\/accounts$/);
+}
+
+async function openDashboard(page: Page) {
+  await page.goto("/dashboard");
+  await hydrated(page, "button[data-date]");
+}
 
 const headline = (page: Page): Locator =>
   page.getByRole("heading", { level: 1 });
@@ -11,119 +73,133 @@ const dayPanel = (page: Page): Locator =>
 const cell = (page: Page, date: string): Locator =>
   page.locator(`button[data-date="${date}"]`);
 
-test.use({ storageState: SIGNED_IN_STATE });
+async function spend(page: Page, amount: string, what: string) {
+  const panel = dayPanel(page);
+  await panel.getByLabel("How much?").fill(amount);
+  await panel.getByLabel("What was it for?").fill(what);
+  await panel.getByRole("button", { name: /^Add to / }).click();
+  await expect(panel.getByText(what, { exact: true })).toBeVisible();
+}
 
-test.beforeEach(async ({ page }) => {
+test("a new workspace is asked to add an account first", async ({
+  browser,
+  baseURL,
+}) => {
+  const page = await newUserPage(browser, baseURL);
   await page.goto("/dashboard");
-  await hydrated(page, "button[data-date]");
+
+  await expect(headline(page)).toHaveText("Add an account to see your month.");
+  await expect(
+    page.getByRole("link", { name: "Add an account" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Import a statement" }),
+  ).toBeVisible();
+  await expect(page.getByText("Sample data")).toHaveCount(0);
 });
 
-test("opens on today with the per-day headline and the sum behind it", async ({
-  page,
+test("opens on today with the account's balance, and adding and removing spending moves it", async ({
+  browser,
+  baseURL,
 }) => {
-  await expect(headline(page)).toHaveText(
-    "You can spend about $36.94 a day until payday.",
-  );
-  await expect(page.getByText("In your account today")).toBeVisible();
+  const page = await newUserPage(browser, baseURL);
+  await addAccount(page, { nickname: "Everyday", balance: "500" });
+  await openDashboard(page);
+
+  await expect(headline(page)).toHaveText("You have $500.00 today.");
   await expect(dayPanel(page).getByRole("heading", { level: 2 })).toHaveText(
-    "Wednesday, October 7",
+    todayLong,
   );
+  await expect(
+    page
+      .getByRole("region", { name: "Subscriptions" })
+      .getByRole("link", { name: "Recurring payments" }),
+  ).toBeVisible();
+
+  await spend(page, "16", "Bus pass");
+
+  await expect(headline(page)).toHaveText("You have $484.00 today.");
+  await expect(dayPanel(page).getByText(/added by you/)).toBeVisible();
+  await expect(cell(page, today)).toContainText("Bus pass");
+  await expect(
+    page.getByRole("region", { name: /What we noticed/ }),
+  ).toContainText("isn’t in a category yet: $16.00 across 1 purchase");
+
+  await dayPanel(page).getByRole("button", { name: "Remove Bus pass" }).click();
+
+  await expect(headline(page)).toHaveText("You have $500.00 today.");
+  await expect(dayPanel(page).getByText("Bus pass")).toHaveCount(0);
 });
 
-test("adding spending to today lowers the per-day headline", async ({
-  page,
-}) => {
-  await dayPanel(page).getByLabel("How much?").fill("16");
-  await dayPanel(page).getByLabel("What was it for?").fill("Bus pass");
-  await dayPanel(page).getByRole("button", { name: "Add to Oct 7" }).click();
+test("rejects an amount that is not a number", async ({ browser, baseURL }) => {
+  const page = await newUserPage(browser, baseURL);
+  await addAccount(page, { nickname: "Everyday", balance: "500" });
+  await openDashboard(page);
 
-  await expect(headline(page)).toContainText("$34.94");
-  await expect(dayPanel(page).getByText("Bus pass")).toBeVisible();
-});
-
-test("rejects an amount that is not a number", async ({ page }) => {
   await dayPanel(page).getByLabel("How much?").fill("lots");
-  await dayPanel(page).getByRole("button", { name: "Add to Oct 7" }).click();
+  await dayPanel(page)
+    .getByRole("button", { name: /^Add to / })
+    .click();
 
   await expect(dayPanel(page).getByRole("alert")).toHaveText(
     "Enter an amount like 12.50.",
   );
-  await expect(headline(page)).toContainText("$36.94");
+  await expect(headline(page)).toHaveText("You have $500.00 today.");
 });
 
-test("selecting a day shows its items, their source and the balance", async ({
-  page,
+test("filters by kind, switches to the list and moves by arrow keys", async ({
+  browser,
+  baseURL,
 }) => {
-  await cell(page, "2026-10-02").click();
+  const page = await newUserPage(browser, baseURL);
+  await addAccount(page, { nickname: "Everyday", balance: "500" });
+  await openDashboard(page);
+  await spend(page, "9.50", "Coffee beans");
 
-  const panel = dayPanel(page);
-  await expect(panel.getByRole("heading", { level: 2 })).toHaveText(
-    "Friday, October 2",
+  const show = page.getByRole("group", { name: "Show" });
+  await show.getByRole("button", { name: "Money in" }).click();
+  await expect(show.getByRole("button", { name: "Money in" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
   );
-  await expect(panel.getByText("Corner Market")).toBeVisible();
-  await expect(panel.getByText("Groceries, from your bank")).toBeVisible();
-  await expect(panel.getByText("$670.13")).toBeVisible();
-});
+  await expect(cell(page, today)).not.toContainText("Coffee beans");
+  await show.getByRole("button", { name: "Everything" }).click();
+  await expect(cell(page, today)).toContainText("Coffee beans");
 
-test("arrow keys move between days", async ({ page }) => {
-  await cell(page, "2026-10-07").focus();
-  await page.keyboard.press("ArrowRight");
-
-  await expect(dayPanel(page).getByRole("heading", { level: 2 })).toHaveText(
-    "Thursday, October 8",
-  );
-  await expect(cell(page, "2026-10-08")).toBeFocused();
-});
-
-test("filters the calendar to one kind", async ({ page }) => {
-  const subscriptions = page
-    .getByRole("group", { name: "Show" })
-    .getByRole("button", { name: "Subscription" });
-
-  await subscriptions.click();
-
-  await expect(subscriptions).toHaveAttribute("aria-pressed", "true");
-  await expect(cell(page, "2026-10-09")).toContainText("Streaming");
-  await expect(cell(page, "2026-10-02")).not.toContainText("Corner Market");
-});
-
-test("switches between the calendar and the list", async ({ page }) => {
   const layout = page.getByRole("group", { name: "Layout" });
-
   await layout.getByRole("button", { name: "List" }).click();
-  await expect(page.getByText("Arrow keys move between days.")).toBeHidden();
-  await expect(page.locator("ol.agenda")).toBeVisible();
-
+  await expect(page.locator("ol.agenda")).toContainText("Coffee beans");
   await layout.getByRole("button", { name: "Calendar" }).click();
-  await expect(page.getByText("Arrow keys move between days.")).toBeVisible();
-});
 
-test("marking a subscription shows a year's saving and offers no cancel action", async ({
-  page,
-}) => {
-  const section = page.getByRole("region", { name: "Subscriptions" });
-
-  await section.getByRole("button", { name: "Keeping" }).first().click();
-
+  await cell(page, today).focus();
+  // On the 1st there is no day to the left in this month's grid.
+  await page.keyboard.press(today.endsWith("-01") ? "ArrowRight" : "ArrowLeft");
   await expect(
-    section.getByRole("button", { name: "Planning to cancel" }),
-  ).toHaveCount(1);
-  // Streaming is $15.49 a month.
-  await expect(section.locator(".saving")).toContainText("$185.88");
-  await expect(section.locator(".saving")).toContainText(
-    "you cancel with the provider yourself",
-  );
+    dayPanel(page).getByRole("heading", { level: 2 }),
+  ).not.toHaveText(todayLong);
 });
 
-test("a text to the agent logs spending and updates the headline", async ({
-  page,
+test("a card purchase shows as spending on card without moving the balance", async ({
+  browser,
+  baseURL,
 }) => {
-  const message = page.getByLabel("Message to Reeflect");
+  const page = await newUserPage(browser, baseURL);
+  await addAccount(page, { nickname: "Everyday", balance: "500" });
+  await addAccount(page, {
+    type: "Credit card",
+    nickname: "Quicksilver",
+    balance: "120",
+  });
+  await openDashboard(page);
 
-  await message.fill("spent 12 on lunch");
-  await message.press("Enter");
+  await dayPanel(page).getByLabel("Account", { exact: true }).selectOption({
+    label: "Quicksilver",
+  });
+  await spend(page, "30", "Shoes");
 
-  await expect(page.getByText("Logged $12.00 for Lunch.")).toBeVisible();
-  // $295.54 less $12.00, over 8 days.
-  await expect(headline(page)).toContainText("$35.44");
+  await expect(dayPanel(page).getByText(/on card · Quicksilver/)).toBeVisible();
+  await expect(headline(page)).toHaveText("You have $500.00 today.");
+  await expect(
+    page.getByRole("region", { name: /What we noticed/ }),
+  ).toContainText("$30.00");
 });

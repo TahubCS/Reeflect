@@ -1,13 +1,11 @@
 "use client";
 
 import { MotionConfig, motion } from "motion/react";
+import Link from "next/link";
 import { type ReactNode, useMemo, useState } from "react";
 import { APP_NAME } from "@/config/app";
-import { absolute, formatCents, negate, times } from "@/lib/money";
+import { absolute, formatCents, times } from "@/lib/money";
 import {
-  type CashflowData,
-  type Entry,
-  type Summary,
   buildMonth,
   sourceCounts,
   subscriptionCosts,
@@ -18,7 +16,6 @@ import {
   type YearMonth,
   addMonths,
   formatLong,
-  formatShort,
   monthName,
   monthOf,
   monthTitle,
@@ -27,16 +24,12 @@ import {
   parseIso,
   toIso,
 } from "../domain/dates";
-import { DEMO_DATA, TODAY } from "../domain/demo-data";
-import { readText } from "../domain/read-text";
+import { MONTHS_AHEAD, UNCATEGORIZED } from "../domain/from-records";
+import type { Dashboard } from "../server/load";
 import { Agenda } from "./agenda";
 import { BalanceLine } from "./balance-line";
-import { DayPanel, type NewEntry } from "./day-panel";
+import { DayPanel } from "./day-panel";
 import { type Filter, KIND_LABEL, Mark, MonthGrid } from "./month-grid";
-import { TextThread } from "./text-thread";
-
-/** How many months ahead the calendar can look. */
-const MONTHS_AHEAD = 2;
 
 const FILTERS: Filter[] = ["all", "income", "bill", "subscription", "everyday"];
 
@@ -55,17 +48,44 @@ function Figure({ children }: { children: ReactNode }) {
   );
 }
 
-/** The same sentence the headline uses, for the agent's replies. */
-function standing(summary: Summary) {
-  if (!summary.payday)
-    return `You have ${formatCents(summary.balanceToday)} today.`;
-  return `You have ${formatCents(summary.balanceToday)} today, and ${formatCents(summary.dueTotal)} is owed before payday on ${formatShort(summary.payday.date)}. That leaves about ${formatCents(summary.perDay)} a day.`;
+/** What the Settings page says about texting, in one line. */
+function textingNote(linkState: Dashboard["linkState"]) {
+  if (linkState.status === "linked")
+    return `Your phone (${linkState.handleLabel}) is linked.`;
+  if (linkState.status === "pending")
+    return "Your phone is waiting to be approved in Settings.";
+  return "Link your phone in Settings to log spending by text.";
 }
 
-export function CashflowDashboard() {
-  const [data, setData] = useState<CashflowData>(DEMO_DATA);
-  const [view, setView] = useState<YearMonth>(monthOf(TODAY));
-  const [selected, setSelected] = useState<IsoDate>(TODAY);
+function EmptyMonth({ workspaceId }: { workspaceId: string }) {
+  return (
+    <section className="hero hero-empty">
+      <h1>Add an account to see your month.</h1>
+      <p className="hero-why">
+        Add your checking account and its balance, or import a statement. Your
+        paydays, bills and spending then fill in the calendar.
+      </p>
+      <p className="hero-actions">
+        <Link className="primary" href={`/w/${workspaceId}/accounts/new`}>
+          Add an account
+        </Link>
+        <Link href={`/w/${workspaceId}/import`}>Import a statement</Link>
+      </p>
+    </section>
+  );
+}
+
+export function CashflowDashboard({
+  workspaceId,
+  data,
+  today,
+  accounts,
+  categories,
+  canEdit,
+  linkState,
+}: Dashboard) {
+  const [view, setView] = useState<YearMonth>(monthOf(today));
+  const [selected, setSelected] = useState<IsoDate>(today);
   const [hovered, setHovered] = useState<IsoDate | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [layout, setLayout] = useState<"calendar" | "list">("calendar");
@@ -73,49 +93,29 @@ export function CashflowDashboard() {
     new Set(),
   );
 
-  const month = useMemo(() => buildMonth(data, view, TODAY), [data, view]);
-  const summary = useMemo(() => summarize(data, TODAY), [data]);
+  const month = useMemo(
+    () => buildMonth(data, view, today),
+    [data, view, today],
+  );
+  const summary = useMemo(() => summarize(data, today), [data, today]);
   const subscriptions = useMemo(
     () => subscriptionCosts(data, cancelPlans),
     [data, cancelPlans],
   );
-  const sources = useMemo(() => sourceCounts(data, TODAY), [data]);
+  const sources = useMemo(() => sourceCounts(data, today), [data, today]);
   const day = month.days[parseIso(selected).day - 1];
 
-  const offset = monthsApart(monthOf(TODAY), view);
+  const offset = monthsApart(monthOf(today), view);
   const showMonth = (next: YearMonth) => {
     setView(next);
     setHovered(null);
     setSelected(
-      monthsApart(monthOf(TODAY), next) === 0
-        ? TODAY
+      monthsApart(monthOf(today), next) === 0
+        ? today
         : toIso(next.year, next.month, 1),
     );
   };
 
-  const withEntry = (
-    current: CashflowData,
-    entry: Omit<Entry, "id">,
-  ): CashflowData => ({
-    ...current,
-    entries: [...current.entries, { ...entry, id: crypto.randomUUID() }],
-  });
-  const addEntry = (entry: NewEntry) =>
-    setData((current) =>
-      withEntry(current, {
-        date: selected,
-        name: entry.name,
-        amount: entry.amount,
-        kind: entry.isIncome ? "income" : "everyday",
-        category: entry.category,
-        source: "manual",
-      }),
-    );
-  const removeEntry = (id: string) =>
-    setData((current) => ({
-      ...current,
-      entries: current.entries.filter((entry) => entry.id !== id),
-    }));
   const toggleCancel = (id: string) =>
     setCancelPlans((current) => {
       const next = new Set(current);
@@ -123,27 +123,15 @@ export function CashflowDashboard() {
       return next;
     });
 
-  /** Handles one text to the agent and returns its reply. */
-  const receiveText = (text: string): string => {
-    const intent = readText(text);
-    if (intent.type === "unknown") {
-      return 'I can log spending or tell you where you stand. Try "spent 12 on lunch" or "how am I doing?"';
-    }
-    if (intent.type === "status") return standing(summary);
-
-    const isIncome = intent.type === "income";
-    const next = withEntry(data, {
-      date: TODAY,
-      name: intent.name,
-      amount: isIncome ? intent.amount : negate(intent.amount),
-      kind: isIncome ? "income" : "everyday",
-      category: intent.category,
-      source: "text",
-    });
-    setData(next);
-    showMonth(monthOf(TODAY));
-    return `${isIncome ? "Added" : "Logged"} ${formatCents(intent.amount)} for ${intent.name}. ${standing(summarize(next, TODAY))}`;
-  };
+  if (accounts.length === 0) {
+    return (
+      <div className="page">
+        <main>
+          <EmptyMonth workspaceId={workspaceId} />
+        </main>
+      </div>
+    );
+  }
 
   const { payday } = summary;
   const dueCount = summary.dueBeforePayday.length;
@@ -152,10 +140,6 @@ export function CashflowDashboard() {
     <MotionConfig reducedMotion="user">
       <div className="page">
         {/* The wordmark and navigation are in the shared header: src/app/(app)/layout.tsx. */}
-        <p className="top-note sample-note">
-          Sample data. Today is {formatLong(TODAY)}.
-        </p>
-
         <main>
           <section className="hero" aria-live="polite">
             {payday && summary.freeToSpend > 0 ? (
@@ -225,7 +209,7 @@ export function CashflowDashboard() {
                 <button
                   type="button"
                   disabled={offset === 0}
-                  onClick={() => showMonth(monthOf(TODAY))}
+                  onClick={() => showMonth(monthOf(today))}
                 >
                   This month
                 </button>
@@ -307,10 +291,13 @@ export function CashflowDashboard() {
                 />
               )}
               <DayPanel
+                key={day.date}
+                workspaceId={workspaceId}
                 day={day}
+                accounts={accounts}
+                categories={categories}
+                canEdit={canEdit}
                 cancelPlans={cancelPlans}
-                onAdd={addEntry}
-                onRemove={removeEntry}
               />
             </div>
           </section>
@@ -318,7 +305,7 @@ export function CashflowDashboard() {
           <div className="lower">
             <section aria-labelledby="noticed-heading">
               <h2 id="noticed-heading">
-                What we noticed in {monthName(monthOf(TODAY))}
+                What we noticed in {monthName(monthOf(today))}
               </h2>
               <ul className="notes">
                 <li>
@@ -335,10 +322,16 @@ export function CashflowDashboard() {
                 </li>
                 {summary.biggestCategory && (
                   <li>
-                    Most of your day-to-day spending went on{" "}
-                    <strong>
-                      {summary.biggestCategory.name.toLowerCase()}
-                    </strong>
+                    {summary.biggestCategory.name === UNCATEGORIZED ? (
+                      "Most of your day-to-day spending isn’t in a category yet"
+                    ) : (
+                      <>
+                        Most of your day-to-day spending went on{" "}
+                        <strong>
+                          {summary.biggestCategory.name.toLowerCase()}
+                        </strong>
+                      </>
+                    )}
                     : {formatCents(summary.biggestCategory.total)} across{" "}
                     {summary.biggestCategory.count}{" "}
                     {summary.biggestCategory.count === 1
@@ -366,69 +359,81 @@ export function CashflowDashboard() {
 
             <section aria-labelledby="subscription-heading">
               <h2 id="subscription-heading">Subscriptions</h2>
-              <p className="lede">
-                Your {subscriptions.count} subscriptions cost{" "}
-                <strong>{formatCents(subscriptions.monthly)}</strong> a month.
-                Over a year that&rsquo;s{" "}
-                <strong>{formatCents(subscriptions.yearly)}</strong>.
-              </p>
-              <ul className="subs">
-                {data.recurring
-                  .filter((rule) => rule.kind === "subscription")
-                  .map((rule) => {
-                    const cancelling = cancelPlans.has(rule.id);
-                    return (
-                      <li key={rule.id}>
-                        <Mark kind="subscription" />
-                        <span className="item-text">
-                          <span
-                            className={
-                              cancelling
-                                ? "item-name item-cancelling"
-                                : "item-name"
-                            }
-                          >
-                            {rule.name}
-                          </span>
-                          <span className="item-note">
-                            {formatCents(absolute(rule.amount))} on the{" "}
-                            {ordinal(rule.day)},{" "}
-                            {formatCents(times(absolute(rule.amount), 12))} a
-                            year
-                          </span>
-                        </span>
-                        <button
-                          type="button"
-                          className="plan"
-                          aria-pressed={cancelling}
-                          onClick={() => toggleCancel(rule.id)}
-                        >
-                          {cancelling ? "Planning to cancel" : "Keeping"}
-                        </button>
-                      </li>
-                    );
-                  })}
-              </ul>
-              <p className="saving" aria-live="polite">
-                {subscriptions.markedCount > 0 ? (
-                  <>
-                    Cancelling the {subscriptions.markedCount} you marked would
-                    keep{" "}
-                    <strong>
-                      <Figure>
-                        {formatCents(subscriptions.yearlySavingIfCancelled)}
-                      </Figure>
-                    </strong>{" "}
-                    a year in your pocket. Marking only records your plan; you
-                    cancel with the provider yourself.
-                  </>
-                ) : (
-                  <>
-                    Not sure about one? Mark it to see what a year without it
-                    would save.
-                  </>
-                )}
-              </p>
+              {subscriptions.count === 0 ? (
+                <p className="lede">
+                  Your subscriptions and regular bills are on the{" "}
+                  <Link href={`/w/${workspaceId}/subscriptions`}>
+                    Recurring payments
+                  </Link>{" "}
+                  page for now.
+                </p>
+              ) : (
+                <>
+                  <p className="lede">
+                    Your {subscriptions.count} subscriptions cost{" "}
+                    <strong>{formatCents(subscriptions.monthly)}</strong> a
+                    month. Over a year that&rsquo;s{" "}
+                    <strong>{formatCents(subscriptions.yearly)}</strong>.
+                  </p>
+                  <ul className="subs">
+                    {data.recurring
+                      .filter((rule) => rule.kind === "subscription")
+                      .map((rule) => {
+                        const cancelling = cancelPlans.has(rule.id);
+                        return (
+                          <li key={rule.id}>
+                            <Mark kind="subscription" />
+                            <span className="item-text">
+                              <span
+                                className={
+                                  cancelling
+                                    ? "item-name item-cancelling"
+                                    : "item-name"
+                                }
+                              >
+                                {rule.name}
+                              </span>
+                              <span className="item-note">
+                                {formatCents(absolute(rule.amount))} on the{" "}
+                                {ordinal(rule.day)},{" "}
+                                {formatCents(times(absolute(rule.amount), 12))}{" "}
+                                a year
+                              </span>
+                            </span>
+                            <button
+                              type="button"
+                              className="plan"
+                              aria-pressed={cancelling}
+                              onClick={() => toggleCancel(rule.id)}
+                            >
+                              {cancelling ? "Planning to cancel" : "Keeping"}
+                            </button>
+                          </li>
+                        );
+                      })}
+                  </ul>
+                  <p className="saving" aria-live="polite">
+                    {subscriptions.markedCount > 0 ? (
+                      <>
+                        Cancelling the {subscriptions.markedCount} you marked
+                        would keep{" "}
+                        <strong>
+                          <Figure>
+                            {formatCents(subscriptions.yearlySavingIfCancelled)}
+                          </Figure>
+                        </strong>{" "}
+                        a year in your pocket. Marking only records your plan;
+                        you cancel with the provider yourself.
+                      </>
+                    ) : (
+                      <>
+                        Not sure about one? Mark it to see what a year without
+                        it would save.
+                      </>
+                    )}
+                  </p>
+                </>
+              )}
             </section>
 
             <section aria-labelledby="sources-heading">
@@ -437,8 +442,10 @@ export function CashflowDashboard() {
                 <li>
                   <span className="item-name">From your bank</span>
                   <span className="item-note">
-                    Capital One checking (sample), synced today. {sources.bank}{" "}
-                    this month.
+                    Imported statements. {sources.bank} this month.{" "}
+                    <Link href={`/w/${workspaceId}/import`}>
+                      Import a statement
+                    </Link>
                   </span>
                 </li>
                 <li>
@@ -451,18 +458,14 @@ export function CashflowDashboard() {
                 <li>
                   <span className="item-name">Texted to {APP_NAME}</span>
                   <span className="item-note">
-                    A preview of the iMessage chat. {sources.text} this month.
+                    {textingNote(linkState)} {sources.text} this month.{" "}
+                    <Link href={`/w/${workspaceId}/settings`}>Settings</Link>
                   </span>
                 </li>
               </ul>
-              <TextThread onSend={receiveText} />
             </section>
           </div>
         </main>
-
-        <footer>
-          Design preview with made-up numbers. No accounts are connected.
-        </footer>
       </div>
     </MotionConfig>
   );

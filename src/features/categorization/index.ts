@@ -15,6 +15,7 @@ export {
   listCategories,
   listRules,
   getCategoryMetadata,
+  saveOverride,
 } from "./server/repository";
 export {
   CategorizationPanels,
