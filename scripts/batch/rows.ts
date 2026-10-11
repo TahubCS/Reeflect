@@ -1,6 +1,6 @@
 // Expansion → database rows. Each synthetic person becomes an ordinary
 // workspace with accounts and transactions, plus a `synthetic_workspace`
-// marker naming the batch (ADR-049), and F-08 categories and rules (ADR-055).
+// marker naming the batch (ADR-049), and F-08 categories and rules (ADR-056).
 import { PRESET_CATEGORIES } from "@/features/categorization/client";
 import { type Expansion, planCategories } from "@/features/synthetic";
 import type {
@@ -56,7 +56,7 @@ export function buildRows(
     });
 
     // F-08's presets, as its first editor visit would seed them, plus the
-    // rules and manual choices that give each row its category (ADR-055).
+    // rules and manual choices that give each row its category (ADR-056).
     const categoryIds = new Map<string, string>();
     PRESET_CATEGORIES.forEach((preset, sortOrder) => {
       const id = newId();
@@ -115,7 +115,7 @@ export function buildRows(
         descriptionRaw: t.description,
         status: "posted",
         // Money into an IRA or brokerage leaves the workspace unpaired, but
-        // is marked so it never counts as spending (ADR-020, ADR-053).
+        // is marked so it never counts as spending (ADR-020, ADR-054).
         isTransfer: t.transferPair !== null || t.kind === "investment",
         transferPairId,
         categoryId: categorized.presetKey

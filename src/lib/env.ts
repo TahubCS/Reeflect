@@ -11,6 +11,14 @@ const optionalText = z
   .optional()
   .transform((value) => value?.trim() || undefined);
 
+const STORAGE_VARIABLES = [
+  "AWS_ACCESS_KEY_ID",
+  "AWS_SECRET_ACCESS_KEY",
+  "AWS_ENDPOINT_URL_S3",
+  "AWS_REGION",
+  "STATEMENTS_BUCKET",
+] as const;
+
 // Every variable the app reads (ARCH-09). Add a variable here in the PR that
 // first uses it, and to .env.example.
 const envSchema = z
@@ -52,6 +60,18 @@ const envSchema = z
     RESEND_API_KEY: optionalText,
     /** Sender on the Resend-verified domain, e.g. `Reeflect <no-reply@…>`. */
     EMAIL_FROM: optionalText,
+    /**
+     * Neon object storage (ADR-053). Neon names the four AWS_* values and
+     * `neon env pull` writes them for a branch; the bucket name is ours.
+     * Local development and tests use the `storage-tests` branch. All five
+     * or none: without them statement import is switched off, so a
+     * deployment without storage still starts.
+     */
+    AWS_ACCESS_KEY_ID: optionalText,
+    AWS_SECRET_ACCESS_KEY: optionalText,
+    AWS_ENDPOINT_URL_S3: optionalText.pipe(z.url().optional()),
+    AWS_REGION: optionalText,
+    STATEMENTS_BUCKET: optionalText,
     /** Set by Vercel on every deployment ("1"). */
     VERCEL: optionalText,
   })
@@ -65,6 +85,17 @@ const envSchema = z
         path: ["EMAIL_FROM"],
         message: "required when RESEND_API_KEY is set",
       });
+    }
+    const storage = STORAGE_VARIABLES.filter((name) => env[name] !== undefined);
+    if (storage.length > 0 && storage.length < STORAGE_VARIABLES.length) {
+      for (const name of STORAGE_VARIABLES) {
+        if (env[name] !== undefined) continue;
+        context.addIssue({
+          code: "custom",
+          path: [name],
+          message: "required when any object storage variable is set",
+        });
+      }
     }
     if (env.VERCEL === undefined) return;
     for (const name of ["RESEND_API_KEY", "EMAIL_FROM"] as const) {

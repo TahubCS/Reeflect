@@ -1,5 +1,5 @@
 // The generator's categories are finer than F-08's presets. This maps each
-// one onto a preset where one fits (ADR-055), and plans how a loaded sample
+// one onto a preset where one fits (ADR-056), and plans how a loaded sample
 // person ends up categorized: saved merchant rules, as a real user would
 // have, plus manual choices where a rule can't say it.
 import {

@@ -156,7 +156,7 @@ const event = z.object({
 });
 
 /**
- * The person's answer to "is money going into a retirement plan?" (ADR-053).
+ * The person's answer to "is money going into a retirement plan?" (ADR-054).
  * Left out: not answered yet.
  */
 const retirement = z.discriminatedUnion("plan", [
@@ -184,7 +184,7 @@ const retirement = z.discriminatedUnion("plan", [
   z.object({ plan: z.literal("none") }),
 ]);
 
-/** Money moved from checking to a brokerage each month: saving, not spending (ADR-053). */
+/** Money moved from checking to a brokerage each month: saving, not spending (ADR-054). */
 const investing = z.object({
   /** As it reads on a statement, e.g. "SCHWAB BROKERAGE TRANSFER". */
   name: text(60),

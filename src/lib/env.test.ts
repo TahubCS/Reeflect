@@ -112,6 +112,42 @@ describe("parseEnv", () => {
     ).toThrow(/EMAIL_FROM: required when RESEND_API_KEY is set/);
   });
 
+  it("takes object storage as all five variables or none, without echoing values", () => {
+    const base = { DATABASE_URL: POOLED, ...AUTH };
+    const storage = {
+      AWS_ACCESS_KEY_ID: "key-id",
+      AWS_SECRET_ACCESS_KEY: "very-secret-value",
+      AWS_ENDPOINT_URL_S3: "https://storage.example.test",
+      AWS_REGION: "us-east-2",
+      STATEMENTS_BUCKET: "statements",
+    };
+
+    expect(parseEnv(base).STATEMENTS_BUCKET).toBe(undefined);
+    expect(
+      parseEnv({
+        ...base,
+        VERCEL: "1",
+        RESEND_API_KEY: "k",
+        EMAIL_FROM: "a <a@b.test>",
+      }).AWS_REGION,
+    ).toBe(undefined);
+    expect(parseEnv({ ...base, ...storage }).AWS_ENDPOINT_URL_S3).toBe(
+      "https://storage.example.test",
+    );
+    const partial = (): unknown =>
+      parseEnv({
+        ...base,
+        AWS_SECRET_ACCESS_KEY: storage.AWS_SECRET_ACCESS_KEY,
+      });
+    expect(partial).toThrow(
+      /STATEMENTS_BUCKET: required when any object storage variable is set/,
+    );
+    expect(partial).not.toThrow(/very-secret-value/);
+    expect(() =>
+      parseEnv({ ...base, ...storage, AWS_ENDPOINT_URL_S3: "not a url" }),
+    ).toThrow(/AWS_ENDPOINT_URL_S3/);
+  });
+
   it("treats the agent token as optional, empty as unset, and short as invalid", () => {
     const base = { DATABASE_URL: POOLED, ...AUTH };
     const token = "agent-token-0123456789-0123456789-abc";

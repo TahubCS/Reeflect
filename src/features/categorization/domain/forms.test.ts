@@ -236,7 +236,7 @@ describe("safe errors and names", () => {
 });
 
 describe("PRESET_CATEGORIES", () => {
-  it("keeps the first eight in place, so seeded sort orders never move (ADR-055)", () => {
+  it("keeps the first eight in place, so seeded sort orders never move (ADR-056)", () => {
     expect(PRESET_CATEGORIES.slice(0, 8).map((p) => p.key)).toEqual([
       "groceries",
       "dining",
@@ -254,7 +254,7 @@ describe("PRESET_CATEGORIES", () => {
     expect(new Set(keys).size).toBe(keys.length);
     expect(new Set(names).size).toBe(names.length);
   });
-  it("includes retirement and investing as saving categories (ADR-053)", () => {
+  it("includes retirement and investing as saving categories (ADR-054)", () => {
     expect(PRESET_CATEGORIES.map((p) => p.key)).toEqual(
       expect.arrayContaining(["retirement", "investing"]),
     );

@@ -59,7 +59,7 @@ describe("batch store", () => {
     await deleteBatch(db, batchId);
   });
 
-  it("loads categories and rules with the batch, and deletes them with it (ADR-055)", async () => {
+  it("loads categories and rules with the batch, and deletes them with it (ADR-056)", async () => {
     const { batchId, rows } = await load("store-categories");
     const workspaces = rows.organizations.map((o) => o.id!);
     const categories = () =>

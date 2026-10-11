@@ -8,7 +8,7 @@ a saved rule, or no match. Editors and owners can:
 - Save that choice as a merchant rule in the same operation.
 - Return a manual choice to automatic categorization.
 - Add, edit and delete literal merchant rules, with delete confirmation.
-- Rename the preset categories (eighteen, ADR-055).
+- Rename the preset categories (eighteen, ADR-056).
 
 Viewers can read these results; they cannot write or initialize categories.
 Unknown merchants remain Uncategorized until a rule or manual choice exists.

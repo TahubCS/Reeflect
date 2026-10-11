@@ -78,9 +78,11 @@ Rules:
 | ADR-050 | Manual transactions and the typed balance | Proposed |
 | ADR-051 | Phone linking: six digits, approved on the website (refines ADR-034) | Proposed |
 | ADR-052 | Email through Resend; verified email required | Proposed |
-| ADR-053 | Retirement and investing count as saving, not spending (refines ADR-020) | Proposed |
-| ADR-054 | Insights: compare with sample people (refines ADR-049) | Proposed |
-| ADR-055 | More preset categories; sample people arrive categorized (refines ADR-015) | Proposed |
+| ADR-053 | Statement CSVs in Neon object storage (refines ADR-025) | Proposed |
+| ADR-054 | Retirement and investing count as saving, not spending (refines ADR-020) | Proposed |
+| ADR-055 | Insights: compare with sample people (refines ADR-049) | Proposed |
+| ADR-056 | More preset categories; sample people arrive categorized (refines ADR-015) | Proposed |
+
 ---
 
 ## Product
@@ -640,7 +642,7 @@ Rules:
 
 ### ADR-025: Data retention, deletion, audit log
 
-- **Status:** Accepted (2026-10-06)
+- **Status:** Accepted (2026-10-06); its file storage consequence is refined by ADR-053
 - **Decision:**
   - Raw uploaded files are deleted right after extraction; the SHA-256 is kept
     for duplicate detection.
@@ -898,7 +900,65 @@ Rules:
   - F-27 (log spending by text) reuses `createTransaction`, so it follows the
     same rule.
 
-### ADR-053: Retirement and investing count as saving, not spending (refines ADR-020)
+### ADR-053: Statement CSVs in Neon object storage (refines ADR-025)
+
+- **Status:** Proposed (2026-10-10), from Simon. **The team should confirm it.**
+- **Context:** F-06 reads PDF statements (ADR-044). The team wants each
+  import's rows kept as a file that Gemini can read later, and wants proof
+  that the kept file says exactly what the statement says. ADR-025 deletes
+  the uploaded file after extraction and says no storage bucket is needed.
+- **Decision:**
+  - **The PDF is still never kept** (ADR-025, ADR-044 step 6): it is read in
+    memory, and only its SHA-256 is stored on `import_batch`.
+  - **Every import keeps one canonical CSV** of its normalized rows:
+    `posted_on,description,amount,running_balance`, RFC 4180 quoting, CRLF,
+    amounts as plain decimals from `src/lib/money`. Rows only: no name,
+    address or full account number.
+  - **Where:** a private bucket `statements` in Neon object storage
+    (declared in `neon.ts`), key
+    `w/<workspaceId>/a/<accountId>/<importBatchId>.csv`. `import_batch`
+    stores the key and the CSV's SHA-256. The app talks to it only through
+    Neon's Files SDK adapter (`files-sdk/neon`), which uses the AWS S3
+    client internally; the four `AWS_*` variable names are Neon's.
+  - **Neon in every environment, no emulator:** each environment uses a
+    Neon branch's own bucket (storage credentials are branch-scoped).
+    Deployments use their branch's bucket. Local development, Vitest and
+    Playwright use the schema-only branch `storage-tests`, whose
+    credentials come from a gitignored `.env.storage-tests` locally and from
+    repository secrets in CI. This is the one exception to "tests never
+    touch Neon": the database in tests is still local Postgres, and nothing
+    in tests ever uses production's bucket. Test keys sit under random
+    workspace ids, so parallel runs don't collide.
+  - **Checks that the CSV is accurate:** before it is stored, the CSV is
+    read back and must equal the parsed rows exactly. At commit, the stored
+    file is downloaded, its SHA-256 compared with the preview's, parsed and
+    reconciled again; the committed rows are the stored file's rows. Any
+    difference stops the commit.
+  - **Access:** server-only. The browser never gets a storage key, URL or
+    credential.
+  - **Deletion:** discarding a preview deletes its CSV; deleting an account
+    deletes every CSV under its prefix. Deleting a workspace (F-19, not
+    built) must delete `w/<workspaceId>/`.
+  - **Balance:** imported rows never move the stored balance (ADR-050). On
+    commit, the statement's closing balance replaces a manual account's
+    typed balance when the statement ends on or after the date it was
+    typed, and becomes the new `balance_as_of`.
+  - **Gemini** reads these CSVs only in a later feature, under ADR-019 and
+    ADR-040: while the key is on the free tier, only synthetic or sandbox
+    statements may be sent.
+- **Alternatives considered:** keeping nothing and reading rows from the
+  database (no extra service, but no file for Gemini and no stored copy to
+  check); keeping the PDF too (more to protect: full account numbers and
+  addresses).
+- **Consequences:** Five storage environment variables; without them import
+  is switched off rather than failing. Storage tests need network access
+  and the `storage-tests` credentials; CI needs four repository secrets,
+  and pull requests from forks don't get them. Objects the E2E tests leave
+  in the test bucket accumulate until the bucket is cleared. Vercel caps a request body at 4.5 MB,
+  below ADR-044's 10 MB, so larger PDFs fail there until uploads go another
+  way. A failed storage delete leaves an orphaned file, logged by id.
+
+### ADR-054: Retirement and investing count as saving, not spending (refines ADR-020)
 
 - **Status:** Proposed (2026-10-10), agreed by the team in conversation,
   written by Jacob.
@@ -950,7 +1010,7 @@ Rules:
   - Batches made by generator v1 replay only from a v1 checkout. A v1 spec
     reloaded with v2 gives the same rows.
 
-### ADR-054: Insights: compare with sample people (refines ADR-049)
+### ADR-055: Insights: compare with sample people (refines ADR-049)
 
 - **Status:** Proposed (2026-10-10), by Jacob. Not in ADR-043's P0 or P1:
   built as Later unless the team moves it up.
@@ -985,7 +1045,7 @@ Rules:
       to small groups.
   - **Measures:** spending per category (in dollars and as a share of
     take-home), kept after spending, moved to savings, retirement and
-    investing (ADR-053), bills as a share of take-home, subscription count
+    investing (ADR-054), bills as a share of take-home, subscription count
     and cost, lowest balance before payday, no-spend days.
   - **Wording** stays neutral ("a bit higher than typical"), with no
     rankings framed as failure (ADR-042). No number comes from a model
@@ -1005,7 +1065,7 @@ Rules:
     that workspace drift from its recipe: its stored figures go stale until
     a backfill, and `promote` replays the recipe without the edits.
 
-### ADR-055: More preset categories; sample people arrive categorized (refines ADR-015)
+### ADR-056: More preset categories; sample people arrive categorized (refines ADR-015)
 
 - **Status:** Proposed (2026-10-10), by Jacob. The first eight presets were
   a starting set.
@@ -1014,8 +1074,8 @@ Rules:
     built eight: groceries, dining, transport, housing, utilities,
     shopping, entertainment, income.
   - Common spending had nowhere to go (health, insurance, travel), and
-    ADR-053 needs "Retirement" and "Investing".
-  - Insights (ADR-054) compares people by category, so sample people need
+    ADR-054 needs "Retirement" and "Investing".
+  - Insights (ADR-055) compares people by category, so sample people need
     the same categories as everyone else.
 - **Decision:**
   - **Eighteen presets.** The first eight stay as they are, in the same
@@ -1023,7 +1083,7 @@ Rules:
     subscriptions, personal care, kids & childcare, gifts, travel,
     retirement, investing. All can be renamed. Existing workspaces gain the
     new ones on the next editor visit, through the same idempotent seed.
-  - **Retirement and investing are saving**, never spending (ADR-053).
+  - **Retirement and investing are saving**, never spending (ADR-054).
   - **Sample people are categorized at batch load** like a real user would
     be:
     - Each person gets the presets.

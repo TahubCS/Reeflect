@@ -47,7 +47,7 @@ Best Use of Nessie, MLH Best Use of Gemini API (ADR-036).
 Do not build, suggest, or scaffold any of the following:
 
 - Investing, trading, brokerage, crypto, or stock features. Showing how much
-  money went into retirement or investing, as saving, is allowed (ADR-053);
+  money went into retirement or investing, as saving, is allowed (ADR-054);
   holdings, prices, returns and trades are not.
 - Financial product recommendations or investing advice ("you should
   buy/switch to…"). Gemini may suggest what the user could do with their own
@@ -136,7 +136,11 @@ Do not build, suggest, or scaffold any of the following:
 - Every import targets exactly one financial account and must pass the import
   guardrails in ADR-010: identity check, duplicate detection, and (for PDFs)
   balance reconciliation. Never merge data across accounts automatically.
-- Raw uploaded files are deleted after extraction (ADR-025).
+- Raw uploaded files are never kept: a PDF is read in memory and only its
+  SHA-256 is stored (ADR-025). Each import's rows are kept as one canonical
+  CSV in the private `statements` bucket, checked against the parsed rows
+  before it is stored and again at commit (ADR-053). Never log a CSV's
+  contents, and never give the browser a storage key or URL.
 
 ### AI and the agent
 - AI may classify, map, and write sentences. It may **never** produce a
@@ -219,7 +223,13 @@ Once `agent-worker/` and `packages/` exist (they don't yet), root
 `pnpm lint`, `pnpm typecheck` and `pnpm test:unit` must cover them too.
 
 Unit and E2E tests need the local database: `docker compose up -d` (host
-port 5433). Tests never use the Neon database in `.env.local`.
+port 5433). Tests never use the Neon database in `.env.local`. Object
+storage is the one exception: storage tests use the Neon `storage-tests`
+branch's bucket (ADR-053). Pull its credentials once with
+`neon env pull --project-id small-tree-10245355 --branch storage-tests --file .env.storage-tests`
+and add `STATEMENTS_BUCKET=statements` to that file. Tests read only the
+storage variables from it, never its `DATABASE_URL`, and never use
+production's bucket.
 
 Use `pnpm` only. Never commit `package-lock.json` or `yarn.lock`.
 
@@ -240,7 +250,9 @@ src/
     api/                    route handlers: auth, health; Plaid webhooks,
                             agent turn and job tick (planned)
   features/                 one folder per feature, owned by whoever is assigned
-    <feature>/              built so far: auth, cashflow, landing, synthetic
+    <feature>/              built so far: accounts, agent, auth, cashflow,
+                            imports, landing, messaging, synthetic,
+                            transactions
       domain/               pure TypeScript logic, no I/O (most unit tests here)
       server/               repositories, server actions ('server-only')
       ui/                   React components for this feature
@@ -254,13 +266,17 @@ src/
                             Personal workspace on sign-up
     email/                  Resend sender and email templates; local outbox
                             without a key (ADR-052)
+    storage/                statements bucket in Neon object storage, through
+                            Neon's Files SDK adapter (ADR-053)
     env.ts                  zod validation of the app's environment variables
     security/               encryption, rate limiting, redaction (planned)
     ai/                     model client, placeholder filling, digit scan (planned)
   instrumentation.ts        refuses to start without the required env vars
 tests/
   e2e/                      Playwright specs
-  fixtures/                 synthetic data only (never real data)
+  fixtures/                 synthetic data only (never real data); pdf/ has
+                            the statement fixtures and their generator;
+                            any private/ folder is gitignored
 scripts/                    docs-check, scan-bundle, db (whoami, migrate-to),
                             batch (synthetic batches), with their unit tests
 agent-worker/               Photon Spectrum relay process (planned, ADR-032)
