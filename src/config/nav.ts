@@ -9,7 +9,7 @@ export const NAV_ITEMS = [
   { segment: "accounts", label: "Accounts" },
   { segment: "transactions", label: "Transactions" },
   { segment: "import", label: "Import" },
-  { segment: "subscriptions", label: "Subscriptions" },
+  { segment: "subscriptions", label: "Recurring payments" },
   { segment: "bills", label: "Bills" },
   { segment: "budgets", label: "Budgets" },
   { segment: "insights", label: "Insights" },

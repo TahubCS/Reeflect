@@ -7,3 +7,4 @@ export * from "./categorization";
 export * from "./finance";
 export * from "./messaging";
 export * from "./synthetic";
+export * from "./recurring";

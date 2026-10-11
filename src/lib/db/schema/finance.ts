@@ -68,6 +68,10 @@ export const financialAccount = pgTable(
   },
   (table) => [
     index("financial_account_workspace_idx").on(table.workspaceId),
+    uniqueIndex("financial_account_workspace_id_uidx").on(
+      table.workspaceId,
+      table.id,
+    ),
     uniqueIndex("financial_account_plaid_uidx").on(
       table.workspaceId,
       table.plaidAccountId,

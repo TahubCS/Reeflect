@@ -65,7 +65,7 @@ when coverage is already met.
 | Cash flow (`src/features/cashflow/domain`, ADR-042) | Per-day amount with balance above, equal to and below what is due before payday (never negative); payday tomorrow (N = 1) and no expected income; repeating items clamped to the last day of short months; a month's end balance equals its start plus its items; later months carry the earlier months' balance; a no-spend day needs nothing going out; yearly subscription cost and saving; every number shown has a text label |
 | Budgets | Calendar month boundaries in the workspace time zone (11:59 PM on the 31st vs 12:00 AM on the 1st); budget change mid-month; refunds reducing spending |
 | Categorization | Rule priority and deterministic ties; `contains` / `starts_with` / `exact`; merchant normalization (store numbers, reference codes); manual override including Uncategorized beats rules; form validation and limits |
-| Recurring (ADR-014) | Three monthly charges → subscription; three grocery visits at random intervals → no subscription; price change beyond ±15% flagged; weekly cadence; manual mark |
+| Recurring (ADR-058) | Infer monthly, quarterly, yearly, fortnightly and arbitrary intervals from observed timing, including month ends and jitter. Variable utilities qualify without an amount band; irregular shopping, duplicate-day ambiguity, stale evidence, transfers, pending/future/positive rows do not. All suggestions require confirmation. Median/range, cents rounding, fixed price changes, matching credits in actual spending, preserved estimate sources, manual tracking, stale/deleted history, immutable inputs and bounds. Real PG: concurrent/idempotent refresh, atomic rollback/limits, owned account FK, cascades, saved corrections/dismissals/intent and paged history. All six actions join the isolation matrix |
 | Transfers (ADR-020) | Checking → card payment pairs and is excluded from spending; same amount but more than 3 days apart does not pair; two candidates for one transaction pairs only once; unpairing |
 | Import guardrails (ADR-010) | Each check in the ADR-010 table passes and fails; nothing written when any blocking check fails; duplicate file; overlapping periods dedupe; reconciliation off by $0.01 blocks |
 | CSV parsing (ADR-054) | Each sign convention (360 Debit/Credit type, card Debit/Credit columns); date formats; row order from the balance chain; trailing blank lines; quoted commas and quotes; UTF-8 BOM; LF and CRLF; wrong account and multi-account exports; other banks fail clearly. Fixtures in `tests/fixtures/csv/` |
@@ -136,7 +136,7 @@ when coverage is already met.
 | `agent-link.spec.ts` | On the website, start "Connect iMessage"; simulate the inbound LINK message through `/api/agent/turn` with the service token; approve the request on the card; identity appears as connected; "Not me", Disconnect and STOP each leave the phone unlinked; the endpoint is a 404 without the token (ADR-051) |
 | `nessie.spec.ts` | Connect Capital One sandbox using mocked Nessie responses; accounts and transactions appear; the calendar and headline reflect them |
 | `bills.spec.ts` | Add a manual car payment due in 7 days; run the reminder job; reminder appears in Upcoming bills with amount and date; mark it paid by adding the payment; reminder disappears |
-| `subscriptions.spec.ts` | Subscription appears after third monthly charge; mark keep/cancel; app shows no cancel-the-subscription action |
+| `recurring.spec.ts` | Confirm fixed subscriptions and variable bills; show evidence and actual spending separately from estimates; preserve Keep/planning-to-cancel through refresh; later imports/credits and fingerprint duplicates; manual rent create/edit/remove/restore; persistent dismissal; kind/amount corrections and invalid inputs; viewers/outsiders; filtering/pagination; retry boundary and 360px dark/reduced-motion layout |
 | `demo-path.spec.ts` | The exact demo script from sign-in to final screen, on the seeded workspace |
 | `a11y.spec.ts` | axe checks on every main page in light and dark themes; zero serious or critical violations |
 | `reduced-motion.spec.ts` | With reduced motion emulated, no animation runs and all labels still show |
@@ -180,6 +180,11 @@ Tests never connect to Neon.
 The workspace isolation matrix (TEST-06) includes `/api/agent/turn`: a
 linked handle for user A can never cause a tool call against user B's
 workspace, whatever the message text says.
+
+Its before/after snapshots compare every row and column in a stable primary-key
+order. PostgreSQL may change scan plans without changing data; a regression test
+switches between sequential and index scans to verify that this cannot produce
+a false isolation failure.
 
 The phone-link server actions are in the matrix
 (`src/features/messaging/server/entry-points.ts`). They have one rule the

@@ -90,7 +90,7 @@ Priorities follow ADR-043. Lanes: A = Data, B = Web, C = Agent.
 | F-07 | Bank linking (Plaid) | Later | A | Link accounts through Plaid Link (Sandbox) and sync transactions. | ADR-012 |
 | F-08 | Categorization | P0 | A | Keyword rules on the normalized merchant name, with a manual override that can be saved as a rule. | ADR-013 |
 | F-09 | Monthly budgets | P1 | A | One budget per category per calendar month; preset categories (eighteen since ADR-057), renameable. Own page, not the home screen. | ADR-015, ADR-057 |
-| F-10 | Subscriptions | P0 (detection), P1 (keep / cancel marks) | A | Detect recurring charges; show monthly and yearly cost; the user marks keep or planning to cancel. The app never cancels anything. | ADR-014, ADR-030 |
+| F-10 | Recurring payments | P0 (detection), P1 (keep / cancel marks) | A | Suggest patterns in payment dates across subscriptions and fixed/variable bills. Require confirmation before estimates; show supporting charges, actual spending, expected dates, typical amount/range and monthly/yearly estimates. Manual tracking, corrections and dismissals persist. Subscription keep/planning-to-cancel marks show potential savings. | ADR-058, ADR-030 |
 | F-11 | Savings goal | Later | B | One active goal with target amount and date, shown as a progress line on the home screen. | ADR-042 |
 | F-12 | Calendar home screen | P0 | B | The per-day headline with its sum, the month calendar, the balance line and the selected-day panel, plus an "Upcoming bills" list once F-22 exists. | ADR-042 |
 | F-13 | Drill-down | P0 | B | Select a day to see its activity, sources and balance; filter by kind; switch between calendar and list. | ADR-042 |
@@ -173,8 +173,9 @@ Freemium subscription plus licensing the product to banks and credit unions
 | Per-day amount | What is left of today's balance after everything due before payday, divided by the days until payday (ADR-042) |
 | Import batch | One CSV, PDF, Plaid or Nessie sync committed to one account |
 | Transfer | Money moving between two accounts in the same workspace, including card payments (ADR-020) |
-| Subscription | A detected recurring charge for optional spending such as streaming |
-| Bill | A recurring obligation with a due date (car payment, mortgage, rent, loan, card minimum); gets reminders; not a subscription |
+| Recurring payment | A confirmed pattern of payments to one payee on one account, or a schedule entered by the user. Timing is inferred from evidence rather than fixed monthly/weekly windows; amounts can vary |
+| Subscription | An optional recurring service such as streaming; may have fixed or variable amounts |
+| Bill | A recurring obligation such as electricity, rent or a car payment; may have fixed or variable amounts. A predicted charge date is an estimate; scheduled reminders are F-22 |
 | Agent | Reeflect's iMessage interface (Photon Spectrum + Gemini) |
 | Worker | The long-running process that connects the agent to Photon (ADR-032) |
 | Brain | The Next.js code that decides what the agent says (`src/features/agent/`) |
