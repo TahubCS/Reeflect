@@ -33,6 +33,8 @@ export const MAX_RULES = 1_000;
 export const PAGE_SIZE = 50;
 export const ruleInputSchema = categoryRuleSchema.omit({ id: true }).extend({
   categoryId: objectIdSchema,
+  // `word` is kept for the built-in keywords (ADR-103).
+  matchType: z.enum(["contains", "starts_with", "exact"]),
   priority: z.number().int().min(-1_000_000).max(1_000_000),
 });
 export type RuleInput = z.infer<typeof ruleInputSchema>;
@@ -71,7 +73,11 @@ export type CategorySummary = {
   /** Stable across renames; Insights compares by it (ADR-056). */
   presetKey: string;
 };
-export type RuleSummary = CategoryRule & { categoryName: string };
+/** A saved rule: never a built-in keyword, so never `word` (ADR-103). */
+export type RuleSummary = Omit<CategoryRule, "matchType"> & {
+  matchType: RuleInput["matchType"];
+  categoryName: string;
+};
 export type TransactionSummary = {
   id: string;
   postedOn: string;

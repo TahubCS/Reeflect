@@ -30,6 +30,7 @@ let accountA: string;
 let accountB: string;
 let groceries: string;
 let dining: string;
+let transport: string;
 let foreignCategory: string;
 
 async function account(workspaceId: string) {
@@ -84,6 +85,7 @@ beforeAll(async () => {
   const categories = await listCategories(a);
   groceries = categories.find((c) => c.name === "Groceries")!.id;
   dining = categories.find((c) => c.name === "Dining")!.id;
+  transport = categories.find((c) => c.name === "Transport")!.id;
   foreignCategory = (await listCategories(b))[0]!.id;
 });
 afterAll(() => f.cleanUp());
@@ -288,7 +290,8 @@ describe("rule management", () => {
     expect((await raw(automatic)).categoryId).toBe(dining);
     expect((await raw(manual)).categoryId).toBe(groceries);
     expect(await deleteRule(a, rule.id)).toBe("ok");
-    expect((await raw(automatic)).categoryId).toBeNull();
+    // Without the saved rule, the built-in keyword "transit" decides (ADR-103).
+    expect((await raw(automatic)).categoryId).toBe(transport);
     expect((await raw(manual)).categoryId).toBe(groceries);
     expect(await deleteRule(a, rule.id)).toBe("not_found");
     expect(await updateRule(a, rule.id, input("city"))).toBe("not_found");

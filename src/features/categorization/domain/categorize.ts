@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { normalizeMerchant } from "./normalize-merchant";
+import { containsWords } from "./starter-rules";
 
 const identifier = z.string().trim().min(1).max(128);
 
@@ -15,7 +16,8 @@ export const categoryRuleSchema = z.strictObject({
       message:
         "Enter a merchant keyword, not just a store or reference number.",
     }),
-  matchType: z.enum(["contains", "starts_with", "exact"]),
+  /** `word` is for the built-in keywords only (ADR-103); people save the others. */
+  matchType: z.enum(["contains", "starts_with", "exact", "word"]),
   priority: z.number().int(),
 });
 
@@ -24,7 +26,8 @@ export type CategoryRule = z.infer<typeof categoryRuleSchema>;
 export const categorizationInputSchema = z
   .strictObject({
     descriptionRaw: z.string().max(2_000),
-    rules: z.array(categoryRuleSchema).max(1_000),
+    // A workspace's saved rules (at most MAX_RULES) plus the built-in ones.
+    rules: z.array(categoryRuleSchema).max(2_000),
     /** Null or absent means there is no manual override. */
     manualCategoryId: identifier.nullable().optional(),
     /** An explicit Uncategorized choice is still a manual override. */
@@ -68,6 +71,8 @@ function matches(merchant: string, rule: CategoryRule): boolean {
       return merchant.startsWith(pattern);
     case "exact":
       return merchant === pattern;
+    case "word":
+      return containsWords(merchant, pattern);
   }
 }
 

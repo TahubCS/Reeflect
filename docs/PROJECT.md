@@ -88,7 +88,7 @@ Priorities follow ADR-043. Lanes: A = Data, B = Web, C = Agent.
 | F-05 | CSV import | P0 | A | Upload a CSV to a chosen account, preview, pass guardrails, commit. Capital One's 360 and credit-card exports are read with built-in formats; mapping columns once per institution comes later. | ADR-009, ADR-010, ADR-054 |
 | F-06 | PDF statement import | P0 | A | Text-based PDF statements parsed by code with a per-institution template (Capital One first), with identity check and reconciliation. No AI in parsing. | ADR-010, ADR-044 |
 | F-07 | Bank linking (Plaid) | Later | A | Link accounts through Plaid Link (Sandbox) and sync transactions. | ADR-012 |
-| F-08 | Categorization | P0 | A | Keyword rules on the normalized merchant name, with a manual override that can be saved as a rule. | ADR-013 |
+| F-08 | Categorization | P0 | A | Keyword rules on the normalized merchant name, with a manual override that can be saved as a rule. Built-in keywords choose a category when no saved rule matches. | ADR-013, ADR-103 |
 | F-09 | Monthly budgets | P1 | A | Own page: allocations, actual posted net spending and remaining amounts for 15 spending categories. Edit current/next month, inspect history, copy prior allocations into missing categories; zero differs from unset. | ADR-015, ADR-057, ADR-060 |
 | F-10 | Recurring payments | P0 (detection), P1 (keep / cancel marks) | A | Suggest patterns in payment dates across subscriptions, fixed/variable bills and paydays (deposits into checking or savings, ADR-061). Require confirmation before estimates; show supporting charges, actual spending, expected dates, typical amount/range and monthly/yearly estimates. Manual tracking, corrections and dismissals persist. Subscription keep/planning-to-cancel marks show potential savings. | ADR-058, ADR-061, ADR-030 |
 | F-11 | Savings goal | Later | B | One active goal with target amount and date, shown as a progress line on the home screen. | ADR-042 |
@@ -117,6 +117,7 @@ Priorities follow ADR-043. Lanes: A = Data, B = Web, C = Agent.
 | F-34 | Judge demo ("Try it") | P0 | C | Demo mode only: a judge scans a QR code, texts TRY, and is linked for 2 hours to a sandbox judge workspace. | ADR-034 |
 | F-35 | Compare with people like you | Later | A + B | On Insights: your spending by category and where you stand, next to sample people with similar take-home pay or everyone, for the last 30 days, 3 months or year. Labelled "Sample". Built (HO-043). | ADR-049, ADR-056 |
 | F-36 | Retirement question | Later | B | An action-required item: is money going into a retirement plan through your employer, your own account, or not right now. Retirement and investing count as saving. | ADR-055 |
+| F-37 | Planned transactions | P1 | B | On the calendar, plan money out or in on a later day and see the expected balance and what is owed before payday change. When the day comes, confirm "It happened" (it becomes a manual transaction) or remove it. Plans are not transactions. | ADR-102, ADR-042 |
 
 ## 6. The calendar (summary; full spec in ADR-042)
 

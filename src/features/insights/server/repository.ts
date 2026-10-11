@@ -1,7 +1,11 @@
 import "server-only";
 import { and, asc, desc, eq, exists, gte, min } from "drizzle-orm";
 import { listAccounts } from "@/features/accounts";
-import { listCategories, listRules } from "@/features/categorization";
+import {
+  listCategories,
+  listRules,
+  withStarterRules,
+} from "@/features/categorization";
 import { db } from "@/lib/db/client";
 import {
   insightSample,
@@ -122,13 +126,17 @@ export async function loadWorkspaceData(
       balanceAsOf: a.balanceAsOf,
     })),
     categories: categories.map((c) => ({ id: c.id, presetKey: c.presetKey })),
-    rules: rules.map(({ id, categoryId, pattern, matchType, priority }) => ({
-      id,
-      categoryId,
-      pattern,
-      matchType,
-      priority,
-    })),
+    // The built-in keywords follow the saved rules (ADR-103).
+    rules: withStarterRules(
+      rules.map(({ id, categoryId, pattern, matchType, priority }) => ({
+        id,
+        categoryId,
+        pattern,
+        matchType,
+        priority,
+      })),
+      categories,
+    ),
     transactions: rows.map((r) => ({ ...r, amount: cents(r.amount) })),
     dataFrom: first?.first ?? null,
     names: Object.fromEntries(categories.map((c) => [c.presetKey, c.name])),

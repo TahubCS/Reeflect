@@ -12,6 +12,7 @@ export {
   applyCategoryRules,
   ensureCategories,
   getCategorizationPage,
+  listActiveRules,
   listCategories,
   listRules,
   getCategoryMetadata,

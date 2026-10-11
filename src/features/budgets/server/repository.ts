@@ -1,6 +1,10 @@
 import "server-only";
 import { and, asc, eq, gt, gte, lte, sql } from "drizzle-orm";
-import { listCategories, listRules } from "@/features/categorization";
+import {
+  listCategories,
+  listRules,
+  withStarterRules,
+} from "@/features/categorization";
 import { db } from "@/lib/db/client";
 import {
   budget,
@@ -65,14 +69,16 @@ export async function readBudgetMonth(
       if (categories.length > 1_000 || storedRules.length > 1_000)
         throw new Error("Budget category/rule limit exceeded");
       // The domain's strict rule schema excludes the display-only categoryName.
-      const rules = storedRules.map(
-        ({ id, categoryId, pattern, matchType, priority }) => ({
+      // The built-in keywords follow the saved rules (ADR-103).
+      const rules = withStarterRules(
+        storedRules.map(({ id, categoryId, pattern, matchType, priority }) => ({
           id,
           categoryId,
           pattern,
           matchType,
           priority,
-        }),
+        })),
+        categories,
       );
       let spending = emptySpending();
       let after: string | undefined;

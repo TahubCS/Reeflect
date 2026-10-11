@@ -67,6 +67,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-15 Gemini summary on the website (P1, ADR-045) | C | Unassigned | — | Not started |
 | F-35 Compare with people like you (Later, ADR-056) | A + B | Jacob Heminway | `feat/insights` | Built: the Insights page, stored sample figures and `pnpm batch rollup` (HO-043); ADR-056 and ADR-057 Proposed |
 | F-36 Retirement question (Later, ADR-055) | B | Jacob Heminway | `feat/insights` | Planned; generator models the answers (HO-041) |
+| F-37 Planned transactions (P1, ADR-102) | B | Simon Ormond | `feat/planned-transactions` | Built: plan on later days from the day panel, confirm or remove once the day comes (HO-095); ADR-102 Proposed |
 | Later (ADR-043): Plaid, household, debt tab, savings goal, receipt photos, recaps, forecast, audit log | — | Unassigned | — | Only if time remains |
 
 ---
@@ -3078,4 +3079,46 @@ recommendation, not a decision.
 ### Open problems
 
 - None beyond the failing documentation gate described in HO-059.
+
+## HO-095: Plan money on later days from the calendar (F-37)
+
+- **Date:** 2026-10-11 (America/New_York)
+- **Author:** Simon Ormond with Claude Code
+- **Branch / PR:** `feat/planned-transactions` / not opened
+
+### What changed
+- ADR-102 (Proposed): plans live in a new `planned_transaction` table
+  (migration 0013), apart from the ledger. F-37 added to PROJECT.md; the
+  table to ARCHITECTURE.md.
+- New `src/features/plans/` (parser, repository). The calendar loads plans,
+  and on a later day the day panel's form becomes "Plan something for this
+  day". Future plans move the dotted balance line and "already owed before
+  payday"; planned money in is never payday.
+- Once its day comes a plan shows "planned, not confirmed" and moves
+  nothing. "It happened" adds a manual transaction (it takes the plan's id,
+  so a retry adds nothing twice); × removes it.
+- `createTransaction` takes an optional id for that. `isIsoDate` is
+  exported from transactions.
+- `scripts/db/budgets-migration.test.ts` no longer assumes 0012 is the last
+  migration.
+- ADR-103 (Proposed): built-in category keywords for "Choose for me", in
+  `categorization/domain/starter-rules.ts`. Whole-word matches, below every
+  saved rule, never stored; budgets, Insights, the Categorization page, new
+  transactions and plans all use them (`listActiveRules`,
+  `withStarterRules`). Saved rules still cannot use the `word` match type.
+
+### What's next
+- Run `pnpm db:migrate:to branch` / `production` for 0013 once the PR is
+  approved.
+- Editing a plan (today: remove and re-add). Possibly let the agent mention
+  plans in "how am I doing?".
+
+### Open problems
+- An unconfirmed plan older than the calendar's two months back stops
+  showing; it stays stored until its account is deleted.
+- Older rows' stored `category_id` only picks up the built-in keywords when
+  rules are next applied, so the calendar may still show them Uncategorized
+  until then. A one-off `applyCategoryRules` per workspace would fix it.
+- The keyword list is a first pass; widen it from real "Uncategorized"
+  descriptions.
 

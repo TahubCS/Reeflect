@@ -286,7 +286,8 @@ describe("categorizeTransaction", () => {
     expect(
       categorizeTransaction({
         descriptionRaw: "market",
-        rules: Array.from({ length: 1_001 }, (_, i) =>
+        // Saved rules (up to 1,000) plus the built-in keywords fit in 2,000.
+        rules: Array.from({ length: 2_001 }, (_, i) =>
           rule({ id: `rule-${i}` }),
         ),
       }).success,

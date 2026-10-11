@@ -575,6 +575,14 @@ button.cell:hover,
   text-decoration: line-through;
 }
 
+/* A plan whose day has come but that is not confirmed yet (ADR-102). The
+   words "not confirmed" carry the meaning; italics only set it apart, and
+   keep the text's contrast (WCAG 2.2 AA). */
+.cell-line-unconfirmed,
+.item-unconfirmed {
+  font-style: italic;
+}
+
 .cell-more {
   color: var(--ink-soft);
   font-size: 0.8125rem;
@@ -752,6 +760,29 @@ button.cell:hover,
 
 button.item-remove {
   cursor: pointer;
+}
+
+.item-actions {
+  display: flex;
+  flex: none;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.item-confirm {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.125rem 0.5rem;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.item-confirm:hover {
+  background: var(--tint);
 }
 
 a.item-remove {
