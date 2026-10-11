@@ -56,3 +56,6 @@ tests/fixtures/**/private/
 
 # other agents' checkouts of this repository
 .claude/worktrees/
+
+# Nessie demo customers' ids (scripts/nessie/manifest.ts)
+scripts/nessie/.manifest.json
