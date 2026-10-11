@@ -19,6 +19,12 @@ import {
   createTransaction,
   getTransaction,
 } from "@/features/transactions/server/repository";
+import {
+  createPlan,
+  getPlan,
+  listPlansBetween,
+} from "@/features/plans/server/repository";
+import { shiftDays } from "@/features/recurring/client";
 import { savePayment } from "@/features/recurring/server/repository";
 import { db } from "@/lib/db/client";
 import { uuidv7 } from "@/lib/db/id";
@@ -28,7 +34,10 @@ import { summarize } from "../domain/cashflow";
 import { fixtures, isNotFound } from "../../../../tests/support/db-fixtures";
 import {
   addDayEntryAction,
+  addPlanAction,
+  confirmPlanAction,
   removeDayEntryAction,
+  removePlanAction,
   setSubscriptionIntentAction,
 } from "./actions";
 import { loadDashboard } from "./load";
@@ -433,5 +442,180 @@ describe("recurring payments on the calendar", () => {
       ),
     ).toBe(true);
     expect(await intentOf("stream service")).toBe("keep");
+  });
+});
+
+describe("plans on the calendar (F-37, ADR-102)", () => {
+  const inDays = (days: number) => shiftDays(today(), days);
+  const concert = (overrides: Record<string, unknown> = {}) => ({
+    accountId: checking,
+    plannedOn: inDays(5),
+    direction: "out",
+    amount: "45.00",
+    description: "Concert tickets",
+    categoryId: null,
+    ...overrides,
+  });
+  const plansIn = (workspaceId: string) =>
+    listPlansBetween(workspaceId, "2000-01-01", "2999-12-31");
+  const planDirectly = async (plannedOn: string, categoryId: string | null) =>
+    (await createPlan(workspace, {
+      accountId: checking,
+      plannedOn,
+      amountCents: cents(-2500),
+      description: "Dinner out",
+      categoryId,
+    }))!;
+
+  it("adds a plan that shows on the calendar without touching the ledger", async () => {
+    signedInAs(editor);
+    const ledger = (await transactionsIn(workspace)).length;
+    const before = await loadDashboard(workspace);
+    const balanceBefore = summarize(before.data, before.today).balanceToday;
+
+    const result = await addPlanAction(
+      workspace,
+      concert({ description: "Birthday dinner" }),
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(refresh).toHaveBeenCalledOnce();
+    expect(await transactionsIn(workspace)).toHaveLength(ledger);
+    const dashboard = await loadDashboard(workspace);
+    expect(dashboard.data.entries).toContainEqual(
+      expect.objectContaining({
+        name: "Birthday dinner",
+        date: inDays(5),
+        amount: -4500,
+        isPlan: true,
+      }),
+    );
+    // Today's balance is the same: the plan is only expected.
+    expect(summarize(dashboard.data, dashboard.today).balanceToday).toBe(
+      balanceBefore,
+    );
+  });
+
+  it("refuses today and earlier days", async () => {
+    signedInAs(editor);
+
+    expect(
+      await addPlanAction(workspace, concert({ plannedOn: today() })),
+    ).toEqual({ ok: false, message: "Choose a day after today." });
+  });
+
+  it("refuses a day the calendar does not show", async () => {
+    signedInAs(editor);
+
+    expect(
+      await addPlanAction(workspace, concert({ plannedOn: inDays(200) })),
+    ).toEqual({ ok: false, message: "Choose a day the calendar shows." });
+  });
+
+  it("refuses another workspace's account or category and writes nothing", async () => {
+    signedInAs(editor);
+    const theirCategory = (await listCategories(otherWorkspace))[0]!;
+    const before = (await plansIn(workspace)).length;
+
+    expect(
+      await addPlanAction(workspace, concert({ accountId: otherAccount })),
+    ).toEqual({ ok: false, message: "Choose one of your accounts." });
+    expect(
+      await addPlanAction(workspace, concert({ categoryId: theirCategory.id })),
+    ).toEqual({ ok: false, message: "Choose one of your categories." });
+    expect(await plansIn(workspace)).toHaveLength(before);
+    expect(await plansIn(otherWorkspace)).toHaveLength(0);
+  });
+
+  it("refuses malformed input", async () => {
+    signedInAs(editor);
+
+    expect(await addPlanAction(workspace, { amount: 12 })).toEqual({
+      ok: false,
+      message: "Check the form and try again.",
+    });
+  });
+
+  it("removes a plan", async () => {
+    signedInAs(editor);
+    const id = await planDirectly(inDays(3), null);
+
+    await removePlanAction(workspace, id);
+
+    expect(await getPlan(workspace, id)).toBeNull();
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  it("turns a plan whose day has come into a transaction, with its category", async () => {
+    signedInAs(editor);
+    const dining = (await listCategories(workspace)).find(
+      (c) => c.presetKey === "dining",
+    )!;
+    const id = await planDirectly(today(), dining.id);
+
+    expect(await confirmPlanAction(workspace, id)).toEqual({ ok: true });
+    // A second click finds the plan gone and adds nothing.
+    expect(isNotFound(await thrown(confirmPlanAction(workspace, id)))).toBe(
+      true,
+    );
+
+    expect(await getPlan(workspace, id)).toBeNull();
+    const rows = (await transactionsIn(workspace)).filter((r) => r.id === id);
+    expect(rows).toEqual([
+      expect.objectContaining({
+        postedOn: today(),
+        amountCents: -2500,
+        descriptionRaw: "Dinner out",
+        source: "manual",
+        status: "posted",
+        categoryId: dining.id,
+        categoryIsManual: true,
+      }),
+    ]);
+  });
+
+  it("refuses to confirm a plan before its day", async () => {
+    signedInAs(editor);
+    const id = await planDirectly(inDays(2), null);
+
+    expect(await confirmPlanAction(workspace, id)).toEqual({
+      ok: false,
+      message: "You can confirm it on or after its day.",
+    });
+    expect(await getPlan(workspace, id)).not.toBeNull();
+  });
+
+  it("refuses a viewer and a stranger every plan action, and keeps the plan", async () => {
+    const id = await planDirectly(today(), null);
+
+    for (const who of [viewer, stranger]) {
+      signedInAs(who);
+      expect(
+        isNotFound(await thrown(addPlanAction(workspace, concert()))),
+      ).toBe(true);
+      expect(isNotFound(await thrown(removePlanAction(workspace, id)))).toBe(
+        true,
+      );
+      expect(isNotFound(await thrown(confirmPlanAction(workspace, id)))).toBe(
+        true,
+      );
+    }
+    expect(await getPlan(workspace, id)).not.toBeNull();
+  });
+
+  it("finds nothing for another workspace's plan or a bad id", async () => {
+    signedInAs(stranger);
+    const id = await planDirectly(today(), null);
+
+    expect(isNotFound(await thrown(removePlanAction(otherWorkspace, id)))).toBe(
+      true,
+    );
+    expect(
+      isNotFound(await thrown(confirmPlanAction(otherWorkspace, id))),
+    ).toBe(true);
+    expect(
+      isNotFound(await thrown(removePlanAction(otherWorkspace, "nope"))),
+    ).toBe(true);
+    expect(await getPlan(workspace, id)).not.toBeNull();
   });
 });

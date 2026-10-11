@@ -5,6 +5,7 @@ import {
   getAccount,
 } from "@/features/accounts/server/repository";
 import { db } from "@/lib/db/client";
+import { uuidv7 } from "@/lib/db/id";
 import { financialAccount, transaction } from "@/lib/db/schema";
 import {
   ensureCategories,
@@ -135,6 +136,54 @@ describe("createTransaction", () => {
     expect(await add(workspaceA, { accountId: theirs })).toBeNull();
     expect(await listTransactions(workspaceB)).toEqual([]);
     expect(await balanceOf(workspaceB, theirs)).toBe(10_000);
+  });
+});
+
+describe("createTransaction with a given id", () => {
+  it("adds the row once and moves the balance once (ADR-102)", async () => {
+    const accountId = await account(workspaceA, 10_000);
+    const id = uuidv7();
+    const input = {
+      id,
+      description: "Concert tickets",
+      isTransfer: false,
+      ledger: {
+        accountId,
+        postedOn: "2026-10-08",
+        amountCents: cents(-4500),
+        status: "posted" as const,
+      },
+    };
+
+    expect(await createTransaction(workspaceA, input)).toBe(id);
+    expect(await createTransaction(workspaceA, input)).toBe(id);
+
+    expect(await getTransaction(workspaceA, id)).toMatchObject({
+      id,
+      amountCents: -4500,
+    });
+    expect(await balanceOf(workspaceA, accountId)).toBe(10_000 - 4500);
+  });
+
+  it("gives nothing when that id is another workspace's transaction", async () => {
+    const theirs = await account(workspaceB, 0);
+    const id = (await add(workspaceB, { accountId: theirs }))!;
+    const mine = await account(workspaceA, 0);
+
+    expect(
+      await createTransaction(workspaceA, {
+        id,
+        description: "Lunch",
+        isTransfer: false,
+        ledger: {
+          accountId: mine,
+          postedOn: "2026-10-08",
+          amountCents: cents(-1250),
+          status: "posted",
+        },
+      }),
+    ).toBeNull();
+    expect(await balanceOf(workspaceA, mine)).toBe(0);
   });
 });
 

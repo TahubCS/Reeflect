@@ -58,7 +58,7 @@ export function dashboardWindow(today: IsoDate): {
 }
 
 /** Liquid money is checking plus savings (ADR-024). */
-const isLiquid = (account: AccountRecord) =>
+export const isLiquid = (account: AccountRecord) =>
   account.type === "checking" || account.type === "savings";
 
 /** The presets ADR-030 treats as bills; the rest of the spending is day to day. */
@@ -70,7 +70,11 @@ function sourceOf(source: string): Source {
   return "bank";
 }
 
-function kindOf(record: TransactionRecord): Kind {
+/** Money in is income; a bill category makes a bill; the rest is day to day. */
+export function kindOf(record: {
+  amountCents: Cents;
+  categoryPresetKey: string | null;
+}): Kind {
   if (record.amountCents > 0) return "income";
   if (record.categoryPresetKey && BILL_PRESETS.has(record.categoryPresetKey))
     return "bill";

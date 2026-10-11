@@ -307,3 +307,141 @@ test("confirmed paydays and subscriptions fill the headline and the subscription
     page.getByRole("article", { name: "stream service", exact: true }),
   ).toContainText("Choice: Planning to cancel");
 });
+
+// F-37 (ADR-102): plans on later days. They change the expected balance and
+// what is owed before payday, never today's balance, until the person says
+// they happened.
+
+async function selectDay(page: Page, date: string) {
+  if (date.slice(0, 7) !== today.slice(0, 7)) {
+    await page.getByRole("button", { name: /Later/ }).click();
+  }
+  await cell(page, date).click();
+  await expect(dayPanel(page).getByRole("heading", { level: 2 })).toBeVisible();
+}
+
+test("plans spending on a later day, sees what it does, and removes it", async ({
+  browser,
+  baseURL,
+}) => {
+  const page = await newUserPage(browser, baseURL);
+  await addAccount(page, { nickname: "Everyday", balance: "500" });
+  await openDashboard(page);
+  const later = shiftDays(today, 3);
+  await selectDay(page, later);
+
+  const panel = dayPanel(page);
+  await expect(panel.getByText("Coming up")).toBeVisible();
+  await expect(
+    panel.getByRole("heading", { name: "Plan something for this day" }),
+  ).toBeVisible();
+  await panel.getByLabel("How much?").fill("45");
+  await panel.getByLabel("What is it for?").fill("Concert tickets");
+  await panel.getByRole("button", { name: /^Plan for / }).click();
+
+  await expect(
+    panel.getByText("Concert tickets", { exact: true }),
+  ).toBeVisible();
+  await expect(panel.getByText(/planned by you/)).toBeVisible();
+  await expect(panel.locator(".panel-totals")).toContainText("$455.00");
+  await expect(headline(page)).toHaveText("You have $500.00 today.");
+  await expect(page.locator(".sums")).toContainText("$45.00");
+  await expect(cell(page, later)).toContainText("Concert tickets");
+
+  // Not a transaction: the Transactions page never shows it.
+  await page.goto("/transactions");
+  await expect(page.getByText("Concert tickets")).toHaveCount(0);
+
+  await openDashboard(page);
+  await selectDay(page, later);
+  await dayPanel(page)
+    .getByRole("button", { name: "Remove Concert tickets" })
+    .click();
+  await expect(dayPanel(page).getByText("Concert tickets")).toHaveCount(0);
+  await expect(dayPanel(page).locator(".panel-totals")).toContainText(
+    "$500.00",
+  );
+});
+
+async function withPool<T>(work: (pool: Pool) => Promise<T>): Promise<T> {
+  // Its own pool per call, for the reason given in seedHistory.
+  const pool = new Pool({
+    connectionString:
+      process.env.DATABASE_URL ??
+      "postgres://test:test@localhost:5433/app_test",
+    max: 1,
+  });
+  try {
+    return await work(pool);
+  } finally {
+    await pool.end();
+  }
+}
+
+/** A $25.00 plan for today on the workspace's account, as if made earlier. */
+const seedPlanForToday = (workspaceId: string, description: string) =>
+  withPool(async (pool) => {
+    const { rows } = await pool.query<{ id: string }>(
+      `SELECT id FROM financial_account WHERE workspace_id = $1`,
+      [workspaceId],
+    );
+    await pool.query(
+      `INSERT INTO planned_transaction (id, workspace_id, financial_account_id, planned_on, amount_cents, description) VALUES ($1,$2,$3,$4,-2500,$5)`,
+      [crypto.randomUUID(), workspaceId, rows[0]!.id, today, description],
+    );
+  });
+
+test("a plan whose day has come waits, then becomes a transaction when it happened", async ({
+  browser,
+  baseURL,
+}) => {
+  const page = await newUserPage(browser, baseURL);
+  await addAccount(page, { nickname: "Everyday", balance: "500" });
+  await openDashboard(page);
+  const workspaceId = new URL(page.url()).pathname.split("/")[2]!;
+  await seedPlanForToday(workspaceId, "Dinner out");
+  await openDashboard(page);
+
+  const panel = dayPanel(page);
+  await expect(panel.getByText(/planned, not confirmed/)).toBeVisible();
+  await expect(headline(page)).toHaveText("You have $500.00 today.");
+
+  await panel.getByRole("button", { name: "Dinner out happened" }).click();
+
+  await expect(headline(page)).toHaveText("You have $475.00 today.");
+  await expect(panel.getByText(/added by you/)).toBeVisible();
+  await expect(panel.getByText(/not confirmed/)).toHaveCount(0);
+});
+
+test("a viewer sees plans but cannot plan, confirm or remove", async ({
+  browser,
+  baseURL,
+}) => {
+  const owner = await newUserPage(browser, baseURL);
+  await addAccount(owner, { nickname: "Everyday", balance: "500" });
+  await openDashboard(owner);
+  const workspaceId = new URL(owner.url()).pathname.split("/")[2]!;
+  await seedPlanForToday(workspaceId, "Dinner out");
+
+  const viewer = await newUserPage(browser, baseURL);
+  const session = await (
+    await viewer.context().request.get("/api/auth/get-session")
+  ).json();
+  await withPool((pool) =>
+    pool.query(
+      `INSERT INTO member (id,organization_id,user_id,role,created_at) VALUES ($1,$2,$3,'viewer',now())`,
+      [crypto.randomUUID(), workspaceId, session.user.id],
+    ),
+  );
+  await viewer.goto(`/w/${workspaceId}/dashboard`);
+  await hydrated(viewer, "button[data-date]");
+
+  const panel = dayPanel(viewer);
+  await expect(panel.getByText(/planned, not confirmed/)).toBeVisible();
+  await expect(panel.getByRole("button", { name: /happened/ })).toHaveCount(0);
+  await expect(panel.getByRole("button", { name: /^Remove / })).toHaveCount(0);
+  await selectDay(viewer, shiftDays(today, 3));
+  await expect(dayPanel(viewer).getByRole("heading", { level: 3 })).toHaveCount(
+    0,
+  );
+});

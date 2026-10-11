@@ -194,8 +194,14 @@ describe("budget forward migration recovery", () => {
         )
       ).rows;
       expect(repairedHistory.slice(0, history.length)).toEqual(history);
-      expect(repairedHistory).toHaveLength(history.length + 1);
-      expect(Number(repairedHistory.at(-1).created_at)).toBe(recovery.when);
+      // The recovery is the one row added after the incident; migrations
+      // that come after it in the journal follow it.
+      expect(repairedHistory).toHaveLength(
+        history.length + journal.length - recoveryIndex,
+      );
+      expect(Number(repairedHistory[history.length].created_at)).toBe(
+        recovery.when,
+      );
       expect(
         (await client.query("SELECT amount_cents FROM budget")).rows,
       ).toEqual([{ amount_cents: "50000" }]);

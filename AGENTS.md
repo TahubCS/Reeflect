@@ -258,9 +258,10 @@ src/
     api/                    route handlers: auth, health; Plaid webhooks,
                             agent turn and job tick (planned)
   features/                 one folder per feature, owned by whoever is assigned
-    <feature>/              built so far: accounts, agent, auth, cashflow,
-                            imports, landing, messaging, synthetic,
-                            transactions
+    <feature>/              built so far: accounts, agent, auth, budgets,
+                            cashflow, categorization, imports, insights,
+                            landing, messaging, plans, recurring,
+                            synthetic, transactions
       domain/               pure TypeScript logic, no I/O (most unit tests here)
       server/               repositories, server actions ('server-only')
       ui/                   React components for this feature

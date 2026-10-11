@@ -6,6 +6,13 @@ import { z } from "zod";
 import { DEFAULT_TIME_ZONE } from "@/config/app";
 import { isoDateIn } from "@/features/accounts";
 import { listCategories, saveOverride } from "@/features/categorization";
+import {
+  createPlan,
+  deletePlan,
+  getPlan,
+  parsePlanForm,
+  planIdSchema,
+} from "@/features/plans";
 import { setPaymentIntent } from "@/features/recurring";
 import {
   createTransaction,
@@ -16,8 +23,9 @@ import {
 } from "@/features/transactions";
 import { requireWorkspaceAccess } from "@/lib/auth/authz";
 import { getSession } from "@/lib/auth/session";
+import { dashboardWindow } from "../domain/from-records";
 
-// The day panel's two writes (F-12, F-13), in ARCH-04 order: session, then
+// The day panel's writes (F-12, F-13, F-37), in ARCH-04 order: session, then
 // workspace access, then validated input, then the transactions feature's
 // repository with the verified workspace id. They refresh the page in place
 // instead of redirecting, so the calendar keeps its month and selected day.
@@ -36,9 +44,22 @@ const dayEntrySchema = z.object({
 
 export type DayEntryInput = z.infer<typeof dayEntrySchema>;
 
+const planEntrySchema = dayEntrySchema
+  .omit({ postedOn: true })
+  .extend({ plannedOn: z.string().max(10) });
+
 // The same words whether the account is missing or in another workspace.
 const NO_SUCH_ACCOUNT = "Choose one of your accounts.";
 const NO_SUCH_CATEGORY = "Choose one of your categories.";
+
+const today = () => isoDateIn(new Date(), DEFAULT_TIME_ZONE);
+
+async function hasCategory(workspaceId: string, categoryId: string | null) {
+  return (
+    categoryId === null ||
+    (await listCategories(workspaceId)).some((c) => c.id === categoryId)
+  );
+}
 
 async function editorAccess(workspaceId: unknown): Promise<string> {
   const access = await requireWorkspaceAccess(
@@ -60,7 +81,7 @@ export async function addDayEntryAction(
     return { ok: false, message: "Check the form and try again." };
 
   const parsed = parseTransactionForm(read.data, {
-    today: isoDateIn(new Date(), DEFAULT_TIME_ZONE),
+    today: today(),
     ledgerEditable: true,
   });
   if (!parsed.ok) {
@@ -81,10 +102,7 @@ export async function addDayEntryAction(
   if (!ledger) return { ok: false, message: NO_SUCH_ACCOUNT };
 
   const { categoryId } = read.data;
-  if (
-    categoryId !== null &&
-    !(await listCategories(verified)).some((c) => c.id === categoryId)
-  ) {
+  if (!(await hasCategory(verified, categoryId))) {
     return { ok: false, message: NO_SUCH_CATEGORY };
   }
 
@@ -113,6 +131,103 @@ export async function removeDayEntryAction(
   if (!existing?.editableInFull) notFound();
   if (!(await deleteTransaction(verified, id.data))) notFound();
   refresh();
+}
+
+/**
+ * Plans money for a later day the calendar shows (F-37, ADR-102). A plan is
+ * not a transaction: it moves no account balance until it is confirmed.
+ */
+export async function addPlanAction(
+  workspaceId: unknown,
+  input: unknown,
+): Promise<DayEntryResult> {
+  const verified = await editorAccess(workspaceId);
+  const read = planEntrySchema.safeParse(input);
+  if (!read.success)
+    return { ok: false, message: "Check the form and try again." };
+
+  const now = today();
+  const parsed = parsePlanForm(read.data, {
+    today: now,
+    lastDay: dashboardWindow(now).to,
+  });
+  if (!parsed.ok) {
+    const { amount, description, accountId, plannedOn, direction } =
+      parsed.errors;
+    return {
+      ok: false,
+      message:
+        amount ??
+        description ??
+        accountId ??
+        plannedOn ??
+        direction ??
+        "Check the form and try again.",
+    };
+  }
+  if (!(await hasCategory(verified, parsed.value.categoryId))) {
+    return { ok: false, message: NO_SUCH_CATEGORY };
+  }
+
+  const id = await createPlan(verified, parsed.value);
+  if (id === null) return { ok: false, message: NO_SUCH_ACCOUNT };
+  refresh();
+  return { ok: true };
+}
+
+/** Removes a plan, whether its day has come or not. */
+export async function removePlanAction(
+  workspaceId: unknown,
+  planId: unknown,
+): Promise<void> {
+  const verified = await editorAccess(workspaceId);
+  const id = planIdSchema.safeParse(planId);
+  if (!id.success) notFound();
+  if (!(await deletePlan(verified, id.data))) notFound();
+  refresh();
+}
+
+/**
+ * "It happened": turns a plan whose day has come into a manual transaction
+ * on that day (ADR-050), with the plan's category, then removes the plan.
+ * The transaction takes the plan's id, so a second click or a retry after a
+ * failure adds nothing twice (ADR-102).
+ */
+export async function confirmPlanAction(
+  workspaceId: unknown,
+  planId: unknown,
+): Promise<DayEntryResult> {
+  const verified = await editorAccess(workspaceId);
+  const id = planIdSchema.safeParse(planId);
+  if (!id.success) notFound();
+
+  const plan = await getPlan(verified, id.data);
+  if (!plan) notFound();
+  if (plan.plannedOn > today()) {
+    return { ok: false, message: "You can confirm it on or after its day." };
+  }
+
+  const transactionId = await createTransaction(verified, {
+    id: plan.id,
+    description: plan.description,
+    isTransfer: false,
+    ledger: {
+      accountId: plan.accountId,
+      postedOn: plan.plannedOn,
+      amountCents: plan.amountCents,
+      status: "posted",
+    },
+  });
+  if (transactionId === null) return { ok: false, message: NO_SUCH_ACCOUNT };
+  if (plan.categoryId !== null) {
+    await saveOverride(verified, transactionId, {
+      mode: "manual",
+      categoryId: plan.categoryId,
+    });
+  }
+  await deletePlan(verified, plan.id);
+  refresh();
+  return { ok: true };
 }
 
 const intentInputSchema = z.object({

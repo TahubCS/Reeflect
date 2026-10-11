@@ -203,3 +203,47 @@ export const transaction = pgTable(
     }),
   ],
 );
+
+/**
+ * Money the person expects on a later day, typed on the calendar (F-37,
+ * ADR-102). Not a transaction: budgets, insights, recurring detection, the
+ * agent and account balances never read it. Once its day comes the person
+ * confirms it, which adds a manual transaction, or removes it.
+ */
+export const plannedTransaction = pgTable(
+  "planned_transaction",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => uuidv7()),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    financialAccountId: text("financial_account_id")
+      .notNull()
+      .references(() => financialAccount.id, { onDelete: "cascade" }),
+    plannedOn: date("planned_on", { mode: "string" }).notNull(),
+    /** Signed per ADR-008: negative is money out of the account. */
+    amountCents: money("amount_cents").notNull(),
+    description: text("description").notNull(),
+    /** Null lets the saved rules choose once it is confirmed (ADR-013). */
+    categoryId: text("category_id"),
+    createdAt: timestamptz("created_at").defaultNow().notNull(),
+    updatedAt: timestamptz("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("planned_transaction_workspace_planned_idx").on(
+      table.workspaceId,
+      table.plannedOn,
+    ),
+    index("planned_transaction_account_idx").on(table.financialAccountId),
+    foreignKey({
+      name: "planned_transaction_workspace_category_fk",
+      columns: [table.workspaceId, table.categoryId],
+      foreignColumns: [category.workspaceId, category.id],
+    }),
+  ],
+);

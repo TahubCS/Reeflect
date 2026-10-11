@@ -3,6 +3,7 @@ import { DEFAULT_TIME_ZONE } from "@/config/app";
 import { isoDateIn, listAccounts } from "@/features/accounts";
 import { ensureCategories, listCategories } from "@/features/categorization";
 import { type LinkState, getLinkState } from "@/features/messaging";
+import { listPlansBetween } from "@/features/plans";
 import { listRecurringPayments } from "@/features/recurring";
 import {
   type AccountChoice,
@@ -14,6 +15,7 @@ import { getSession } from "@/lib/auth/session";
 import type { CashflowData } from "../domain/cashflow";
 import type { IsoDate } from "../domain/dates";
 import { toRecurring } from "../domain/from-payments";
+import { plansToEntries } from "../domain/from-plans";
 import { dashboardWindow, toCashflowData } from "../domain/from-records";
 
 export type DashboardCategory = { id: string; name: string };
@@ -57,20 +59,25 @@ export async function loadDashboard(workspaceId: unknown): Promise<Dashboard> {
 
   const today = isoDateIn(new Date(), DEFAULT_TIME_ZONE);
   const window = dashboardWindow(today);
-  const [accounts, transactions, categories, linkState, recurring] =
+  const [accounts, transactions, plans, categories, linkState, recurring] =
     await Promise.all([
       listAccounts(access.workspaceId),
       listTransactionsBetween(access.workspaceId, window.from, window.to),
+      listPlansBetween(access.workspaceId, window.from, window.to),
       listCategories(access.workspaceId),
       // The session is non-null here: requireWorkspaceAccess refused otherwise.
       getLinkState(session!.user.id),
       recurringFor(access.workspaceId),
     ]);
 
+  // Plans join after the opening balance is worked out, so it never counts
+  // one (ADR-102).
+  const real = toCashflowData({ accounts, transactions, today });
   return {
     workspaceId: access.workspaceId,
     data: {
-      ...toCashflowData({ accounts, transactions, today }),
+      ...real,
+      entries: [...real.entries, ...plansToEntries(plans, accounts)],
       recurring: recurring ? toRecurring(recurring.payments, accounts) : [],
     },
     today,

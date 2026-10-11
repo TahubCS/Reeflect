@@ -91,6 +91,7 @@ Rules:
 | ADR-082 | Sample years in the developers' own accounts (exception to ADR-049) | Accepted |
 | ADR-083 | Ask the user to categorize large uncategorized payments (refines ADR-055, ADR-057) | Proposed |
 | ADR-084 | Reserved ADR and handoff numbers for each developer | Accepted |
+| ADR-102 | Planned transactions are kept apart from the ledger (refines ADR-042, ADR-050) | Proposed |
 
 ---
 
@@ -1760,6 +1761,47 @@ Rules:
   entry is the one at the bottom. The Index stays in number order, so two
   branches can still both add index rows next to each other, but the
   conflict is two additions and no renumbering.
+
+### ADR-102: Planned transactions are kept apart from the ledger (refines ADR-042, ADR-050)
+
+- **Status:** Proposed (2026-10-11)
+- **Context:** People want to plan money they expect on a later day ("concert
+  tickets on the 20th", "selling the bike, +$300 next week") and see what it
+  does to the month. ADR-050 keeps manual transactions to today or earlier,
+  and money still to come was left to F-22's bills. A transaction dated
+  later would move a manual account's stored balance at once (ADR-050's
+  rule), and budgets, Insights, recurring detection and the agent would all
+  count it as real.
+- **Decision:**
+  - **Separate table.** Plans live in `planned_transaction` (account, day,
+    signed amount, description, optional category), owned by the `plans`
+    feature (F-37). Only the calendar reads them. They never move a stored
+    balance and are not transactions anywhere else.
+  - **Dates.** A plan is dated after today, in `DEFAULT_TIME_ZONE`, and no
+    later than the calendar's last day (`dashboardWindow`), so it never
+    lands where nobody can see it. Checking, savings and card accounts only;
+    loans are left out, as their transactions are.
+  - **On the calendar.** A future plan is an expected item: it moves the
+    dotted balance line and, before payday, counts in "already owed before
+    payday". It is labelled "planned by you". Planned money in is never
+    payday: payday is expected recurring income (ADR-042 item 1).
+  - **When its day comes** the plan stays on its day, labelled "planned, not
+    confirmed", and moves no balance or day total. The person chooses "It
+    happened", which adds a manual transaction on that day with the plan's
+    category (ADR-050's balance rule applies), or removes it. Nothing
+    happens to it automatically.
+  - **No double entry.** The transaction takes the plan's id, so confirming
+    twice or retrying after a failure adds one row.
+- **Alternatives considered:** Future-dated rows in `transaction` with a
+  "planned" status. Rejected: every reader of transactions (balances,
+  budgets, Insights, recurring detection, the agent) would need a filter,
+  and one missed filter shows money that does not exist yet. Plans that
+  disappear once their day passes. Rejected: the person loses track of
+  what they meant to log.
+- **Consequences:** A new table and migration (0013). An unconfirmed plan
+  older than the calendar's window (two months back) is no longer shown;
+  it stays stored until the account or workspace is deleted. Editing a plan
+  means removing and re-adding it for now. The agent does not read plans.
 
 ---
 
