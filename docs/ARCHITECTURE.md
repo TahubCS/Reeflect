@@ -81,10 +81,15 @@ Planned features (each a folder in `src/features/`):
 batch generator, ADR-049).
 
 Built so far: `accounts` (F-03: add, edit and delete accounts; HO-030),
-`auth` (sign-in, sign-up, email verification and password reset, ADR-052), `cashflow` (the calendar, on sample
+`transactions` (F-04: add, edit and delete manual transactions; HO-031),
+`categorization` (F-08: category controls, rules and manual choices),
+`auth` (sign-in, sign-up, email verification and password reset, ADR-052),
+`cashflow` (the calendar, on sample
 data), `landing` (the home page) and `synthetic`. `accounts` and
 `synthetic` have an `index.ts`; `accounts` is the first feature with a
 `server/` folder, and its server actions are the pattern to copy.
+Categorization also exposes a pure `client.ts` entry point; its `index.ts`
+exports route/server APIs without pulling them into client callers.
 
 Scripts in `scripts/` run with plain `node`. Those that import from `src/`
 load `scripts/register-paths.ts` first, so `@/…` and extensionless imports
@@ -120,12 +125,12 @@ have `updated_at`.
 |---|---|---|
 | `workspace_settings` | workspace_id (PK), kind (`personal`/`household`), timezone, cushion_target_cents (nullable) | Not built. It was for the aquarium (ADR-016, superseded); create it only if ADR-042 finds a use |
 | `financial_account` | id, workspace_id, institution_name, type (`checking`/`savings`/`credit_card`/`loan`), mask_last4, nickname, source (`manual`/`text`/`csv`/`pdf`/`plaid`/`nessie`/`synthetic`), current_balance_cents, balance_as_of, identity_confirmed_at, plaid_account_id (nullable), nessie_account_id (nullable) | Unique (workspace_id, plaid_account_id); unique (workspace_id, nessie_account_id). Built (migration 0002) |
-| `transaction` | id, workspace_id, financial_account_id, posted_on (date), amount_cents (signed, ADR-008), description_raw, merchant_normalized, category_id (nullable), status (`pending`/`posted`), is_transfer, transfer_pair_id (nullable; both sides of a transfer share it), source, import_batch_id (nullable), external_id (nullable), fingerprint | Unique (financial_account_id, fingerprint). Built (migration 0002) without `category_id` and `import_batch_id`; each arrives with the table it references. Manual rows: fingerprint `manual:<id>`, balance rule in ADR-050 |
+| `transaction` | id, workspace_id, financial_account_id, posted_on (date), amount_cents (signed, ADR-008), description_raw, merchant_normalized, category_id (nullable), category_is_manual (bool), status (`pending`/`posted`), is_transfer, transfer_pair_id (nullable; both sides of a transfer share it), source, import_batch_id (nullable), external_id (nullable), fingerprint | Unique (financial_account_id, fingerprint). Built in migration 0002; category columns arrive in 0005. `import_batch_id` still planned. Manual rows use fingerprint `manual:<id>` and the balance rule in ADR-050 |
 | `synthetic_batch` | id, label, generator_version, seed, start_month, months, as_of, spec (jsonb), notes, created_by, promoted_from | A replayable recipe (ADR-049). Built |
 | `synthetic_workspace` | workspace_id (PK, cascade), batch_id (restrict), person_key, persona, summary | The synthetic marker: a row means the workspace is synthetic, no row means real (ADR-049). Built |
-| `category` | id, workspace_id, name, color_token, sort_order, is_preset | |
+| `category` | id, workspace_id, name, color_token, sort_order, is_preset, preset_key | Built in migration 0005. Eight presets initialized on the first authorized editor visit; unique (workspace_id, preset_key) preserves renames |
 | `budget` | id, workspace_id, category_id, month (`YYYY-MM`), amount_cents | Unique (category_id, month) |
-| `category_rule` | id, workspace_id, pattern, match_type, category_id, priority, origin (`user`/`ai_confirmed`) | |
+| `category_rule` | id, workspace_id, pattern, match_type, category_id, priority, origin (`user`/`ai_confirmed`) | Built in migration 0005. Composite workspace/category FK; current rules are user-created |
 | `recurring_series` | id, workspace_id, financial_account_id, merchant_normalized, median_amount_cents, cadence (`weekly`/`monthly`), last_charged_on, user_intent (`none`/`keep`/`cancel`), manual (bool), kind (`subscription`/`bill`), next_due_on (nullable), due_date_source (`lender`/`user`/`predicted`), autopay (bool) | Subscriptions are `kind = subscription` only (ADR-030) |
 | `reminder` | id, workspace_id, recurring_series_id, due_on, remind_on, status (`scheduled`/`sent`/`cancelled_paid`/`dismissed`), channel (`in_app`/`imessage`), low_balance_warning (bool), sent_at | Unique (recurring_series_id, due_on) so each cycle reminds once |
 | `savings_goal` | id, workspace_id, name, target_cents, saved_cents, target_date, active | One active goal in MVP |
@@ -171,7 +176,7 @@ order:
 in every failing case. The signed-in pages live under
 `src/app/(app)/w/[workspaceId]/`, whose layout checks membership; the flat
 URLs (`/dashboard`, …) redirect into the user's Personal workspace (HO-027).
-No page loads workspace data yet.
+Accounts and Transactions load only the authorized workspace's data.
 
 Caching: pages that show workspace data render dynamically. No `unstable_cache`
 or fetch caching of workspace data. Client state is keyed by workspace id and

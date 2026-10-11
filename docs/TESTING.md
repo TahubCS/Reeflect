@@ -64,7 +64,7 @@ when coverage is already met.
 | Money properties (fast-check) | Sum of category spending equals total spending; splitting then summing returns the original; add/subtract are inverse; no operation produces a non-integer |
 | Cash flow (`src/features/cashflow/domain`, ADR-042) | Per-day amount with balance above, equal to and below what is due before payday (never negative); payday tomorrow (N = 1) and no expected income; repeating items clamped to the last day of short months; a month's end balance equals its start plus its items; later months carry the earlier months' balance; a no-spend day needs nothing going out; yearly subscription cost and saving; every number shown has a text label |
 | Budgets | Calendar month boundaries in the workspace time zone (11:59 PM on the 31st vs 12:00 AM on the 1st); budget change mid-month; refunds reducing spending |
-| Categorization | Rule priority; `contains` / `starts_with` / `exact`; merchant normalization (store numbers, reference codes); manual override beats rules |
+| Categorization | Rule priority and deterministic ties; `contains` / `starts_with` / `exact`; merchant normalization (store numbers, reference codes); manual override including Uncategorized beats rules; form validation and limits |
 | Recurring (ADR-014) | Three monthly charges → subscription; three grocery visits at random intervals → no subscription; price change beyond ±15% flagged; weekly cadence; manual mark |
 | Transfers (ADR-020) | Checking → card payment pairs and is excluded from spending; same amount but more than 3 days apart does not pair; two candidates for one transaction pairs only once; unpairing |
 | Import guardrails (ADR-010) | Each check in the ADR-010 table passes and fails; nothing written when any blocking check fails; duplicate file; overlapping periods dedupe; reconciliation off by $0.01 blocks |
@@ -98,6 +98,7 @@ when coverage is already met.
 | Import commit | Commit is atomic: a failure mid-commit leaves no partial rows; re-commit is idempotent |
 | Migrations | All migrations apply cleanly to an empty database |
 | Cascade deletes | Deleting an account or workspace removes all dependent rows |
+| Categorization persistence | Atomic override-plus-rule save and rollback; later transactions; manual transaction creation/editing integrates within the existing balance transaction; rule edits/deletion preserve manual choices; cross-workspace category references rejected; unchanged transaction facts and balances; idempotent presets; pagination and batched updates |
 | Synthetic batches | Loading is atomic (one bad row writes nothing); deleting a batch removes its workspaces, accounts, transactions and markers and leaves other batches alone; a batch row cannot be deleted while its workspaces exist (`scripts/batch/store.test.ts`) |
 
 ## TEST-06: Required security tests
@@ -122,6 +123,7 @@ when coverage is already met.
 | `auth.spec.ts` | Sign up, confirm the email from the outbox (ADR-052), sign in, sign out, wrong password, unverified sign-in, password reset, bad links |
 | `workspaces.spec.ts` | Personal workspace exists after sign-up; create household; invite link; second user joins with correct role; switching workspaces changes the calendar |
 | `accounts.spec.ts` | Add each account type; edit; delete with confirmation |
+| `categorization.spec.ts` | Categorize a transaction and save a rule; existing/later matches; manual Uncategorized and return to automatic; edit priority/category and delete rule; rename category; invalid input; viewer/stranger access; pagination; 360px dark/reduced-motion; failed-load recovery |
 | `csv-import.spec.ts` | Upload, map columns, preview, commit; duplicate upload blocked; wrong account blocked |
 | `pdf-import.spec.ts` | Supported statement imports and reconciles; wrong bank blocked; unsupported layout fails clearly |
 | `nessie-live.spec.ts` | Tagged `@external`: against the real Nessie sandbox, create a customer and a purchase, sync, verify the transaction appears |
