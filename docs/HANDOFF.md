@@ -56,11 +56,11 @@ Update this table when work is assigned or finished. Features are listed in
 | F-21 Demo seed (incl. Nessie) | A | Jacob Heminway | — | Synthetic generator and batch scripts merged (HO-026, PR #7); Nessie seeding and `pnpm db:seed` not started |
 | F-23 Nessie import and sync | A | Unassigned | — | Not started |
 | F-24 Phone linking | C | Muhammad Tahub Khatri | `feat/photon-agent` | Built (HO-032); real texts need the worker (F-32) |
-| F-25 "How am I doing?" + week-ahead image | C | Unassigned | — | Not started |
+| F-25 "How am I doing?" + week-ahead image | C | Muhammad Tahub Khatri | `feat/agent-answers` | Answers built (HO-049): balances and the last 30 days. Owed before payday, the per-day figure and the image wait for bills and paydays |
 | F-26 Subscription alerts | C | Unassigned | — | Not started |
 | F-27 Log spending by text | C | Unassigned | — | Not started |
 | F-28 Category and balance questions | C | Unassigned | — | Not started |
-| F-32 Agent worker | C | Muhammad Tahub Khatri | `feat/agent-worker` | Built, replies only (HO-039); not yet deployed to Render |
+| F-32 Agent worker | C | Muhammad Tahub Khatri | `feat/agent-worker` | Done, replies only (HO-039, PR #17); live on Render (HO-048) |
 | F-22 Bill reminders (P1) | A + C | Unassigned | — | Not started |
 | F-15 Gemini summary on the website (P1, ADR-045) | C | Unassigned | — | Not started |
 | F-35 Compare with people like you (Later, ADR-056) | A + B | Jacob Heminway | `feat/insights` | Built: the Insights page, stored sample figures and `pnpm batch rollup` (HO-043); ADR-056 and ADR-057 Proposed |
@@ -2279,3 +2279,108 @@ recommendation, not a decision.
 ### Open problems
 - HO-045's local Neon storage network restriction remains. CI can reach the
   test bucket and passed its storage/import tests in the initial PR run.
+
+---
+
+## HO-048: Agent worker live on Render; replies are placeholders for now
+
+- **Date:** 2026-10-11 01:30 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `feat/agent-answers` (uncommitted) / not opened
+
+### What changed
+- **The worker (F-32) is deployed on Render** as a free web service from
+  `main`, calling the production app. Nothing in the code changed.
+  - Build command `pnpm install --frozen-lockfile`, start command
+    `pnpm --filter agent-worker start`, health check path `/health`,
+    `NODE_VERSION=24`.
+  - `AGENT_SERVICE_TOKEN` is set on Render and on Vercel (Production) with
+    the same value.
+- **Tested from three phones** on Photon's free plan: the owner's and two
+  more added under Photon dashboard > Spectrum > Users. All got replies.
+- **What a phone gets today is a placeholder.** The sign-up reply, LINK,
+  Approve on the website and STOP are real. Any other text from a linked
+  phone gets the fixed line "You're linked. I can't answer questions here
+  yet; that's coming." Real answers arrive with F-25.
+
+### What's next
+- **Keep-awake backup (ADR-041):** add a free monitor (UptimeRobot or
+  cron-job.org) that requests the service's `/health` every 5 minutes. The
+  worker already pings itself every 10 minutes; the monitor also wakes it
+  after a restart.
+- **Render redeploys the worker on every merge to `main`.** A Build Filter
+  for `agent-worker/**`, `packages/**` and `pnpm-lock.yaml` limits that.
+- **F-25** is next: Gemini answers "how am I doing?" from accounts and
+  transactions.
+
+### Open problems
+- `/health` says the process is up, not that the Photon connection is
+  healthy. If texts stop getting replies while the monitor is green, read
+  the Render logs.
+- Only people in Photon's Users list (10 on the free plan) can use the
+  agent, each on their own "Texts on" number.
+- Not tried: a text from a phone that is not in the Users list.
+
+---
+
+## HO-049: F-25 "how am I doing?": Gemini writes the reply, code supplies every figure
+
+- **Date:** 2026-10-11 03:00 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `feat/agent-answers` (uncommitted) / not opened
+
+### What changed
+- **ADR-059 (Proposed):** one model request per text with labels, two checks
+  on every draft, a chain of up to six models, nothing kept at Google, no
+  conversation memory, and the current key used for real users' texts for
+  now.
+- **A linked phone now gets a real answer.** `runAgentTurn` sends any text
+  that is not LINK or STOP to `answer` (`src/features/agent/server/`):
+  1. `getSummary` works out the figures: cash, what is owed, and the last
+     30 days from Jacob's `workspaceMeasures`, so they match the Insights
+     page.
+  2. The model gets label names (`{cash_total}`, `{spending}`, …) and the
+     person's text, never a figure, and writes two or three sentences.
+  3. Code rejects a draft with a digit of its own, an unknown label, a
+     stray brace or too many characters, then fills the labels in.
+  4. If no model answers or the draft is rejected, code builds the reply
+     from the same figures.
+- **`src/lib/ai/`** (ARCH-07): the chain, the Google transport, label
+  filling and the digit scan. New dependency: `@google/genai` 2.28.0.
+- **`pnpm ai:check`** tests the real key against each model. Run on
+  2026-10-11: `gemini-3.6-flash`, `gemini-3.5-flash`,
+  `gemini-3.5-flash-lite` and `gemini-3.1-flash-lite` answered and followed
+  the label rule. `gemini-3.8-flash` and `gemini-3.7-flash` were overloaded
+  or rate-limited at the time; both accept the request shape.
+- **Settings:** `GEMINI_API_KEY` and `GEMINI_MODELS`, both optional, in
+  `src/lib/env.ts`, `.env.example` and ARCH-09 (which called the second
+  `GEMINI_MODEL`). Playwright sets the key to empty, so tests never call
+  Google.
+- **Jacob's file:** `src/features/insights/server.ts` now also exports
+  `loadWorkspaceData` and `yesterday`.
+- **Tests:** Vitest for the chain, transport, filling, digit scan, facts,
+  prompt, code-built replies and `answer` (against the Docker database,
+  with a fake model); `agent-link.spec.ts` expects an answer, not the
+  placeholder.
+
+### What's next
+- **To go live:** add `GEMINI_API_KEY` to Vercel (Production) and redeploy.
+  Until then the live agent answers with the code-built reply.
+- **Production is missing migration `0009_recurring_payments`** (checked
+  with `pnpm db:whoami` on 2026-10-11). The agent does not read those
+  tables, but the Subscriptions page does.
+- **F-28** (category and balance questions) is next: it adds lookups and
+  with them Gemini's tool calling.
+
+### Open problems
+- **Not in this feature:** "owed before payday", the per-day figure and the
+  week-ahead image. They need bills and paydays, which do not exist yet.
+- The figures are monthly amounts based on the days covered, as on the
+  Insights page, not exact 30-day totals.
+- No conversation memory: "and last month?" gets a fresh answer, not a
+  follow-up.
+- A model that is slow rather than failing costs up to 4 seconds before the
+  next one is tried; after one such wait it is left alone for five minutes.
+- The model chain's "leave it alone" memory is per server instance.
+- ADR-019's rule about which kind of key may see real users' text is set
+  aside for now (ADR-059).
