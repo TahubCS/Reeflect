@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { cents, formatCents, formatSigned } from "@/lib/money";
+import { NavRefresh } from "@/components/ui/nav-refresh";
+import { formatCents } from "@/lib/money";
 import type { FormAction } from "../domain/forms";
 import type { Payment, summarizePayments } from "../domain/payments";
+import { ChargeEvidence } from "./charge-evidence";
 import { ActionForm, PaymentForm } from "./forms";
 import styles from "./recurring.module.css";
 
@@ -151,22 +153,7 @@ function PaymentCard({
         </p>
       ) : null}
       {payment.charges.length ? (
-        <details>
-          <summary>
-            Recent matching {payment.kind === "income" ? "deposits" : "charges"}{" "}
-            ({payment.charges.length})
-          </summary>
-          <ul className={styles.charges}>
-            {payment.charges.map((charge) => (
-              <li key={charge.id}>
-                <span>
-                  {charge.postedOn} · {charge.source}
-                </span>
-                <span>{formatSigned(cents(charge.amountCents))}</span>
-              </li>
-            ))}
-          </ul>
-        </details>
+        <ChargeEvidence charges={payment.charges} kind={payment.kind} />
       ) : null}
       {canEdit ? (
         <div className={styles.controls}>
@@ -252,6 +239,8 @@ export function RecurringPage({
     `?${new URLSearchParams({ kind: query.kind, state: query.state, intent: query.intent, ...(query.account ? { account: query.account } : {}), page: String(page) })}`;
   return (
     <main className={`page ${styles.page}`}>
+      {/* The header's count on Recurring payments follows this page. */}
+      <NavRefresh token={summary.candidates} />
       <div className={styles.heading}>
         <div>
           <h1>Recurring payments</h1>

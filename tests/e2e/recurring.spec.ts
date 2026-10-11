@@ -25,6 +25,14 @@ const localToday = new Intl.DateTimeFormat("en-CA", {
   day: "2-digit",
 }).format(new Date());
 const [year, month] = localToday.split("-").map(Number);
+/** "Oct 9, 2026", as the list of charges shows a date. */
+const longDate = (iso: string) =>
+  new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(Date.parse(`${iso}T00:00:00Z`));
 const date = (offset: number, day = 1) =>
   new Date(Date.UTC(year!, month! - 1 + offset, day))
     .toISOString()
@@ -160,10 +168,19 @@ test("shows evidence for variable bills and fixed subscriptions, requiring confi
     page.getByRole("article", { name: "irregular market" }),
   ).toHaveCount(0);
   await expect(totals(page)).toContainText("$0.00");
-  await card(page, "city electric")
-    .getByText("Recent matching charges (3)")
-    .click();
-  await expect(card(page, "city electric")).toContainText(date(-3));
+  // The rhythm is in words above the ledger; each row shows its gap. Three
+  // charges fit before "Show all", so there is no button.
+  await expect(card(page, "city electric")).toContainText(
+    /Matching charges · Every \d+(–\d+)? days/,
+  );
+  await expect(
+    card(page, "city electric").getByRole("button", { name: /Show all/ }),
+  ).toHaveCount(0);
+  await expect(card(page, "city electric")).toContainText(longDate(date(-3)));
+  await expect(card(page, "city electric")).toContainText("First one found");
+  await expect(card(page, "city electric")).toContainText(
+    /\d+ days after the one before/,
+  );
   await card(page, "city electric")
     .getByRole("button", { name: "Confirm recurring payment" })
     .click();
@@ -177,6 +194,48 @@ test("shows evidence for variable bills and fixed subscriptions, requiring confi
   ).toHaveCount(0);
   await page.reload();
   await expect(totals(page)).toContainText("$110.00");
+});
+
+test("the header counts suggestions to review, and Sync shows only with Capital One", async ({
+  browser,
+  baseURL,
+}) => {
+  const { page, workspaceId } = await fixture(browser, baseURL);
+  const nav = page.getByRole("navigation", { name: "Pages" });
+  const link = nav.getByRole("link", { name: /^Recurring payments/ });
+  await expect(link).toHaveAccessibleName(
+    "Recurring payments, 2 suggested patterns to review",
+  );
+  await expect(link).toContainText("2");
+  // No Nessie account in this workspace: no Sync in the header.
+  await expect(
+    page.getByRole("button", { name: "Sync with Capital One" }),
+  ).toHaveCount(0);
+
+  await card(page, "city electric")
+    .getByRole("button", { name: "Confirm recurring payment" })
+    .click();
+  await expect(card(page, "city electric")).toContainText("Tracking");
+  await expect(link).toHaveAccessibleName(
+    "Recurring payments, 1 suggested pattern to review",
+  );
+  await card(page, "stream service")
+    .getByRole("button", { name: "Confirm recurring payment" })
+    .click();
+  await expect(link).toHaveAccessibleName("Recurring payments");
+
+  // A linked Capital One account brings Sync and its last sync time.
+  await pool.query(
+    `INSERT INTO financial_account (id, workspace_id, institution_name, type, nickname, source, nessie_account_id) VALUES ($1,$2,'Capital One','checking','Sandbox','nessie',$3)`,
+    [crypto.randomUUID(), workspaceId, `e2e-${crypto.randomUUID()}`],
+  );
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Sync with Capital One" }),
+  ).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("status")).toHaveText(
+    "Not synced yet",
+  );
 });
 
 test("saves subscription intentions and keeps current costs during refresh", async ({

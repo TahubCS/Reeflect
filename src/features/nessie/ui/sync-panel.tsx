@@ -1,5 +1,6 @@
 "use client";
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { NAV_REFRESH_EVENT } from "@/config/nav";
 import { type SyncState, describeSync } from "../domain/sync-state";
 import styles from "./nessie.module.css";
 
@@ -22,6 +23,10 @@ export function NessieSyncPanel({ action, lastSyncedAt, canSync }: Props) {
     at: null,
   });
   const last = state.at ?? lastSyncedAt;
+  // The header's counts and sync time read again after a sync here.
+  useEffect(() => {
+    if (state.at) window.dispatchEvent(new Event(NAV_REFRESH_EVENT));
+  }, [state.at]);
   return (
     <section className={styles.panel} aria-labelledby="nessie-heading">
       <div className={styles.text}>

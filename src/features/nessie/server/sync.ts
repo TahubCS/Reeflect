@@ -24,6 +24,7 @@ import {
   type SyncedRow,
   computedBalance,
   mapAccountRecords,
+  refundTargets,
 } from "../domain/map";
 import type { AccountRecords } from "../domain/records";
 import type { SyncSummary } from "../domain/sync-state";
@@ -95,6 +96,8 @@ export async function syncNessieWorkspace(
   const touched: string[] = [];
   /** Preset category key → fingerprints of rows tagged with it. */
   const tagged = new Map<string, string[]>();
+  /** Refund fingerprint → its purchase's external id. */
+  const refunds = new Map<string, string>();
   await db.transaction(async (tx) => {
     // One sync per workspace at a time; a second waits for the first.
     await tx.execute(
@@ -121,6 +124,8 @@ export async function syncNessieWorkspace(
             ...(tagged.get(row.categoryKey) ?? []),
             row.fingerprint,
           ]);
+      for (const [fingerprint, purchase] of refundTargets(rows))
+        refunds.set(fingerprint, purchase);
       const stored = await tx
         .select({
           id: transaction.id,
@@ -293,6 +298,34 @@ export async function syncNessieWorkspace(
             eq(transaction.source, "nessie"),
             eq(transaction.categoryIsManual, false),
             inArray(transaction.fingerprint, fingerprints),
+          ),
+        );
+    }
+    // A refund takes its purchase's category, never over the user's own
+    // choice, so it nets against that spending instead of counting as pay.
+    // The purchase stays in the history next to it.
+    for (const [fingerprint, purchaseId] of refunds) {
+      const [purchase] = await db
+        .select({ categoryId: transaction.categoryId })
+        .from(transaction)
+        .where(
+          and(
+            eq(transaction.workspaceId, workspaceId),
+            eq(transaction.source, "nessie"),
+            eq(transaction.externalId, purchaseId),
+          ),
+        )
+        .limit(1);
+      if (!purchase?.categoryId) continue;
+      await db
+        .update(transaction)
+        .set({ categoryId: purchase.categoryId })
+        .where(
+          and(
+            eq(transaction.workspaceId, workspaceId),
+            eq(transaction.source, "nessie"),
+            eq(transaction.categoryIsManual, false),
+            eq(transaction.fingerprint, fingerprint),
           ),
         );
     }
