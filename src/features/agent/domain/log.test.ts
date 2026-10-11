@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { cents } from "@/lib/money";
 import { editDistance, parseLog } from "./log";
-import { type LogAccount, chooseAccount } from "./log-account";
+import {
+  type LogAccount,
+  chooseAccount,
+  readAccountAnswer,
+} from "./log-account";
 import {
   LOG_REPLIES,
   UNCLEAR_REPLIES,
@@ -316,6 +320,56 @@ describe("chooseAccount", () => {
     });
   });
 
+  it("takes a nickname with the kind of account said after it", () => {
+    // Texts a real phone sent that were asked "which account?" again.
+    const mine: LogAccount = {
+      id: "m",
+      nickname: "Muhammad",
+      type: "checking",
+    };
+    const other: LogAccount = {
+      id: "s",
+      nickname: "Sample · 360 Checking",
+      type: "checking",
+    };
+    expect(
+      chooseAccount("I on cloudflare to buy domain from muhammad checking", [
+        mine,
+        card,
+        other,
+      ]),
+    ).toEqual({
+      ok: true,
+      account: mine,
+      rest: "I on cloudflare to buy domain",
+    });
+    expect(
+      chooseAccount("lunch from my Everyday account", [everyday, card]),
+    ).toMatchObject({ account: everyday, rest: "lunch" });
+    expect(
+      chooseAccount("lunch on the quicksilver credit card", [everyday, card]),
+    ).toMatchObject({ account: card, rest: "lunch" });
+  });
+
+  it("matches a nickname typed without its punctuation", () => {
+    const plus: LogAccount = {
+      id: "p",
+      nickname: "Sample · Plus",
+      type: "savings",
+    };
+    expect(chooseAccount("lunch from sample plus", [everyday, plus])).toEqual({
+      ok: true,
+      account: plus,
+      rest: "lunch",
+    });
+    // A nickname with no letters or digits names nothing.
+    const dots: LogAccount = { id: "d", nickname: "··", type: "savings" };
+    expect(chooseAccount("lunch", [everyday, dots])).toEqual({
+      ok: false,
+      reason: "which",
+    });
+  });
+
   it("takes an account named by its kind when exactly one is of that kind", () => {
     const all = [everyday, rainy, card];
     expect(chooseAccount("gas on card", all)).toMatchObject({
@@ -436,19 +490,30 @@ describe("the replies", () => {
     ).toBe('Logged $5.00 for "gum" today. Text UNDO to remove it.');
   });
 
-  it("asks which account with their own text as the example", () => {
+  it("asks which account, numbering theirs and saying what is waiting", () => {
     expect(
       whichAccountReply(cents(1250), "lunch", ["Everyday", "Quicksilver"]),
     ).toBe(
-      'Which account? Send it again with the account at the end, like "12.50 lunch from Everyday". Your accounts: Everyday, Quicksilver. Nothing was logged.',
-    );
-    expect(whichAccountReply(cents(1200), "lunch", ["Everyday"])).toContain(
-      '"12 lunch from Everyday"',
+      'Which account for $12.50 "lunch"? Reply with its number or name: 1 Everyday, 2 Quicksilver. Nothing is logged yet.',
     );
     const many = Array.from({ length: 9 }, (_, i) => `Account ${i + 1}`);
-    expect(whichAccountReply(cents(100), "gum", many)).not.toContain(
-      "Account 6",
+    const reply = whichAccountReply(cents(100), "gum", many);
+    expect(reply).toContain("5 Account 5.");
+    expect(reply).not.toContain("Account 6");
+  });
+
+  it("only gives examples that it would itself read as a log", () => {
+    // A real phone was told to send a text that was then not understood.
+    const examples = [
+      ...Object.values(UNCLEAR_REPLIES),
+      ...Object.values(LOG_REPLIES),
+    ].flatMap((reply) =>
+      [...reply.matchAll(/like "([^"]+)"/g)].map((m) => m[1]!),
     );
+    expect(examples.length).toBeGreaterThan(0);
+    for (const example of examples) {
+      expect(parseLog(example), example).toMatchObject({ type: "log" });
+    }
   });
 
   it("says what UNDO removed, and when there is nothing", () => {
@@ -456,5 +521,113 @@ describe("the replies", () => {
       'Removed $12.00 for "lunch".',
     );
     expect(LOG_REPLIES.nothingToUndo).toContain("nothing to undo");
+  });
+});
+
+describe("readAccountAnswer", () => {
+  const mine: LogAccount = { id: "m", nickname: "Muhammad", type: "checking" };
+  const sampleCard: LogAccount = {
+    id: "c",
+    nickname: "Sample · Credit Card",
+    type: "credit_card",
+  };
+  const sampleChecking: LogAccount = {
+    id: "s",
+    nickname: "Sample · 360 Checking",
+    type: "checking",
+  };
+  const all = [mine, sampleCard, sampleChecking];
+  const read = (text: string, accounts = all) =>
+    readAccountAnswer(text, accounts, accounts);
+  const account = (expected: LogAccount) => ({
+    type: "account",
+    account: expected,
+  });
+  const UNCLEAR = { type: "unclear" };
+  const NOT_AN_ANSWER = { type: "none" };
+
+  it.each<[string, LogAccount]>([
+    ["1", mine],
+    ["2", sampleCard],
+    ["3", sampleChecking],
+    ["#2", sampleCard],
+    ["2.", sampleCard],
+    ["number 3", sampleChecking],
+    ["option 1 please", mine],
+    ["Muhammad", mine],
+    ["muhammad", mine],
+    ["from Muhammad", mine],
+    ["it was from my muhammad checking account", mine],
+    ["muhammad checking", mine],
+    ["sample 360 checking", sampleChecking],
+    ["Sample · Credit Card", sampleCard],
+    ["the sample credit card", sampleCard],
+    // A kind of account, when they have exactly one of it.
+    ["card", sampleCard],
+    ["credit card", sampleCard],
+    ["It was on my credit card.", sampleCard],
+    ["use the card", sampleCard],
+  ])("%j is that account", (text, expected) => {
+    expect(read(text)).toEqual(account(expected));
+  });
+
+  it.each([
+    // Two checking accounts: the kind does not say which.
+    "checking",
+    "It was from my checking account",
+    "debit",
+    // A number that is not on the list, and a kind they have none of.
+    "4",
+    "0",
+    "savings",
+    "loan",
+  ])("%j is an answer that needs asking again", (text) => {
+    expect(read(text)).toEqual(UNCLEAR);
+  });
+
+  it.each([
+    "",
+    "how am I doing?",
+    "what is on my card?",
+    "card?",
+    "undo",
+    "12 lunch",
+    "12 lunch from Muhammad",
+    "spent 5 on coffee with card",
+    "muhammad said hi",
+    "never mind",
+    "yes",
+    // Written as money, a number is not a place in the list.
+    "$2",
+    "2.50",
+    "360",
+    "from my",
+  ])("%j is not an answer", (text) => {
+    expect(read(text)).toEqual(NOT_AN_ANSWER);
+  });
+
+  it("counts places in the list it was shown, and names among all accounts", () => {
+    // Six accounts, five listed: the sixth is reachable by name only.
+    const six = Array.from({ length: 6 }, (_, i): LogAccount => ({
+      id: `id${i + 1}`,
+      nickname: `Pot ${"abcdef"[i]}`,
+      type: "savings",
+    }));
+    const listed = six.slice(0, 5);
+    expect(readAccountAnswer("5", listed, six)).toEqual(account(six[4]!));
+    expect(readAccountAnswer("6", listed, six)).toEqual(UNCLEAR);
+    expect(readAccountAnswer("pot f", listed, six)).toEqual(account(six[5]!));
+  });
+
+  it("asks again when two accounts share the name, and prefers the longer name", () => {
+    const twin: LogAccount = { id: "t", nickname: "muhammad", type: "savings" };
+    expect(read("Muhammad", [mine, twin])).toEqual(UNCLEAR);
+    const plus: LogAccount = {
+      id: "p",
+      nickname: "Savings Plus",
+      type: "savings",
+    };
+    const short: LogAccount = { id: "q", nickname: "Plus", type: "checking" };
+    expect(read("savings plus", [short, plus])).toEqual(account(plus));
   });
 });
