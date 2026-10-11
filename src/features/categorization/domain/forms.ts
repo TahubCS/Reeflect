@@ -64,7 +64,13 @@ export const overrideInputSchema = z
   });
 export type OverrideInput = z.infer<typeof overrideInputSchema>;
 
-export type CategorySummary = { id: string; name: string; sortOrder: number };
+export type CategorySummary = {
+  id: string;
+  name: string;
+  sortOrder: number;
+  /** Stable across renames; Insights compares by it (ADR-055). */
+  presetKey: string;
+};
 export type RuleSummary = CategoryRule & { categoryName: string };
 export type TransactionSummary = {
   id: string;

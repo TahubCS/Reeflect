@@ -21,6 +21,7 @@ import {
   listAccounts,
 } from "@/features/accounts/server/repository";
 import { IMPORT_ENTRY_POINTS } from "@/features/imports/server/entry-points";
+import { INSIGHTS_ENTRY_POINTS } from "@/features/insights/server/entry-points";
 import { listPreviews } from "@/features/imports/server/repository";
 import { MESSAGING_ENTRY_POINTS } from "@/features/messaging/server/entry-points";
 import { TRANSACTION_ENTRY_POINTS } from "@/features/transactions/server/entry-points";
@@ -44,6 +45,7 @@ const ENTRY_POINTS: EntryPoint[] = [
   ...MESSAGING_ENTRY_POINTS,
   ...TRANSACTION_ENTRY_POINTS,
   ...CATEGORIZATION_ENTRY_POINTS,
+  ...INSIGHTS_ENTRY_POINTS,
 ];
 
 const getSession = vi.hoisted(() => vi.fn());

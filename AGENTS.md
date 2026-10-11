@@ -209,7 +209,7 @@ fails if this table and `package.json` differ.
 | `pnpm db:migrate` | Apply migrations (uses `DATABASE_URL_UNPOOLED` when set) |
 | `pnpm db:migrate:to` | Apply migrations to a named database: `local`, `branch` or `production` (ADR-049) |
 | `pnpm db:whoami` | Show which database a target is and which migrations it has; no secrets printed |
-| `pnpm batch` | Synthetic batches: `load`, `list`, `report`, `delete`, `promote` (`docs/SYNTHETIC.md`) |
+| `pnpm batch` | Synthetic batches: `load`, `list`, `report`, `delete`, `promote`, `rollup` (`docs/SYNTHETIC.md`) |
 
 Not defined yet. Add each script, and its row above, in the PR that adds the
 thing it runs:

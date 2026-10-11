@@ -63,7 +63,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-32 Agent worker | C | Unassigned | — | Not started |
 | F-22 Bill reminders (P1) | A + C | Unassigned | — | Not started |
 | F-15 Gemini summary on the website (P1, ADR-045) | C | Unassigned | — | Not started |
-| F-35 Compare with people like you (Later, ADR-055) | A + B | Jacob Heminway | `feat/insights` | Planned; ADR-055 and ADR-056 Proposed; categorized 100-person year batch on the batch-testing branch (HO-040) |
+| F-35 Compare with people like you (Later, ADR-055) | A + B | Jacob Heminway | `feat/insights` | Built: the Insights page, stored sample figures and `pnpm batch rollup` (HO-041); ADR-055 and ADR-056 Proposed |
 | F-36 Retirement question (Later, ADR-054) | B | Jacob Heminway | `feat/insights` | Planned; generator models the answers (HO-039) |
 | Later (ADR-043): Plaid, household, debt tab, savings goal, receipt photos, recaps, forecast, audit log | — | Unassigned | — | Only if time remains |
 
@@ -1881,3 +1881,78 @@ recommendation, not a decision.
   CI must cover them.
 - `first-50-nc` (generator v1, no categories) is still on the branch.
 
+
+## HO-041: Insights page (F-35): compare with sample people (ADR-055)
+
+- **Date:** 2026-10-11 00:30 (EDT)
+- **Author:** Jacob Heminway with Claude (Claude Code)
+- **Branch / PR:** `feat/insights` (main merged in and staged, not yet
+  committed; this work unstaged on top) / not opened
+
+### What changed
+- **Merged main** (Simon's PDF import, #16). Simon's ADR-053 and HO-038
+  keep their numbers, so ours moved: ADR-054 (retirement and investing as
+  saving), ADR-055 (insights), ADR-056 (presets), HO-039 and HO-040.
+- **`src/lib/money`:** `quantile` (linear, rounded to the cent) and
+  `fiveNumbers`.
+- **`src/features/insights/`** (new):
+  - `domain/periods.ts`: the last 30, 90 and 365 days; per-month scaling;
+    the days your data covers.
+  - `domain/metrics.ts`: one person's measures for a period from plain
+    rows: take-home, spending per preset key plus Uncategorized, kept,
+    saved, bills, subscriptions, no-spend days, lowest checking balance.
+  - `domain/cohort.ts`: the 10 below and 10 above you by take-home (20
+    nearest at the ends), group size, range and persona mix, quartiles,
+    neutral placement wording and the slight tints.
+  - `domain/workspace.ts`: stored rows → measures. The one path for both
+    sample figures and yours.
+  - `server/`: `getInsights` (viewer access, in the isolation matrix) and
+    the repository; `ui/`: the page.
+- **F-08:** `classifyStored` moved from the repository into the domain and
+  is exported from `client.ts`, so Insights and batch rollups compute
+  effective categories with F-08's own code. `listCategories` returns
+  `presetKey`.
+- **`insight_sample` table** (migration 0007): one row per sample person,
+  period and measure. `pnpm batch load` and `promote` write it in the
+  same transaction; **`pnpm batch rollup <batchId>`** recomputes it.
+- **The page** at `/w/[workspaceId]/insights`:
+  - Your take-home and the group's take-home range at the top, with the
+    persona mix.
+  - Period (30 days, 3 months, year) and People like you / Everyone as
+    links, so every state is in the URL.
+  - Spending by category with a small "Show as" dollars / share switch,
+    and a line saying how much is Uncategorized, linking to Transactions.
+  - Where you stand: strips with the middle half, typical and you, with
+    the placement in words. Pale green or warm tints echo the words.
+- **Batch-testing branch:** migrated to 0007 (also applied main's 0006);
+  `rollup` wrote 6,099 figures for `year-100-nc`. The page uses the
+  newest batch that has figures, so `first-50-nc` (no figures) is never
+  used.
+- **Line endings:** files that were checked out with CRLF were converted
+  back to LF, matching `.gitattributes`; git shows no content change.
+  `pnpm format:check` no longer flags them.
+- **Tests, now that Docker runs here:** domain, server (`getInsights`),
+  store (load, rollup, delete) and the isolation matrix; Playwright
+  `insights.spec.ts`. `categorization.spec.ts` expected 8 presets and now
+  expects 18 (ADR-056; it couldn't run here before). The whole e2e suite
+  passes (83), and every unit test except Simon's storage tests.
+- **Docs:** ADR-055 updated with what was settled while building;
+  ARCHITECTURE (`insight_sample`, `insights`), PROJECT (F-35), SYNTHETIC
+  (`rollup`), AGENTS.md section 5.
+
+### What's next
+- Commit the staged merge, then this work (Jacob).
+- Starter rules for the Nessie demo accounts (Q26), so a demo user's
+  spending isn't mostly Uncategorized.
+- `pnpm batch attach` / `detach` to make developers members of a sample
+  workspace; the retirement question (F-36).
+- Production: after Q21, `db:migrate:to production` and `batch promote`
+  (which writes the figures too).
+
+### Open problems
+- The 401(k) part of "saved" waits for F-36's answer; today saved counts
+  savings transfers, IRA and brokerage rows only.
+- Simon's storage tests need `.env.storage-tests` (`neon env pull --branch
+  storage-tests`); without it 6 unit tests fail locally. Everything else
+  passes.
+- ADR-054, ADR-055 and ADR-056 are still Proposed.

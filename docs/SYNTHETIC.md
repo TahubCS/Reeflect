@@ -34,6 +34,7 @@ it is labelled "Sample".
 | 5. Review | `pnpm batch list`, `pnpm batch report <batchId>` |
 | 6a. Keep it: replay into production | `pnpm batch promote <batchId> --target production --yes` |
 | 6b. Drop it | `pnpm batch delete <batchId> --yes` |
+| Recompute its Insights figures | `pnpm batch rollup <batchId>` |
 
 - **The default target is the batch-testing branch.** Every command prints
   the database's endpoint id (`ep-…`) before it does anything.
@@ -44,6 +45,11 @@ it is labelled "Sample".
   generator version. Neon branches cannot be merged (ARCH-10), so `promote`
   replays the recipe into production and checks that the generator version
   matches.
+- **Insights figures (ADR-055).** `load` and `promote` also write each
+  sample person's figures to `insight_sample`, in the same database
+  transaction, computed from the rows just written. `rollup` recomputes
+  them from the database: run it for a batch loaded before the table
+  existed, or after editing a sample workspace.
 - **No seed given** means `load` picks one at random and records it.
 - **`--as-of YYYY-MM-DD`** stops generation on that day; the default is
   today. Nothing after `asOf` is ever generated.

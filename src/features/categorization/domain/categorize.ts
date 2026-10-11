@@ -116,3 +116,36 @@ export function categorizeTransaction(input: unknown): CategorizationResult {
     },
   };
 }
+
+/** A stored transaction's category fields, as the database holds them. */
+export type StoredCategorization = {
+  descriptionRaw: string;
+  categoryId: string | null;
+  categoryIsManual: boolean;
+};
+
+/**
+ * The effective category of a stored row: its manual choice, else the
+ * winning rule. Shared by every read of categories (the Transactions page,
+ * Insights, batch rollups) so they always agree.
+ */
+export function classifyStored(
+  row: StoredCategorization,
+  rules: CategoryRule[],
+): Categorization {
+  const result = categorizeTransaction({
+    descriptionRaw: row.descriptionRaw,
+    rules,
+    manualOverride: row.categoryIsManual,
+    manualCategoryId: row.categoryIsManual ? row.categoryId : null,
+  });
+  if (result.success) return result.data;
+  // Historical/imported descriptions may exceed the form's bounds. Preserve
+  // manual choices and leave automatic results uncategorized, without guessing.
+  return {
+    merchantNormalized: normalizeMerchant(row.descriptionRaw),
+    categoryId: row.categoryIsManual ? row.categoryId : null,
+    matchedRuleId: null,
+    origin: row.categoryIsManual ? "manual" : "uncategorized",
+  };
+}

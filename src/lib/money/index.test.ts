@@ -5,6 +5,7 @@ import {
   add,
   cents,
   divideFloor,
+  fiveNumbers,
   formatCents,
   formatSigned,
   fraction,
@@ -14,6 +15,7 @@ import {
   parseDollars,
   parseStatementAmount,
   positivePart,
+  quantile,
   ratio,
   subtract,
   sum,
@@ -236,5 +238,47 @@ describe("toDecimalString and parseDecimalString", () => {
     "1.000",
   ])("rejects %j", (text) => {
     expect(parseDecimalString(text)).toBeNull();
+  });
+});
+
+describe("quantile and fiveNumbers", () => {
+  const list = (...values: number[]) => values.map(cents);
+
+  it("reads between the two nearest amounts and rounds to the cent", () => {
+    const amounts = list(400, 100, 300, 200);
+    expect(quantile(amounts, 0)).toBe(100);
+    expect(quantile(amounts, 1)).toBe(400);
+    // Position 1.5 of 0..3: halfway between 200 and 300.
+    expect(quantile(amounts, 0.5)).toBe(250);
+    // Position 0.75: 100 + 0.75 × 100.
+    expect(quantile(amounts, 0.25)).toBe(175);
+    expect(quantile(list(0, 1), 0.5)).toBe(1);
+    expect(quantile(list(-3, -2), 0.5)).toBe(-2);
+  });
+
+  it("handles one amount, none, and negative amounts", () => {
+    expect(quantile(list(-500), 0.25)).toBe(-500);
+    expect(quantile([], 0.5)).toBe(0);
+    expect(quantile(list(-900, 100, -100), 0.5)).toBe(-100);
+  });
+
+  it("does not reorder the caller's list", () => {
+    const amounts = list(3, 1, 2);
+    quantile(amounts, 0.5);
+    expect(amounts).toEqual([3, 1, 2]);
+  });
+
+  it.each([-0.1, 1.1, Number.NaN])("rejects p = %s", (p) => {
+    expect(() => quantile(list(1), p)).toThrow(RangeError);
+  });
+
+  it("gives the five-number summary", () => {
+    expect(fiveNumbers(list(10, 20, 30, 40, 50))).toEqual({
+      lowest: 10,
+      lowerQuartile: 20,
+      median: 30,
+      upperQuartile: 40,
+      highest: 50,
+    });
   });
 });

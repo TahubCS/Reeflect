@@ -1012,7 +1012,8 @@ Rules:
 
 ### ADR-055: Insights: compare with sample people (refines ADR-049)
 
-- **Status:** Proposed (2026-10-10), by Jacob. Not in ADR-043's P0 or P1:
+- **Status:** Proposed (2026-10-10), by Jacob; updated 2026-10-11 with the
+  details settled while building it (HO-041). Not in ADR-043's P0 or P1:
   built as Later unless the team moves it up.
 - **Context:** ADR-049 asks for this record before a cross-workspace page is
   built. Users want to see how their money compares with people like them.
@@ -1033,7 +1034,8 @@ Rules:
     figures, never another workspace's transactions.
   - **Periods:** the last 30, 90 and 365 days, shown per month (amount ×
     30.4375 ÷ days). For the group they end at the batch's `asOf`; for you,
-    yesterday.
+    yesterday (UTC). When your data starts partway through a period, your
+    figures average over the days it covers, and the page says so.
   - **Groups**, built on request from the stored figures (at most a few
     hundred rows):
     - **People like you:** the 10 sample people just above you and the 10
@@ -1047,9 +1049,26 @@ Rules:
     take-home), kept after spending, moved to savings, retirement and
     investing (ADR-054), bills as a share of take-home, subscription count
     and cost, lowest balance before payday, no-spend days.
+    - Categories are compared by **preset key** (ADR-056), so a renamed
+      category still matches, plus an Uncategorized bucket. A row's
+      category is its effective one (manual choice, else rule), worked out
+      by F-08's own `classifyStored`.
+    - **Take-home** is money in that isn't a transfer and is categorized as
+      Income or not at all. Money in under another category is a refund
+      and reduces that category's spending.
+    - **No-spend days** ignore bills and subscriptions. **Lowest balance**
+      is the lowest end-of-day total of checking accounts in the period.
+    - "Typical" is the group's median; the spread is its quartiles (linear,
+      rounded to the cent, `quantile` in `src/lib/money`).
   - **Wording** stays neutral ("a bit higher than typical"), with no
     rankings framed as failure (ADR-042). No number comes from a model
     (ADR-019).
+  - **Slight tints**, asked for by the team: a pale green where a figure
+    reads as going well (more kept or saved, less spent) and a pale warm
+    tone where it doesn't, stronger only outside the middle half. The words
+    always say the same thing, so colour is never the only signal. No tint
+    for Uncategorized, or where the typical person spends nothing in a
+    category.
 - **Alternatives considered:** Hardcoded group figures (the same on every
   branch, and they go stale); computing from transactions on each request
   (reads other workspaces' rows on every visit); fixed take-home bands
@@ -1057,9 +1076,13 @@ Rules:
   (cash flow is what is being compared, so the groups look alike by
   construction).
 - **Consequences:**
-  - A migration adds `insight_sample` (ARCH-03).
-  - Your own figures by category need F-08. Until then, a sample workspace's
-    own figures can come from the batch's stored recipe.
+  - A migration adds `insight_sample` (ARCH-03): migration 0007.
+  - `pnpm batch load` and `promote` write the figures in the same database
+    transaction, from the rows just written; `pnpm batch rollup` recomputes
+    them from the database (the backfill).
+  - Workspaces with no categorization rules (new Nessie-backed accounts)
+    show mostly Uncategorized; the page says how much and links to
+    Transactions to add rules.
   - Developers see a sample workspace by being added to it as a member
     (`pnpm batch attach`, still to be built), as `editor`. Their edits make
     that workspace drift from its recipe: its stored figures go stale until

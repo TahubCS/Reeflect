@@ -452,7 +452,7 @@ test("a viewer's first visit does not initialize or mutate categories", async ({
     page
       .getByRole("region", { name: "Categories", exact: true })
       .getByRole("listitem"),
-  ).toHaveCount(8);
+  ).toHaveCount(18); // The presets (ADR-056).
 });
 
 test("an exact rule matches store numbers followed by city and state", async ({
@@ -491,7 +491,7 @@ test("empty and paginated states work without a page error", async ({
     page
       .getByRole("region", { name: "Categories", exact: true })
       .getByRole("listitem"),
-  ).toHaveCount(8);
+  ).toHaveCount(18); // The presets (ADR-056).
   for (let index = 0; index < 51; index++)
     await transaction(workspaceId, accountId, `Merchant ${index}`);
   await page.reload();

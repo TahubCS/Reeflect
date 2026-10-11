@@ -1,14 +1,24 @@
 import type { Metadata } from "next";
-import { PagePlaceholder } from "@/components/ui/page-placeholder";
+import { Suspense } from "react";
+import { PageLoading } from "@/components/ui/page-loading";
+import { InsightsPage, getInsights } from "@/features/insights/server";
 
 export const metadata: Metadata = { title: "Insights" };
 
-export default function InsightsPage() {
+type Props = PageProps<"/w/[workspaceId]/insights">;
+
+// Reads the URL, the session and the workspace, so the page renders this
+// inside a Suspense boundary (HO-033).
+async function Insights({ params, searchParams }: Props) {
+  const { workspaceId } = await params;
+  const view = await getInsights(workspaceId, await searchParams);
+  return <InsightsPage workspaceId={workspaceId} view={view} />;
+}
+
+export default function InsightsRoute(props: Props) {
   return (
-    <PagePlaceholder
-      title="Insights"
-      purpose="A plain-language summary of where you stand, written from your own numbers."
-      features="F-15"
-    />
+    <Suspense fallback={<PageLoading />}>
+      <Insights {...props} />
+    </Suspense>
   );
 }

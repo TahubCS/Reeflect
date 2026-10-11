@@ -50,6 +50,13 @@
       "when": 1791687774339,
       "tag": "0006_import_batch",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791689915520,
+      "tag": "0007_insight_sample",
+      "breakpoints": true
     }
   ]
 }

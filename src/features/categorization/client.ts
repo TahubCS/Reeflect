@@ -8,6 +8,8 @@ export {
   categorizationInputSchema,
   categorizeTransaction,
   categoryRuleSchema,
+  classifyStored,
+  type StoredCategorization,
 } from "./domain/categorize";
 export { normalizeMerchant } from "./domain/normalize-merchant";
 export { PRESET_CATEGORIES, type PresetKey } from "./domain/forms";

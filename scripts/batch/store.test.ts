@@ -5,6 +5,7 @@ import {
   category,
   categoryRule,
   financialAccount,
+  insightSample,
   organization,
   syntheticBatch,
   syntheticWorkspace,
@@ -16,10 +17,12 @@ import { buildRows } from "./rows";
 import {
   connect,
   countBatchRows,
+  countSampleFigures,
   deleteBatch,
   getBatch,
   insertBatch,
   listBatches,
+  rollupBatch,
 } from "./store";
 
 // Integration tests: they need the PostgreSQL from `docker compose up -d`
@@ -89,6 +92,65 @@ describe("batch store", () => {
     await deleteBatch(db, batchId);
     expect(await categories()).toEqual([]);
     expect(await rules()).toEqual([]);
+  });
+
+  it("writes each person's Insights figures at load, and rollup gives the same (ADR-055)", async () => {
+    const { batchId, rows } = await load("store-insights");
+    const figures = () =>
+      db
+        .select({
+          workspaceId: insightSample.workspaceId,
+          periodDays: insightSample.periodDays,
+          measure: insightSample.measure,
+          value: insightSample.value,
+        })
+        .from(insightSample)
+        .where(eq(insightSample.batchId, batchId))
+        .orderBy(
+          insightSample.workspaceId,
+          insightSample.periodDays,
+          insightSample.measure,
+        );
+    const loaded = await figures();
+    const people = new Set(loaded.map((f) => f.workspaceId));
+    expect(people).toEqual(new Set(rows.organizations.map((o) => o.id)));
+    expect(new Set(loaded.map((f) => f.periodDays))).toEqual(
+      new Set([30, 90, 365]),
+    );
+    expect(
+      loaded.filter((f) => f.measure === "take_home" && f.periodDays === 90),
+    ).toHaveLength(people.size);
+    expect(await countSampleFigures(db, batchId)).toBe(loaded.length);
+
+    // A developer edits a sample workspace; rollup picks it up.
+    const workspaceId = rows.organizations[0]!.id!;
+    await db
+      .delete(transaction)
+      .where(eq(transaction.workspaceId, workspaceId));
+    expect(await rollupBatch(db, batchId)).toBeLessThan(loaded.length);
+    expect((await figures()).some((f) => f.workspaceId === workspaceId)).toBe(
+      false,
+    );
+
+    await deleteBatch(db, batchId);
+    expect(await figures()).toEqual([]);
+  });
+
+  it("rolls up to exactly what load wrote when nothing changed", async () => {
+    const { batchId } = await load("store-rollup");
+    const before = await db
+      .select()
+      .from(insightSample)
+      .where(eq(insightSample.batchId, batchId));
+    await rollupBatch(db, batchId);
+    const after = await db
+      .select()
+      .from(insightSample)
+      .where(eq(insightSample.batchId, batchId));
+    const key = (f: (typeof before)[number]) =>
+      `${f.workspaceId}|${f.periodDays}|${f.measure}|${f.value}`;
+    expect(after.map(key).sort()).toEqual(before.map(key).sort());
+    await deleteBatch(db, batchId);
   });
 
   it("writes nothing when any row fails", async () => {

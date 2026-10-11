@@ -1,4 +1,4 @@
-// `pnpm batch <command>`: load, list, report, delete and promote synthetic
+// `pnpm batch <command>`: load, list, report, delete, promote and roll up synthetic
 // batches (ADR-049, docs/SYNTHETIC.md). The database is `--target`
 // (default: the batch-testing branch); every command prints which one first.
 //
@@ -7,6 +7,7 @@
 //   pnpm batch report <batchId>
 //   pnpm batch delete <batchId> [--yes]
 //   pnpm batch promote <batchId> --target production [--from branch] [--yes]
+//   pnpm batch rollup <batchId>    recompute its Insights figures (ADR-055)
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
@@ -29,8 +30,10 @@ import {
   countBatchRows,
   deleteBatch,
   getBatch,
+  countSampleFigures,
   insertBatch,
   listBatches,
+  rollupBatch,
 } from "./store";
 
 const env = process.env;
@@ -111,7 +114,7 @@ async function load(args: string[], flags: Flags): Promise<void> {
     );
     const counts = await countBatchRows(db, batchId);
     say(
-      `\nLoaded batch ${batchId}: ${counts.workspaces} workspaces, ${counts.accounts} accounts, ${counts.transactions} transactions.`,
+      `\nLoaded batch ${batchId}: ${counts.workspaces} workspaces, ${counts.accounts} accounts, ${counts.transactions} transactions, ${await countSampleFigures(db, batchId)} Insights figures.`,
     );
   } finally {
     await close();
@@ -189,6 +192,20 @@ async function remove(args: string[], flags: Flags): Promise<void> {
     if (!flags.yes) return say("Run again with --yes to delete it.");
     const removed = await deleteBatch(db, id);
     say(`Deleted ${removed} workspaces and the batch.`);
+  } finally {
+    await close();
+  }
+}
+
+async function rollup(args: string[], flags: Flags): Promise<void> {
+  const id = requireId(args[0]);
+  const t = target(flags.target);
+  assertWritable(t, env);
+  const { db, close } = connect(t.url);
+  try {
+    const written = await rollupBatch(db, id);
+    say(`
+Wrote ${written} Insights figures for batch ${id}.`);
   } finally {
     await close();
   }
@@ -294,9 +311,11 @@ async function main(): Promise<void> {
       return remove(args, values);
     case "promote":
       return promote(args, values);
+    case "rollup":
+      return rollup(args, values);
     default:
       say(
-        "Usage: pnpm batch <load|list|report|delete|promote> … (see scripts/batch/cli.ts)",
+        "Usage: pnpm batch <load|list|report|delete|promote|rollup> … (see scripts/batch/cli.ts)",
       );
       process.exitCode = 1;
   }
