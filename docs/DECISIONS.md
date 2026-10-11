@@ -90,6 +90,7 @@ Rules:
 | ADR-061 | Paydays found in deposits, confirmed like recurring payments (refines ADR-058) | Proposed |
 | ADR-062 | A text that confirms what the user just did is not a proactive message (refines ADR-038) | Proposed |
 | ADR-064 | Logging spending by text: code decides, asks when unsure, never guesses (refines ADR-035, ADR-040) | Proposed |
+| ADR-065 | The agent remembers one open question: which account a text's spending is for (refines ADR-064) | Proposed |
 | ADR-082 | Sample years in the developers' own accounts (exception to ADR-049) | Accepted |
 | ADR-083 | Ask the user to categorize large uncategorized payments (refines ADR-055, ADR-057) | Proposed |
 | ADR-084 | Reserved ADR and handoff numbers for each developer | Accepted |
@@ -1385,10 +1386,42 @@ Rules:
     For "how am I doing?" the reply leads with them. With no payday
     confirmed, the reply says where to confirm one, as the website
     does.
+  - **Categories, budgets, payments and accounts (F-28, added
+    2026-10-11).** Still one request per text: code looks everything up
+    first and the model picks from the labels. Three more groups:
+    - *This month so far*, from the Budgets page's own `readBudgetMonth`:
+      for up to twelve categories with spending or a budget, largest
+      spending first, its name, what was spent, its budget, and what is
+      left or how far over; and `{month_spent}`, the month's total. Only
+      this month is answered; for any other period the reply says so. If
+      that read fails, these labels are left out and the rest still
+      answers.
+    - *The next three payments before payday*, from the same `summarize`:
+      each one's name, amount and written-out date, soonest first.
+    - *Each account, up to six*: its nickname and its balance; for a card
+      or a loan, what is owed.
+
+    The descriptions of the category and account labels are written per
+    workspace. A category's description names the category, so the model
+    can match "food" or a misspelling to it; this is the one place a
+    name the person chose reaches the model, and a name holding a digit
+    or a brace is not sent. An account's description says only what kind
+    of account it is; its nickname and a payment's name are only ever a
+    label's value, filled in by code.
+  - **The code-built reply picks its sentences from the question (F-28,
+    added 2026-10-11).** When no model answers, code reads the text's
+    words: a category's name (one typo forgiven, and "food" for Dining
+    and Groceries) gives that category's spending and budget; "bill",
+    "due", "upcoming", "owe" or "coming up" gives the next payments; an
+    account's kind or nickname gives its balance; anything else gives
+    the general summary as before. A wrong reading costs a plain answer
+    to the wrong question, never a wrong figure.
   - **Two checks on every draft, the same for every model:** no digit
     outside a label, and only labels that have a value. A draft that fails,
     or is too long for a text, is dropped and the reply is built by code
-    from the same figures.
+    from the same figures. A draft that uses a monthly average must say
+    "a month", and one that uses a figure for this month so far must say
+    "this month" (added 2026-10-11), so neither can pass for the other.
   - **A chain of at most six models,** tried in order. The deployed app
     uses the users' chain: `gemini-3.8-flash`, `gemini-3.7-flash`,
     `gemini-3.6-flash`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`.
@@ -1402,9 +1435,10 @@ Rules:
     sent. A reply the model did not finish counts as a failure.
   - **Nothing is kept at Google** (`store: false`) and the agent has no
     conversation memory: each text is answered on its own.
-  - **Tool calling is not used yet.** With one thing to look up, code does
-    it up front, which halves the requests per text. It arrives with the
-    first feature that has a choice of lookups (F-28).
+  - **Tool calling is not used.** Code does every lookup up front, which
+    halves the requests per text. F-28 was expected to bring it in and
+    was built without it (decided by Muhammad, 2026-10-11): its lookups
+    are few and cheap enough to do for every text.
   - **The current key is used for real users' texts for now.** ADR-019's
     rule that only a billing-enabled key may see real users' data is set
     aside until billing is sorted out. What reaches the model is the
@@ -1858,6 +1892,56 @@ Rules:
   - A model-picked category does not follow later rule changes.
   - Not built: logging money coming in, days before yesterday, receipts.
 
+### ADR-065: The agent remembers one open question: which account a text's spending is for (refines ADR-064)
+
+- **Status:** Proposed (2026-10-11)
+- **Owner to confirm:** Muhammad Tahub Khatri
+- **Context:** ADR-064 kept no conversation memory. With several accounts
+  the agent asked "which account?" and told the person to send the whole
+  text again. On a real phone that failed three ways: the natural answer
+  ("it was from my checking account") had no amount and got the "how am I
+  doing?" reply; the example the agent gave was longer than the short form
+  allows, so sending it back was not read as spending; and "from muhammad
+  checking" was not matched, because a nickname counted only as the last
+  word. Nothing was logged in four texts.
+- **Decision:**
+  - **One question is remembered per linked phone, for 10 minutes:** the
+    amount, the words, the day, and the accounts that were listed, in
+    `agent_pending_log` (migration 0015). A newer question replaces it.
+    This is the only conversation memory; ADR-064's "no database change"
+    no longer holds.
+  - **The reply numbers the accounts** and says what is waiting. The next
+    text answers with a number, an account's name, or a kind of account
+    they have exactly one of (decided by Muhammad, 2026-10-11). Filler
+    around it is allowed: "it was from my checking account".
+  - **Code reads the answer** (`readAccountAnswer`, pure), strictly: the
+    whole text must be the answer. A question, new spending, or a number
+    written as money is never taken for one, and goes on as any other text.
+  - **An answer that fits no single account** (two checking accounts, a
+    number not on the list) is asked again and nothing is saved.
+  - **New spending or UNDO closes the question.** Other texts leave it open
+    until it expires.
+  - **The spending is saved on the day it was first texted,** through the
+    same code as any other log: the same limits, category and UNDO.
+  - **Account names are matched more loosely in the first text too:** a
+    kind of account or "account" may follow the nickname ("from Everyday
+    checking"), and punctuation in a nickname need not be typed.
+  - The workspace still comes only from the verified link (ADR-034); the
+    question is read and closed by link and workspace together.
+- **Alternatives considered:** keeping no memory and only fixing the
+  example (a short answer would still fail); a model reading the answer
+  (breaks ADR-064: a wrong read writes data); keeping the conversation's
+  history (more stored text than one question needs).
+- **Consequences:**
+  - A phone's last unanswered spending text is stored for up to 10 minutes
+    after it is asked about; older rows are ignored, and replaced by the
+    next question, but not swept.
+  - An answer delivered twice is saved once; the second copy is then read
+    as an ordinary text, so its reply can look out of place.
+  - A nickname that contains a number ("360 Checking") cannot be named in
+    the first text, because the number reads as a second amount; its place
+    in the list works.
+
 ### ADR-084: Reserved ADR and handoff numbers for each developer
 
 - **Status:** Accepted (2026-10-11)
@@ -1987,7 +2071,7 @@ Rules:
 - **Alternatives considered:** No UNDO for quiet hours (simpler, but
   ADR-038's reply promises it); a separate word such as "UNDO QUIET" (one
   more thing to remember).
-- **Consequences:** Adds migration 0015. The job tick (F-22, F-26) must call
+- **Consequences:** Adds migration 0016. The job tick (F-22, F-26) must call
   `nextAllowedSend` with the user's quiet hours before sending. A user
   outside Eastern time gets quiet hours in Eastern time until time zones
   are stored.

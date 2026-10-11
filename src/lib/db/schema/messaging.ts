@@ -2,6 +2,7 @@
 // acts as a user only through a verified, non-revoked `messaging_identity`.
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   check,
   index,
@@ -106,6 +107,28 @@ export const agentLinkAttempt = pgTable(
     ),
   ],
 );
+
+/**
+ * Spending a phone texted that is waiting for its account (ADR-065): the
+ * agent asked "which account?" and the next text may answer. One per phone;
+ * a newer question replaces it, and it is ignored ten minutes after
+ * `asked_at`.
+ */
+export const agentPendingLog = pgTable("agent_pending_log", {
+  identityId: text("identity_id")
+    .primaryKey()
+    .references(() => messagingIdentity.id, { onDelete: "cascade" }),
+  workspaceId: text("workspace_id")
+    .notNull()
+    .references(() => organization.id, { onDelete: "cascade" }),
+  /** Positive: what was spent, from the person's own digits (ADR-035). */
+  amountCents: bigint("amount_cents", { mode: "number" }).notNull(),
+  description: text("description").notNull(),
+  day: text("day", { enum: ["today", "yesterday"] }).notNull(),
+  /** The accounts that were listed, in the order they were numbered. */
+  accountIds: text("account_ids").array().notNull(),
+  askedAt: timestamptz("asked_at").notNull(),
+});
 
 /**
  * A user's notification settings (F-33, ADR-038, ADR-104). Kept per user,
