@@ -49,7 +49,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-08 Categorization | A | Codex | `feat/transaction-categorization` | Full feature merged in PR #12 (HO-037) |
 | F-09 Monthly budgets (P1) | A | Codex | `feat/monthly-budgets` | Complete page and persistence built; validation and migration rollout recorded in the latest handoff |
 | F-10 Recurring payments (detection P0, marks P1) | A | Codex | `feat/subscriptions` | Full website built (HO-045, ADR-058); local checks pass; external Neon storage regressions pending |
-| F-12 Calendar home screen | B | Simon Ormond | `feat/real-cashflow-dashboard` | On real accounts and transactions (HO-048); paydays, bills and subscriptions not yet read from recurring payments (F-10) |
+| F-12 Calendar home screen | B | Simon Ormond | `feat/calendar-recurring` | On real accounts and transactions (HO-048); confirmed paydays, bills and subscriptions from F-10 (HO-054, ADR-061 Proposed) |
 | F-13 Drill-down | B | Simon Ormond | `feat/real-cashflow-dashboard` | Day panel adds and removes real typed transactions (HO-048) |
 | F-18 Themes and accessibility | B | Unassigned | — | Not started |
 | F-19 Delete data | B | Unassigned | — | Not started |
@@ -2618,3 +2618,103 @@ recommendation, not a decision.
   allowed hosts still omit Neon. A fresh storage connectivity check returns
   proxy HTTP 403. Full storage-dependent regression checks remain blocked;
   this is not a waived test gate.
+
+## HO-054: Paydays from deposits (ADR-061); the calendar reads confirmed recurring payments
+
+- **Date:** 2026-10-11 (EDT)
+- **Author:** Simon Ormond with Claude (Claude Code)
+- **Branch / PR:** `feat/calendar-recurring` / not opened
+
+### What changed
+- **Gemini is not used for detection.** The team chose code: F-10's own
+  timing rules (ADR-058).
+- **ADR-061 (Proposed, Muhammad should confirm):** paydays are found in
+  deposits into checking and savings with ADR-058's rules. They are kind
+  `income`, shown as "Payday", and are confirmed like any payment. Pay stays
+  out of cost totals.
+- **Migration `0011_recurring_income`:** `recurring_series.kind` allows
+  `income`. Run `pnpm db:migrate:to production` after merge.
+- **F-10 (`src/features/recurring`):**
+  - **Detection:** `groupCharges` takes a direction, and `groupAll` merges
+    both. A payee with charges on an account is never read as pay there.
+    Charges carry `accountType`.
+  - **Totals:** `summarizePayments` leaves pay out of costs and adds
+    `income`. A payday's `actual` is deposits this month.
+  - **UI:**
+    - Payday in the add/edit form and the kind filter
+    - "Payday · …" on cards
+    - "Expected pay" in the totals
+    - deposit wording on payday cards
+  - **Client exports:** `client.ts` also exports `dayOf`, `shiftDays` and
+    `shiftMonths`.
+- **Calendar (`src/features/cashflow`):**
+  - **Schedule shape:** `Recurring` is a schedule (`unit`, `every`,
+    `nextOn`), with F-10's `monthly`/`yearly`, `userIntent`, `target` and
+    `onCard`. `occurrences()` lists an item's dates in a month, and
+    `monthItems` shows those after today.
+  - **Costs:** `subscriptionCosts` uses F-10's yearly estimates, so
+    quarterly or weekly items aren't counted as monthly.
+  - **Mapping:** `toRecurring` (`domain/from-payments.ts`) keeps confirmed,
+    active payments with a next date. It signs amounts (pay +), marks card
+    payments and leaves out loan accounts.
+  - **Loading:** `loadDashboard` reads `listRecurringPayments`. If that read
+    fails, the calendar shows the month without repeating items. It also
+    passes the number of suggestions to review.
+  - **Choices:** `setSubscriptionIntentAction` saves keep / planning to
+    cancel through F-10's `setPaymentIntent`. The dashboard shows the choice
+    straight away with `useOptimistic`, and it is the same choice the
+    Recurring payments page shows.
+  - **Dashboard:**
+    - **Headline:** the per-day headline and "Payday is …" come back once a
+      payday is confirmed. Without one, a line links to Recurring payments.
+    - **Subscriptions:** the list shows "$X, monthly · next Oct 20, $Y a
+      year" and the saving line. Viewers see the marks but can't change
+      them.
+    - **Suggestions:** "N recurring payments to review" links to the
+      suggestions.
+    - **Day panel:** expected items read "Expected payday" or "Expected
+      bill".
+- **Tests:**
+  - Vitest:
+    - payday detection (every two weeks, monthly on savings, card credits
+      and unknown account types ignored, irregular deposits, a shop's
+      refunds, totals, form and filter)
+    - repository (suggest, confirm and refuse intent on a payday; a payday
+      added by hand)
+    - `occurrences` (every 14 days, quarterly, weekly, before the next
+      date), card items, costs from yearly estimates, `toRecurring`
+    - the loader with saved payments, and the intent action (editor,
+      viewer, stranger, unsaved payment, pay refused)
+    - one new entry in the isolation matrix
+  - Playwright: `calendar.spec.ts` seeds deposits every two weeks and a
+    monthly charge, and confirms both on Recurring payments. The dashboard
+    then shows the per-day headline, "14 days away" and the subscription
+    with its yearly cost, and the mark shows on Recurring payments.
+  - Results:
+    - `pnpm test:unit`: 1421 passed (twice). The first run had two failures
+      in a new test whose lookup wasn't scoped to its workspace; fixed.
+    - `pnpm test:e2e`: 94 passed.
+    - `lint`, `typecheck`, `format:check`, `build`, `scan:bundle` and
+      `docs:check` pass.
+- **Docs:**
+  - ADR-061 and its index row
+  - the F-10 README
+  - PROJECT's F-10 row
+  - PITCH's note: confirm the demo workspace's payday and bills before
+    the 1:00 step
+
+### What's next
+- **Muhammad:** confirm ADR-061 (it changes F-10).
+- **F-25:** "owed before payday" and the per-day figure can now use
+  confirmed paydays and bills. The cashflow domain's `summarize` already
+  computes them.
+- **Demo seed (F-21):** create confirmed paydays and bills for the demo
+  workspace, or the headline shows the balance only.
+
+### Open problems
+- A payday on the 29th to 31st whose next date falls in a short month keeps
+  that shorter day afterwards: the calendar anchors on the next date's day,
+  and F-10 doesn't expose its anchor day.
+- Someone paid by the same payee into two accounts gets two paydays; both
+  count.
+

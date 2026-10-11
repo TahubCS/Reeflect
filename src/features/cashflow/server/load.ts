@@ -3,6 +3,7 @@ import { DEFAULT_TIME_ZONE } from "@/config/app";
 import { isoDateIn, listAccounts } from "@/features/accounts";
 import { ensureCategories, listCategories } from "@/features/categorization";
 import { type LinkState, getLinkState } from "@/features/messaging";
+import { listRecurringPayments } from "@/features/recurring";
 import {
   type AccountChoice,
   listTransactionsBetween,
@@ -12,6 +13,7 @@ import { roleAtLeast } from "@/lib/auth/roles";
 import { getSession } from "@/lib/auth/session";
 import type { CashflowData } from "../domain/cashflow";
 import type { IsoDate } from "../domain/dates";
+import { toRecurring } from "../domain/from-payments";
 import { dashboardWindow, toCashflowData } from "../domain/from-records";
 
 export type DashboardCategory = { id: string; name: string };
@@ -25,7 +27,23 @@ export type Dashboard = {
   categories: DashboardCategory[];
   canEdit: boolean;
   linkState: LinkState;
+  /** Recurring payments waiting for the person to confirm them (ADR-058). */
+  suggestions: number;
 };
+
+/**
+ * Recurring payments for the calendar. If that read fails (for example past
+ * its history bound), the calendar still shows the month without them; the
+ * Recurring payments page shows its own retry state.
+ */
+async function recurringFor(workspaceId: string) {
+  try {
+    return await listRecurringPayments(workspaceId);
+  } catch {
+    console.error("cashflow: recurring payments unavailable", { workspaceId });
+    return null;
+  }
+}
 
 /**
  * Everything the calendar home screen shows, for one workspace (F-12). Any
@@ -39,17 +57,22 @@ export async function loadDashboard(workspaceId: unknown): Promise<Dashboard> {
 
   const today = isoDateIn(new Date(), DEFAULT_TIME_ZONE);
   const window = dashboardWindow(today);
-  const [accounts, transactions, categories, linkState] = await Promise.all([
-    listAccounts(access.workspaceId),
-    listTransactionsBetween(access.workspaceId, window.from, window.to),
-    listCategories(access.workspaceId),
-    // The session is non-null here: requireWorkspaceAccess refused otherwise.
-    getLinkState(session!.user.id),
-  ]);
+  const [accounts, transactions, categories, linkState, recurring] =
+    await Promise.all([
+      listAccounts(access.workspaceId),
+      listTransactionsBetween(access.workspaceId, window.from, window.to),
+      listCategories(access.workspaceId),
+      // The session is non-null here: requireWorkspaceAccess refused otherwise.
+      getLinkState(session!.user.id),
+      recurringFor(access.workspaceId),
+    ]);
 
   return {
     workspaceId: access.workspaceId,
-    data: toCashflowData({ accounts, transactions, today }),
+    data: {
+      ...toCashflowData({ accounts, transactions, today }),
+      recurring: recurring ? toRecurring(recurring.payments, accounts) : [],
+    },
     today,
     accounts: accounts.map(({ id, nickname, type }) => ({
       id,
@@ -61,5 +84,6 @@ export async function loadDashboard(workspaceId: unknown): Promise<Dashboard> {
       .map(({ id, name }) => ({ id, name })),
     canEdit,
     linkState,
+    suggestions: recurring?.summary.candidates ?? 0,
   };
 }

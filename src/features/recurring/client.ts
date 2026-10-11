@@ -1,4 +1,10 @@
-export { dateSchema, cadenceLabel } from "./domain/dates";
+export {
+  cadenceLabel,
+  dateSchema,
+  dayOf,
+  shiftDays,
+  shiftMonths,
+} from "./domain/dates";
 export { findPatterns, type Charge, type Pattern } from "./domain/patterns";
 export {
   type Payment,
