@@ -4,8 +4,10 @@ import { MotionConfig, motion } from "motion/react";
 import Link from "next/link";
 import {
   type ReactNode,
+  useEffect,
   useMemo,
   useOptimistic,
+  useRef,
   useState,
   useTransition,
 } from "react";
@@ -25,8 +27,11 @@ import {
   addMonths,
   formatLong,
   formatShort,
+  monthChipLabel,
   monthName,
   monthOf,
+  monthPrefix,
+  monthRange,
   monthTitle,
   monthsApart,
   parseIso,
@@ -133,6 +138,21 @@ export function CashflowDashboard({
   const day = month.days[parseIso(selected).day - 1];
 
   const offset = monthsApart(monthOf(today), view);
+  const months = useMemo(
+    () => monthRange(data.start, addMonths(monthOf(today), MONTHS_AHEAD)),
+    [data.start, today],
+  );
+  // Keeps the chosen month's chip in sight when the row scrolls sideways.
+  const monthRow = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const row = monthRow.current;
+    const chip = row?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (!row || !chip) return;
+    row.scrollLeft =
+      chip.offsetLeft -
+      row.offsetLeft -
+      (row.clientWidth - chip.clientWidth) / 2;
+  }, [view, accounts.length]);
   const showMonth = (next: YearMonth) => {
     setView(next);
     setHovered(null);
@@ -310,6 +330,35 @@ export function CashflowDashboard({
                 >
                   List
                 </button>
+              </div>
+            </div>
+
+            <div className="toolbar">
+              <div
+                ref={monthRow}
+                className="chips month-chips"
+                role="group"
+                aria-label="Month"
+              >
+                {months.map((option) => {
+                  const isNow = monthsApart(monthOf(today), option) === 0;
+                  return (
+                    <button
+                      key={monthPrefix(option)}
+                      type="button"
+                      aria-pressed={monthsApart(view, option) === 0}
+                      aria-label={`${monthTitle(option)}${isNow ? ", now" : ""}`}
+                      onClick={() => showMonth(option)}
+                    >
+                      {monthChipLabel(option, monthOf(today))}
+                      {isNow && (
+                        <span className="chip-now" aria-hidden="true">
+                          now
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

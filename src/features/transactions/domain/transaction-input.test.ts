@@ -6,6 +6,7 @@ import {
   formValues,
   formatDay,
   groupByDay,
+  splitPreview,
   isIsoDate,
   parseTransactionForm,
 } from "./transaction-input";
@@ -230,5 +231,46 @@ describe("formatDay and groupByDay", () => {
       { day: "2026-10-08", transactions: [rows[2]] },
     ]);
     expect(groupByDay([])).toEqual([]);
+  });
+});
+
+describe("splitPreview", () => {
+  // Newest first, `count` rows on each day, going back a day at a time.
+  const days = (...counts: number[]) =>
+    counts.flatMap((count, index) =>
+      Array.from({ length: count }, (_, row) => ({
+        id: `${index}-${row}`,
+        postedOn: `2026-10-${String(30 - index).padStart(2, "0")}`,
+      })),
+    );
+
+  it("shows everything when only a few rows would be held back", () => {
+    expect(splitPreview(days(10), 15).hidden).toEqual([]);
+    expect(splitPreview(days(19), 15).hidden).toEqual([]);
+  });
+
+  it("holds back the rows after the preview", () => {
+    const rows = days(...Array.from({ length: 50 }, () => 1));
+    const { shown, hidden } = splitPreview(rows, 15);
+    expect(shown).toHaveLength(15);
+    expect(hidden).toHaveLength(35);
+    expect([...shown, ...hidden]).toEqual(rows);
+  });
+
+  it("finishes the day the cut lands in when it ends soon after", () => {
+    // 14 rows on the first days, then a day of 4 that row 15 starts.
+    const rows = days(7, 7, 4, 10, 10);
+    const { shown } = splitPreview(rows, 15);
+    expect(shown).toHaveLength(18);
+    expect(shown.at(-1)?.postedOn).not.toBe(rows[18]?.postedOn);
+  });
+
+  it("cuts inside a day that goes on too long", () => {
+    const rows = days(10, 30);
+    expect(splitPreview(rows, 15).shown).toHaveLength(15);
+  });
+
+  it("shows everything when finishing the day leaves only a few rows", () => {
+    expect(splitPreview(days(14, 6, 3), 15).hidden).toEqual([]);
   });
 });

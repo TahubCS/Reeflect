@@ -73,6 +73,20 @@ export const monthsApart = (from: YearMonth, to: YearMonth) =>
 
 export const monthName = ({ month }: YearMonth) => MONTHS[month - 1];
 
+/** Every month from `from` through `to`; empty when `to` comes first. */
+export function monthRange(from: YearMonth, to: YearMonth): YearMonth[] {
+  return Array.from(
+    { length: Math.max(0, monthsApart(from, to) + 1) },
+    (_, i) => addMonths(from, i),
+  );
+}
+
+/** "Oct", or "Jan 2027" when the year is not `current`'s. */
+export const monthChipLabel = (ym: YearMonth, current: YearMonth) =>
+  ym.year === current.year
+    ? MONTHS[ym.month - 1].slice(0, 3)
+    : `${MONTHS[ym.month - 1].slice(0, 3)} ${ym.year}`;
+
 export const monthTitle = (ym: YearMonth) => `${monthName(ym)} ${ym.year}`;
 
 /** "Wednesday, October 7" */

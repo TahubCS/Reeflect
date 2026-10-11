@@ -180,6 +180,33 @@ test("filters by kind, switches to the list and moves by arrow keys", async ({
   ).not.toHaveText(todayLong);
 });
 
+test("moves between months from the month row above the calendar", async ({
+  browser,
+  baseURL,
+}) => {
+  const page = await newUserPage(browser, baseURL);
+  await addAccount(page, { nickname: "Everyday", balance: "500" });
+  await openDashboard(page);
+
+  const months = page.getByRole("group", { name: "Month" });
+  const now = months.getByRole("button", { name: /, now$/ });
+  await expect(now).toHaveAttribute("aria-pressed", "true");
+
+  const next = monthTitleOf(monthStart(1));
+  await months.getByRole("button", { name: next, exact: true }).click();
+  await expect(page.locator("#month-heading")).toHaveText(next);
+  await expect(
+    months.getByRole("button", { name: next, exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(cell(page, monthStart(1))).toBeVisible();
+  await expect(now).toHaveAttribute("aria-pressed", "false");
+
+  await now.click();
+  await expect(dayPanel(page).getByRole("heading", { level: 2 })).toHaveText(
+    todayLong,
+  );
+});
+
 test("a card purchase shows as spending on card without moving the balance", async ({
   browser,
   baseURL,
@@ -217,6 +244,13 @@ const monthStart = (offset: number) => {
   const [y, m] = today.split("-").map(Number) as [number, number];
   return new Date(Date.UTC(y, m - 1 + offset, 1)).toISOString().slice(0, 10);
 };
+/** "November 2026" for "2026-11-01", as the calendar titles a month. */
+const monthTitleOf = (iso: string) =>
+  new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    month: "long",
+    year: "numeric",
+  }).format(Date.parse(`${iso}T00:00:00Z`));
 
 async function seedHistory(workspaceId: string) {
   // Its own pool, closed when the rows are in. A pool shared by the file and

@@ -3611,3 +3611,76 @@ recommendation, not a decision.
   (ADR-050), so "how am I doing?" will not drop after a log there.
 - A text delivered again after its log was undone would be logged again.
 - Not tried with a real iMessage yet.
+
+## HO-078: UI rework: header counts and Sync, month row, charge rhythm, shorter transactions list
+
+- **Date:** 2026-10-11 08:30 (EDT)
+- **Author:** Jacob Heminway with Claude (Claude Code)
+- **Branch / PR:** `UI/Fixes` (fast-forwarded to `main` at PR #36) / not opened; nothing committed
+
+### What changed
+- **Mockups to choose from** (private artifact, share from its menu):
+  https://claude.ai/artifact/X1SxnRHhexFaZpdRBvfW6i. Three style directions
+  (current app; the landing page's dark band; a flat "hairline" sheet) and
+  three layouts each for the header, the month control, the recurring charges
+  and the transactions list. Its "Copy picks" button gives a line to paste
+  back. Built in the app: header 1, month 1, recurring 1, transactions 2, all
+  in today's style.
+- **Header** (`src/components/ui/app-nav.tsx`): a link can show a number.
+  Recurring payments shows the suggestions waiting (`suggestionCountAction`,
+  recurring feature); the layout passes one server action per link
+  (`NAV_COUNTS`), so Bills can add its own. The number is in the link's
+  accessible name. Counts are read on each page change and when
+  `NAV_REFRESH_EVENT` fires (`src/config/nav.ts`); the recurring page fires it
+  when its count changes (`src/components/ui/nav-refresh.tsx`).
+- **Sync in the header** (`NessieNavSync`, `nessieStatusAction`): shows only
+  for a workspace with Nessie accounts; editors get the button, viewers the
+  time ("Synced 5 min ago"). Both header actions return "nothing" (0, not
+  linked) for a non-member instead of calling `notFound()`: a not-found from
+  a server action the header calls rendered a 404 on the page.
+- **Dashboard:** a Month row of chips under the Show chips (May to three
+  months ahead), scrolling sideways when long. The Earlier / This month /
+  Later buttons stay. `monthRange`, `monthChipLabel` in cashflow dates.
+- **Recurring payments:** the "Recent matching charges" disclosure is now
+  `ChargeEvidence`: dots with the days between charges, a full-width "See 3
+  matching charges" button with the rhythm in words ("Every 30–31 days, no
+  breaks"; a gap well off the usual one is named), and each charge's gap in
+  small text. Pure logic in `recurring/domain/evidence.ts`.
+- **Transactions:** the first 15 rows show, then "Show 35 more"
+  (`splitPreview`, `ShowMore`); the cut finishes a day when the day ends
+  within 5 rows. Pagination (50 a page) is unchanged.
+- **Nessie refunds:** a `[refund:<purchase>]` deposit kept its own row and the
+  purchase kept its row already, but the refund was uncategorized, so
+  Insights counted it as take-home pay. The mapper now keeps the link
+  (`refundOf`, `refundTargets`) and the sync gives the refund the purchase's
+  category (never over a manual choice), so it nets against that spending.
+  No schema change. Sync only removes rows whose Nessie record is gone or
+  cancelled (e.g. `demo undo` of a refund); I found no path that deletes a
+  refunded purchase.
+- `docs/PITCH.md` recurring demo mentions the count and the button.
+- The local Docker database was 3 migrations behind; I ran
+  `pnpm db:migrate:to local` (test database only).
+
+### Verified
+- `pnpm lint`, `format:check`, `typecheck`, `docs:check`, `build`,
+  `scan:bundle` pass.
+- `pnpm test:unit`: 2024 pass; the 12 failures are the storage tests (no
+  `.env.storage-tests` here) and two DB tests that time out only under the
+  full parallel run (they pass alone).
+- `pnpm test:e2e`: all 117 pass, including the new month-row and header
+  tests and the updated 50-row and charges tests.
+
+### What's next
+- Pick from the mockups; then apply the chosen style across pages (tokens in
+  `globals.css`, header, a hero band per page if style B).
+- Bills could add a header count (due this week) through `NAV_COUNTS`.
+- Show "Refunded" on the purchase and link the two rows: needs a column
+  (`refund_of_id`), so an ADR-worthy schema change; not done.
+
+### Open problems
+- The header's recurring count runs the full recurring analysis on every
+  page change (the dashboard already does the same). Fine for the demo;
+  cache or store candidates if it gets slow.
+- A Nessie purchase whose status becomes "cancelled" still disappears from
+  the history (mapper drops cancelled records); keeping it needs a status we
+  don't have.

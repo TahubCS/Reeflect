@@ -42,3 +42,42 @@ export function describeSync(result: SyncSummary): string {
     }
   }
 }
+
+/** Whether the header shows Sync, and when the last sync was. */
+export type NessieStatus = {
+  linked: boolean;
+  /** ISO time of the last sync, or null before the first one. */
+  lastSyncedAt: string | null;
+  /** Editors and owners may sync; viewers see the time only. */
+  canSync: boolean;
+};
+
+/** A few words for the header after Sync is pressed. */
+export function describeSyncShort(result: SyncSummary): string {
+  switch (result.status) {
+    case "not set up":
+      return "Capital One isn't set up here";
+    case "no accounts":
+      return "No Capital One accounts linked";
+    case "unreachable":
+      return "Couldn't reach Capital One";
+    case "synced": {
+      const changes = result.added + result.updated + result.removed;
+      return changes === 0
+        ? "Synced, no changes"
+        : `Synced, ${plural(changes, "change")}`;
+    }
+  }
+}
+
+/** "Synced 5 min ago", from the last sync time and the time now. */
+export function syncedAgo(lastSyncedAt: string | null, now: number): string {
+  if (!lastSyncedAt) return "Not synced yet";
+  const minutes = Math.floor((now - Date.parse(lastSyncedAt)) / 60_000);
+  if (!Number.isFinite(minutes)) return "Not synced yet";
+  if (minutes < 1) return "Synced just now";
+  if (minutes < 60) return `Synced ${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Synced ${plural(hours, "hour")} ago`;
+  return `Synced ${plural(Math.floor(hours / 24), "day")} ago`;
+}

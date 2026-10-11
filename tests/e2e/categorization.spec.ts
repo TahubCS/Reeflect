@@ -496,13 +496,21 @@ test("empty and paginated states work without a page error", async ({
     await transaction(workspaceId, accountId, `Merchant ${index}`);
   await page.reload();
   const list = page.getByRole("region", { name: "Your transactions" });
+  // The first 15 rows show, so the rules below stay in reach.
+  await expect(list.getByRole("listitem")).toHaveCount(15);
+  await expect(list).toContainText("Showing 15 of 50");
+  await hydrated(page, "button[aria-controls]");
+  await list.getByRole("button", { name: "Show 35 more" }).click();
   await expect(list.getByRole("listitem")).toHaveCount(50);
+  await list.getByRole("button", { name: "Show fewer" }).click();
+  await expect(list.getByRole("listitem")).toHaveCount(15);
   await page.getByRole("link", { name: "Next page" }).click();
   await expect(list.getByRole("listitem")).toHaveCount(1);
+  await expect(list.getByRole("button", { name: /^Show/ })).toHaveCount(0);
   await page.getByRole("link", { name: "Previous page" }).click();
-  await expect(list.getByRole("listitem")).toHaveCount(50);
+  await expect(list.getByRole("listitem")).toHaveCount(15);
   await page.goto(`/w/${workspaceId}/transactions?page=broken`);
-  await expect(list.getByRole("listitem")).toHaveCount(50);
+  await expect(list.getByRole("listitem")).toHaveCount(15);
 });
 
 test("forms stay usable at 360px in the dark theme with reduced motion", async ({

@@ -4,12 +4,21 @@ import { type ReactNode, Suspense } from "react";
 import { AppNav, AppNavFallback } from "@/components/ui/app-nav";
 import { APP_NAME } from "@/config/app";
 import { SignOutButton } from "@/features/auth/ui/sign-out-button";
+import {
+  NessieNavSync,
+  nessieStatusAction,
+  syncNessieAction,
+} from "@/features/nessie";
+import { suggestionCountAction } from "@/features/recurring";
 import { getSession } from "@/lib/auth/session";
 import styles from "./layout.module.css";
 
-// Both components below read the session, and the nav reads the URL, so
-// each renders inside a Suspense boundary (Cache Components). The wordmark
-// is static.
+// Both components below read the session, and the nav and Sync read the
+// URL, so each renders inside a Suspense boundary (Cache Components). The
+// wordmark is static.
+
+// The numbers on the header's links. Each action authorizes on its own.
+const NAV_COUNTS = { subscriptions: suggestionCountAction };
 
 async function Account() {
   const session = await getSession();
@@ -44,8 +53,16 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             {APP_NAME}
           </Link>
           <Suspense fallback={<AppNavFallback />}>
-            <AppNav />
+            <AppNav counts={NAV_COUNTS} />
           </Suspense>
+          <div className={styles.sync}>
+            <Suspense fallback={null}>
+              <NessieNavSync
+                statusAction={nessieStatusAction}
+                syncAction={syncNessieAction}
+              />
+            </Suspense>
+          </div>
           <div className={styles.account}>
             <Suspense fallback={null}>
               <Account />

@@ -431,6 +431,25 @@ h1 {
   color: var(--bg);
 }
 
+/* The month row under the filters: one line that scrolls sideways when
+   there are more months than fit. */
+.month-chips {
+  flex-wrap: nowrap;
+  max-width: 100%;
+  overflow-x: auto;
+  padding-bottom: 0.125rem;
+  scrollbar-width: thin;
+}
+
+.month-chips button {
+  flex: none;
+}
+
+.chip-now {
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
 .grid-hint {
   margin-top: 0.5rem;
   color: var(--ink-soft);

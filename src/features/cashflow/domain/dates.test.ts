@@ -5,9 +5,11 @@ import {
   daysInMonth,
   formatLong,
   formatShort,
+  monthChipLabel,
   monthName,
   monthOf,
   monthPrefix,
+  monthRange,
   monthTitle,
   monthsApart,
   ordinal,
@@ -104,5 +106,34 @@ describe("labels", () => {
     [31, "31st"],
   ])("writes %i as %s", (day, expected) => {
     expect(ordinal(day)).toBe(expected);
+  });
+});
+
+describe("month chips", () => {
+  const october = { year: 2026, month: 10 };
+
+  it("lists every month in a range, across a year end", () => {
+    expect(
+      monthRange({ year: 2026, month: 11 }, { year: 2027, month: 2 }),
+    ).toEqual([
+      { year: 2026, month: 11 },
+      { year: 2026, month: 12 },
+      { year: 2027, month: 1 },
+      { year: 2027, month: 2 },
+    ]);
+  });
+
+  it("gives one month for a range that starts and ends together", () => {
+    expect(monthRange(october, october)).toEqual([october]);
+  });
+
+  it("gives no months when the range ends before it starts", () => {
+    expect(monthRange(october, { year: 2026, month: 9 })).toEqual([]);
+  });
+
+  it("names a month short, adding the year only when it differs", () => {
+    expect(monthChipLabel({ year: 2026, month: 5 }, october)).toBe("May");
+    expect(monthChipLabel({ year: 2027, month: 1 }, october)).toBe("Jan 2027");
+    expect(monthChipLabel({ year: 2025, month: 12 }, october)).toBe("Dec 2025");
   });
 });

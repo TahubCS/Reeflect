@@ -49,6 +49,23 @@
   white-space: nowrap;
 }
 
+/* Sync with Capital One (NessieNavSync), next to the address. It renders
+   nothing for a workspace without Nessie accounts; then the address takes
+   the space as before. */
+.sync {
+  display: flex;
+  flex: none;
+  margin-left: auto;
+}
+
+.sync:empty {
+  display: none;
+}
+
+.sync:not(:empty) + .account > .email {
+  margin-left: 0;
+}
+
 .loading {
   padding: 2rem clamp(1rem, 3vw, 3.5rem);
   color: var(--ink-soft);
@@ -71,5 +88,9 @@
 
   .account > button {
     margin-left: auto;
+  }
+
+  .sync:not(:empty) + .account > button {
+    margin-left: 0;
   }
 }

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { computedBalance, mapAccountRecords, readTags } from "./map";
+import {
+  computedBalance,
+  mapAccountRecords,
+  readTags,
+  refundTargets,
+} from "./map";
 import type { AccountRecords, NessieAccount } from "./records";
 
 const card: NessieAccount = {
@@ -26,16 +31,19 @@ describe("readTags", () => {
       text: "Card payment",
       transferPair: "p-1",
       category: null,
+      refundOf: null,
     });
     expect(readTags("Refund: Dinner [refund:abc]")).toEqual({
       text: "Refund: Dinner",
       transferPair: null,
       category: null,
+      refundOf: "abc",
     });
     expect(readTags("Plain")).toEqual({
       text: "Plain",
       transferPair: null,
       category: null,
+      refundOf: null,
     });
   });
 
@@ -44,6 +52,7 @@ describe("readTags", () => {
       text: "Netflix monthly",
       transferPair: null,
       category: "subscriptions",
+      refundOf: null,
     });
   });
 });
@@ -162,5 +171,69 @@ describe("computedBalance", () => {
     expect(
       computedBalance({ ...card, type: "Checking", balance: 1000 }, rows),
     ).toBe(100000 - 9000 + 5000);
+  });
+});
+
+describe("refunds", () => {
+  const checking: NessieAccount = {
+    ...card,
+    _id: "acct-chk",
+    type: "Checking",
+  };
+  const purchase = {
+    _id: "p-dinner",
+    purchase_date: "2026-10-08",
+    amount: 64,
+    status: "completed",
+    description: "Dinner at Luca's",
+  };
+  const refund = {
+    _id: "d-refund",
+    transaction_date: "2026-10-10",
+    amount: 64,
+    status: "completed",
+    description: "Refund: Dinner at Luca's [refund:p-dinner]",
+  };
+
+  it("keeps the purchase and adds the refund as money in", () => {
+    const rows = mapAccountRecords(
+      records({ account: checking, purchases: [purchase], deposits: [refund] }),
+    );
+    expect(
+      rows.map((r) => [r.descriptionRaw, r.amountCents, r.refundOf]),
+    ).toEqual([
+      ["Dinner at Luca's", -6400, null],
+      ["Refund: Dinner at Luca's", 6400, "p-dinner"],
+    ]);
+  });
+
+  it("ignores a refund tag on money going out", () => {
+    const rows = mapAccountRecords(
+      records({
+        account: checking,
+        withdrawals: [{ ...refund, _id: "w-1" }],
+      }),
+    );
+    expect(rows[0]?.refundOf).toBeNull();
+  });
+
+  it("points each refund at its purchase unless it names a category", () => {
+    const rows = mapAccountRecords(
+      records({
+        account: checking,
+        purchases: [purchase],
+        deposits: [
+          refund,
+          {
+            ...refund,
+            _id: "d-tagged",
+            description: "Refund [refund:p-dinner] [cat:dining]",
+          },
+        ],
+      }),
+    );
+    expect([...refundTargets(rows)]).toEqual([
+      ["nessie:deposit:d-refund", "purchase:p-dinner"],
+    ]);
   });
 });
