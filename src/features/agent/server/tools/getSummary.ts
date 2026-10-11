@@ -85,7 +85,8 @@ async function monthFigures(
  * calendar says about the days until payday, this month's spending and
  * budgets by category, and the last thirty days worked out by the Insights
  * code (ADR-056). `workspaceId` must come from a verified phone link
- * (ADR-034); nothing here checks a session.
+ * (ADR-034) or, for the website's summary panel (F-15), from
+ * `requireWorkspaceAccess`; nothing here checks a session.
  */
 export async function getSummary(
   workspaceId: string,

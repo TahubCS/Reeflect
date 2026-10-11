@@ -92,6 +92,7 @@ Rules:
 | ADR-064 | Logging spending by text: code decides, asks when unsure, never guesses (refines ADR-035, ADR-040) | Proposed |
 | ADR-065 | The agent remembers one open question: which account a text's spending is for (refines ADR-064) | Proposed |
 | ADR-067 | Receipt photos: the model reads, code checks, the person confirms (refines ADR-035, ADR-065) | Proposed |
+| ADR-068 | The Gemini summary is on the dashboard and written on request (refines ADR-045) | Proposed |
 | ADR-082 | Sample years in the developers' own accounts (exception to ADR-049) | Accepted |
 | ADR-083 | Ask the user to categorize large uncategorized payments (refines ADR-055, ADR-057) | Proposed |
 | ADR-084 | Reserved ADR and handoff numbers for each developer | Accepted |
@@ -2034,6 +2035,52 @@ Rules:
     by a new "yes", as with texts (ADR-064).
   - Deploy the app before the worker: an older app drops the photo and
     answers the empty text with the summary.
+
+### ADR-068: The Gemini summary is on the dashboard and written on request (refines ADR-045)
+
+- **Status:** Proposed (2026-10-11)
+- **Owner to confirm:** Muhammad Tahub Khatri
+- **Context:** ADR-045 decided that the website has a panel where Gemini
+  writes a summary and suggestions from figures code computed. It did not
+  say where the panel is, when the model is called, or which figures the
+  suggestions use. The models that answer users have a small daily
+  allowance (ADR-059), and the dashboard re-renders after every change.
+- **Decision** (the three choices are Muhammad's, 2026-10-11):
+  - **On the dashboard,** under the headline, in its own feature
+    (`src/features/summary`). The agent already imports the calendar and
+    Insights code, so the panel cannot live in either without a cycle.
+  - **Written on request.** The panel opens with a summary built by code.
+    A button, "Write it with Gemini", makes one model call. Opening or
+    refreshing the page never calls a model, and nothing is stored: a
+    refresh shows the code-built summary again.
+  - **The same figures and rules as a text** (ADR-019, ADR-035). The panel
+    reads the agent's `getSummary`, so it cannot disagree with a text or
+    the calendar. The model is sent label names, their meanings and preset
+    category names: no amount, account nickname or payment name. Its answer
+    is JSON (a summary and up to three suggestions), and every sentence
+    passes the check a text reply passes. One sentence that fails rejects
+    the whole answer, and the code-built panel is shown with a line saying
+    Gemini did not answer.
+  - **Two more figures,** for ADR-045's suggestions: what subscriptions
+    come to over a year (the monthly average times twelve, and a reply must
+    say "a year"), and how many categories are past budget this month.
+    Texts can use them too.
+  - **The panel says who wrote it:** Gemini around figures the app worked
+    out, or the app alone.
+  - **A viewer may ask:** the panel only reads.
+  - **Each model gets 8 seconds** inside the same 14 in total, as for a
+    receipt photo (ADR-067): a paragraph took 2 to 6 seconds on the test
+    model, more than the 4 a text reply gets.
+- **Alternatives considered:** writing on every page load (a model call for
+  each visit and each change on the calendar, and up to 14 seconds of
+  waiting); writing once a day and storing the text (a new table, and
+  model-written text kept at rest); putting the panel on Insights (one
+  click further from the first screen).
+- **Consequences:** a summary Gemini wrote is gone after a refresh, and each
+  click spends allowance: there is no limit per person yet. Tone is asked
+  for in the instruction and cannot be checked by code; the figure rules
+  can. "Where spending rose" needs a comparison with an earlier period and
+  is not built.
 
 ### ADR-084: Reserved ADR and handoff numbers for each developer
 

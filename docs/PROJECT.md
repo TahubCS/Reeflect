@@ -95,7 +95,7 @@ Priorities follow ADR-043. Lanes: A = Data, B = Web, C = Agent.
 | F-12 | Calendar home screen | P0 | B | The per-day headline with its sum, the month calendar, the balance line and the selected-day panel, plus an "Upcoming bills" list once F-22 exists. | ADR-042 |
 | F-13 | Drill-down | P0 | B | Select a day to see its activity, sources and balance; filter by kind; switch between calendar and list. | ADR-042 |
 | F-14 | End-of-month forecast | Later | A | The dotted part of the balance line, from recurring income, bills and spending pace. | ADR-026 |
-| F-15 | Gemini summary on the website | P1 | C | A panel where Gemini writes a summary and suggestions about the user's finances from numbers computed by code, reusing the agent brain. Category suggestions and "Ask Reeflect" come later. | ADR-019, ADR-045 |
+| F-15 | Gemini summary on the website | P1 | C | A panel on the dashboard, under the headline. It opens with a summary and suggestions built by code; "Write it with Gemini" has Gemini write them around figures code computed, reusing the agent brain, and the panel says who wrote it. Built (HO-119). Category suggestions and "Ask Reeflect" come later. | ADR-019, ADR-045, ADR-068 |
 | F-16 | Debt and credit tab | Later | B | Cards and loans (Nessie loans or Plaid Liabilities). Any credit score is labelled "Sample". | ADR-024 |
 | F-17 | Monthly recap | Later | B | Animated playback of the month on the calendar. | ADR-042 |
 | F-18 | Themes and accessibility | P0 | B | Light and dark themes, WCAG 2.2 AA, reduced motion, text labels, responsive from 360px. | ADR-018 |

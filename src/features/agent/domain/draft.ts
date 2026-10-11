@@ -4,6 +4,7 @@ import {
   type Facts,
   type Label,
   MONTHLY_LABELS,
+  YEARLY_LABELS,
   isMonthToDate,
   valuesOf,
 } from "./summary";
@@ -21,6 +22,7 @@ export type CheckedDraft =
         | "stray_brace"
         | "too_long"
         | "average_not_called_monthly"
+        | "yearly_not_called_a_year"
         | "month_to_date_not_called_this_month";
     };
 
@@ -37,6 +39,11 @@ export function completeDraft(draft: string, facts: Facts): CheckedDraft {
   const usesAverage = used.some((label) => MONTHLY_LABELS.has(label as Label));
   if (usesAverage && !/\bmonth(ly)?\b/i.test(draft)) {
     return { ok: false, reason: "average_not_called_monthly" };
+  }
+  // The same for a figure scaled to a year (F-15).
+  const usesYearly = used.some((label) => YEARLY_LABELS.has(label as Label));
+  if (usesYearly && !/\byear(ly)?\b/i.test(draft)) {
+    return { ok: false, reason: "yearly_not_called_a_year" };
   }
   // The other way round too (F-28): a figure for this month so far must
   // not read as an average, or as the total for some other period.

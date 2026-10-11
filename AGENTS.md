@@ -266,7 +266,7 @@ src/
     <feature>/              built so far: accounts, agent, alerts, auth, bills, budgets,
                             cashflow, categorization, imports, insights,
                             landing, messaging, plans, recurring,
-                            synthetic, transactions
+                            summary, synthetic, transactions
       domain/               pure TypeScript logic, no I/O (most unit tests here)
       server/               repositories, server actions ('server-only')
       ui/                   React components for this feature

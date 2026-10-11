@@ -66,7 +66,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-33 Quiet hours settings | B + C | Simon Ormond | `feat/quiet-hours` | Built (HO-096, ADR-104 Proposed): Settings → Notifications and by text, with UNDO. The alerts tick honours them (HO-097) |
 | F-32 Agent worker | C | Muhammad Tahub Khatri | `feat/agent-worker` | Done, replies only (HO-039, PR #17); live on Render (HO-049) |
 | F-22 Bill reminders (P1) | A + C | Simon Ormond | `feat/proactive-alerts` | iMessage reminders built (HO-097, ADR-105 Proposed) on the web Bills cycles (ADR-063); DETAILS gives the amount and the low-balance line |
-| F-15 Gemini summary on the website (P1, ADR-045) | C | Unassigned | — | Not started |
+| F-15 Gemini summary on the website (P1, ADR-045) | C | Muhammad Tahub Khatri | `feat/gemini-summary` | Built (HO-119, ADR-068 Proposed): a panel on the dashboard, code-built at first, written by Gemini on a click. Not built: "where spending rose", a limit on clicks |
 | F-35 Compare with people like you (Later, ADR-056) | A + B | Jacob Heminway | `feat/insights` | Built: the Insights page, stored sample figures and `pnpm batch rollup` (HO-043); ADR-056 and ADR-057 Proposed |
 | F-36 Retirement question (Later, ADR-055) | B | Jacob Heminway | `feat/insights` | Planned; generator models the answers (HO-041) |
 | F-37 Planned transactions (P1, ADR-102) | B | Simon Ormond | `feat/planned-transactions` | Built: plan on later days from the day panel, confirm or remove once the day comes (HO-095); ADR-102 Proposed |
@@ -4159,3 +4159,69 @@ rows", transactions 2 "show more" in steps of 20, plus a view-only list.
   there are digits on the lock screen, but never an amount.
 - The weekly recap and stale Nessie syncs are not on the tick yet.
 - Previews in the iOS lock screen were not tested with a real phone.
+
+## HO-119: F-15, the Gemini summary panel on the dashboard (ADR-068)
+
+- **Date:** 2026-10-11 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `feat/gemini-summary` / not opened; nothing committed
+
+### What changed
+- New feature `src/features/summary/` (F-15, ADR-045, ADR-068 Proposed):
+  - `domain/`: the instruction and request (`prompt.ts`), the JSON shape
+    and the check of a model's answer (`panel.ts`), and the panel code
+    builds by itself (`fallback.ts`).
+  - `server/`: `loadSummaryPanel` (code-built, no model) and
+    `writeSummary` / `writeSummaryAction` (one model call). Both check
+    workspace access at viewer and are in the isolation matrix.
+  - `ui/summary-panel.tsx`: "Where you stand", a "Worth a look" list, a
+    line saying who wrote it, and the "Write it with Gemini" button.
+- The dashboard page passes the panel to `CashflowDashboard` through a new
+  `summaryPanel` prop, inside its own `Suspense`. Nothing shows without
+  accounts.
+- The panel reuses the agent's brain, now exported for it:
+  - `getSummary` from the agent's `index.ts`.
+  - A new `src/features/agent/client.ts` with the pure parts
+    (`completeDraft`, `buildFacts`, `describeFacts`, `FIGURE_RULES`,
+    `MONEY_LIMITS`).
+  - `prompt.ts` was split into those pieces. The texting instruction is
+    byte-for-byte what it was (checked by hash before and after).
+- Two new labels, which texts can use too: `subscription_yearly` (a reply
+  must say "a year") and `over_budget_count` ("1 category past budget").
+- `src/lib/ai/client.ts`: `generateLongText`, the chain with 8 seconds for
+  each model. A paragraph took 2 to 6 seconds on the test model.
+- The local Docker database was 3 migrations behind; I ran
+  `pnpm db:migrate:to local` (test database only).
+- Docs updated: ADR-068, the F-15 row in PROJECT, ARCH-07, AGENTS.md
+  section 6, the demo step and Gemini row in PITCH, and this file's
+  assignments.
+- `feat/transfer-review` (PR #44) already uses the next ADR number and
+  the next three handoff numbers, so this work took ADR-068 and HO-119.
+
+### Verified
+- `pnpm lint`, `typecheck`, `format:check`, `docs:check`, `build` and
+  `scan:bundle` pass.
+- `pnpm test:unit`: 2614 pass. The 8 failures are the statement storage
+  tests, which need `.env.storage-tests`; this machine has none. Coverage
+  thresholds are not reported on a failed run.
+- `pnpm test:e2e`: all 128 pass, including the three in `summary.spec.ts`.
+  They were run before `generateLongText` and the new wording of
+  `over_budget_count`; after those, `summary.spec.ts` and
+  `agent-questions.spec.ts` were run again and pass.
+- With the real key and the test model, on made-up figures: six drafts
+  passed the checks and one call got a 503. No browser run with a real
+  key.
+
+### What's next
+- Muhammad confirms ADR-068.
+- Click the button on the deployed app with the users' models, and read
+  what they write for a workspace with a payday and budgets.
+- Rehearse the new 1:10 step in PITCH.
+
+### Open problems
+- There is no limit on clicks for each person; every click is one model
+  call against the daily allowance (ADR-059).
+- A written summary is not kept: a refresh shows the code-built one.
+- The dashboard now reads the agent's figures as well as the calendar's,
+  so some rows are read twice for each view.
+- Code checks the figures in a suggestion, not its tone or usefulness.

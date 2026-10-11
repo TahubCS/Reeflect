@@ -250,7 +250,7 @@ Governed by: ADR-014, ADR-018, ADR-026, ADR-042
 
 ## ARCH-07: AI layer
 
-Governed by: ADR-019, ADR-045, ADR-059
+Governed by: ADR-019, ADR-045, ADR-059, ADR-068
 
 - `src/lib/ai/google.ts`: the only file that imports the `@google/genai`
   SDK. One stateless request (`store: false`) to Gemini's Interactions API.
@@ -275,9 +275,12 @@ Governed by: ADR-019, ADR-045, ADR-059
 - "Ask Reeflect" exposes read-only tools (for example
   `getCategorySpend(workspaceId, month, categoryId)`) that call the same
   repository functions as the UI, with the same authorization.
-- The website summary panel (ADR-045) sends code-computed aggregates to
-  Gemini, fills the placeholders in its reply, runs the digit scan, and falls
-  back to a fixed template with the same figures.
+- The website summary panel (`src/features/summary`, ADR-045, ADR-068) is
+  on the dashboard. It opens with a summary built by code from the agent's
+  `getSummary`. On a click, `generateLongText` (the chain with 8 seconds for
+  each model) sends Gemini the labels and a JSON shape; code checks every
+  sentence as it checks a text reply, fills the labels in, and falls back to
+  the code-built panel with the same figures.
 
 ## ARCH-08: Security controls
 
