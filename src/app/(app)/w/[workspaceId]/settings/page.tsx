@@ -24,10 +24,7 @@ export default function SettingsPage({
       <Suspense fallback={<p className={styles.note}>Loading…</p>}>
         <Messages params={params} />
       </Suspense>
-      <p className={styles.note}>
-        Not built yet: quiet hours for messages and deleting your data (F-33 and
-        F-19).
-      </p>
+      <p className={styles.note}>Not built yet: deleting your data (F-19).</p>
     </main>
   );
 }

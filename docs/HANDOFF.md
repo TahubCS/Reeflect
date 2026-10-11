@@ -62,6 +62,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-26 Subscription alerts | C | Unassigned | — | Not started |
 | F-27 Log spending by text | C | Muhammad Tahub Khatri | `feat/agent-log-spending` | Built (HO-071, ADR-064): log, ask when unsure, UNDO. Not built: money in, days before yesterday, receipts |
 | F-28 Category and balance questions | C | Unassigned | — | Not started |
+| F-33 Quiet hours settings | B + C | Simon Ormond | `feat/quiet-hours` | Built (HO-096, ADR-104 Proposed): Settings → Notifications and by text, with UNDO. Nothing sends proactive texts yet |
 | F-32 Agent worker | C | Muhammad Tahub Khatri | `feat/agent-worker` | Done, replies only (HO-039, PR #17); live on Render (HO-049) |
 | F-22 Bill reminders (P1) | A + C | Unassigned | — | Not started |
 | F-15 Gemini summary on the website (P1, ADR-045) | C | Unassigned | — | Not started |
@@ -3611,3 +3612,44 @@ recommendation, not a decision.
   (ADR-050), so "how am I doing?" will not drop after a log there.
 - A text delivered again after its log was undone would be logged again.
 - Not tried with a real iMessage yet.
+
+## HO-096: F-33, quiet hours on the website and by text (ADR-104)
+
+- **Date:** 2026-10-11 (America/New_York)
+- **Author:** Simon Ormond with Claude Code
+- **Branch / PR:** `feat/quiet-hours` / not opened
+
+### What changed
+- **Schema change:** migration 0015 adds `notification_setting`, one row
+  per user (no row = 9 PM–9 AM). A check keeps both minutes in 0–1439 and
+  different. Applied to the local Docker database only.
+- `messaging/domain/quiet-hours.ts`: `isQuiet` (ranges across midnight),
+  `nextAllowedSend` (keeps the end time on the wall clock across daylight
+  saving), formatting and time-input helpers. Exported from messaging's
+  `index.ts` for the job tick that will send proactive texts.
+- `messaging/server/notifications.ts`: get, set from the website, set by
+  text (keeps the old hours) and undo. `setQuietHoursAction` is in the
+  isolation matrix.
+- Settings shows a Notifications card under Messages: the current hours in
+  words and two time fields. The "Not built yet" note now lists only F-19.
+- The agent reads "quiet hours …" texts before logging
+  (`agent/domain/quiet-hours-command.ts`, code only): "11pm to 7am",
+  "11 PM - 7 AM", "23:00 to 07:00", midnight/noon. Unclear input gets an
+  example; "quiet hours?" tells the current ones.
+- ADR-104 (Proposed): per-user storage, Eastern time until zones exist,
+  and UNDO takes back whichever came last within 24 hours, a quiet-hours
+  text change or a text-logged spending. `latestTextTransaction` now
+  returns `createdAt` for that comparison.
+- Playwright: `quiet-hours.spec.ts`. `agent-link.spec.ts` now reads the
+  Messages card's status, since the page has two.
+
+### What's next
+- Run `pnpm db:migrate:to branch` / `production` for 0015 once the PR is
+  approved.
+- The job tick (F-22, F-26) must call `nextAllowedSend` before sending.
+- F-19, delete data, on `feat/delete-workspace-data`.
+
+### Open problems
+- Quiet hours are in Eastern time for everyone (ADR-104).
+- Turning off each proactive type separately (ADR-038) is not built; the
+  single opt-in on the Messages card is the only switch.
