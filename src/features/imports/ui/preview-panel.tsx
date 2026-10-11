@@ -2,6 +2,7 @@
 
 import { useActionState, useId } from "react";
 import { useFormStatus } from "react-dom";
+import { Confirm } from "@/components/ui/confirm";
 import { formatCents, formatSigned } from "@/lib/money";
 import { type Check, formatStatementDate } from "../domain/checks";
 import type { StatementRow } from "../domain/statement";
@@ -29,7 +30,7 @@ function DiscardButton() {
   const { pending } = useFormStatus();
   return (
     <button type="submit" className={styles.secondary} disabled={pending}>
-      {pending ? "Discarding…" : "Discard"}
+      {pending ? "Discarding…" : "Confirm discard"}
     </button>
   );
 }
@@ -143,9 +144,14 @@ export function PreviewPanel({
               </button>
             </div>
           </form>
-          <form action={discard} className={styles.actions}>
-            <DiscardButton />
-          </form>
+          <Confirm
+            label="Discard"
+            consequence="This deletes the checked statement and its saved copy. Nothing from it is imported; to import it later, upload it again."
+          >
+            <form action={discard} className={styles.actions}>
+              <DiscardButton />
+            </form>
+          </Confirm>
         </>
       )}
     </section>

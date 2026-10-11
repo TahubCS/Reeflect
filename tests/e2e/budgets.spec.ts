@@ -221,7 +221,10 @@ test("distinguishes zero from unset, keeps spending after removal and retains in
     "aria-valuenow",
     "100",
   );
-  await card(f.page).getByRole("button", { name: "Remove budget" }).click();
+  await card(f.page).getByText("Remove budget", { exact: true }).click();
+  await card(f.page)
+    .getByRole("button", { name: "Confirm remove budget" })
+    .click();
   await expect(figure(card(f.page), "Allocation")).toHaveText("Not set");
   await expect(figure(card(f.page), "Spent")).toHaveText("$340.00");
   await expect(card(f.page).getByRole("progressbar")).toHaveCount(0);

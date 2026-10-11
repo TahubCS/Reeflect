@@ -200,6 +200,35 @@ function AddForm({
   );
 }
 
+/**
+ * × asks once more before it removes: the first press turns it into
+ * "Remove?", the second removes. It stays the same button, so focus stays
+ * on it; moving away puts the × back.
+ */
+function RemoveButton({
+  name,
+  disabled,
+  onRemove,
+}: {
+  name: string;
+  disabled: boolean;
+  onRemove: () => void;
+}) {
+  const [armed, setArmed] = useState(false);
+  return (
+    <button
+      type="button"
+      className={armed ? "item-confirm" : "item-remove"}
+      aria-label={armed ? `Confirm remove ${name}` : `Remove ${name}`}
+      disabled={disabled}
+      onClick={() => (armed ? onRemove() : setArmed(true))}
+      onBlur={() => setArmed(false)}
+    >
+      {armed ? "Remove?" : <span aria-hidden="true">×</span>}
+    </button>
+  );
+}
+
 export function DayPanel({
   workspaceId,
   day,
@@ -309,26 +338,18 @@ export function DayPanel({
                       >
                         It happened
                       </button>
-                      <button
-                        type="button"
-                        className="item-remove"
-                        aria-label={`Remove ${item.name}`}
+                      <RemoveButton
+                        name={item.name}
                         disabled={removing}
-                        onClick={() => remove(item)}
-                      >
-                        <span aria-hidden="true">×</span>
-                      </button>
+                        onRemove={() => remove(item)}
+                      />
                     </span>
                   ) : canEdit && item.removable ? (
-                    <button
-                      type="button"
-                      className="item-remove"
-                      aria-label={`Remove ${item.name}`}
+                    <RemoveButton
+                      name={item.name}
                       disabled={removing}
-                      onClick={() => remove(item)}
-                    >
-                      <span aria-hidden="true">×</span>
-                    </button>
+                      onRemove={() => remove(item)}
+                    />
                   ) : item.isPlan ? (
                     <span className="item-remove" />
                   ) : (

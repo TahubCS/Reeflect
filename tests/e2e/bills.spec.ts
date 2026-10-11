@@ -149,8 +149,11 @@ test("tracks variable invoices, partial/full payments, unlinking and manual mark
     detail(f.page).getByText("Paid from posted activity", { exact: true }),
   ).toBeVisible();
   await detail(f.page)
-    .getByRole("button", { name: "Unlink payment" })
+    .getByText("Unlink payment", { exact: true })
     .first()
+    .click();
+  await detail(f.page)
+    .getByRole("button", { name: "Confirm unlink payment" })
     .click();
   await expect(
     detail(f.page).getByText("Partially paid", { exact: true }),
@@ -271,7 +274,10 @@ test("requires explicit payment confirmation and reviews edited or deleted payme
   await expect(
     detail(f.page).getByRole("link", { name: "View recorded transaction" }),
   ).toHaveCount(0);
-  await detail(f.page).getByRole("button", { name: "Unlink payment" }).click();
+  await detail(f.page).getByText("Unlink payment", { exact: true }).click();
+  await detail(f.page)
+    .getByRole("button", { name: "Confirm unlink payment" })
+    .click();
   await expect(
     detail(f.page).getByText("Unpaid", { exact: true }),
   ).toBeVisible();

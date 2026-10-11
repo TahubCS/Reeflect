@@ -4587,3 +4587,48 @@ rows", transactions 2 "show more" in steps of 20, plus a view-only list.
 
 ### Open problems
 - Not checked visually in a browser in this session.
+
+## HO-122: Confirm before deleting or disconnecting; fix links on a filtered new transaction
+
+- **Date:** 2026-10-11 (UTC)
+- **Author:** Muhammad Tahub Khatri with Claude Code
+- **Branch / PR:** `fix/ui-confirmations` / PR linked from the branch
+
+### What changed
+- **Broken links:** adding a transaction from a filtered list
+  (`/transactions/new?account=…`) built "Review transfers" as
+  `…/transactions?account=…/transfers` and left the Bills link pointing
+  at Transactions. `transactionsPath()` in `transaction-form.tsx` drops
+  the query for those links; Cancel keeps the filter.
+- **Confirmations:** new shared `Confirm` (`src/components/ui/confirm.tsx`),
+  a `<details>` that names the action, says what happens, and holds a
+  "Confirm …" button, like Recurring's "Remove tracking". Used for:
+  - Import: Discard (deletes the preview and its saved CSV)
+  - Budgets: Remove budget
+  - Bills: Unlink payment
+  - Settings: Disconnect (phone)
+- **Day panel ×:** the first press turns it into "Remove?" on the same
+  button (focus stays), the second removes; moving away resets it.
+- Not changed: Bills "Stop tracking bill" and "Dismiss pattern" and
+  Recurring "Not recurring" have a Restore, so they stay one click.
+- **Dates:** Transfers showed raw ISO dates ("2026-07-14") and Recurring
+  the raw next date; both now read "Jul 14, 2026".
+- **Live regions:** Bills and Budgets form results keep an empty
+  `role="status"` mounted (`.live-region`, no space while empty), so the
+  first message is announced.
+- Tests: `transaction-form.test.ts` (Vitest) for `transactionsPath`;
+  e2e updated for every confirmed action (`pdf-import`, `bills`,
+  `budgets`, `agent-link`, `calendar`) and `transactions.spec.ts` checks
+  the hint links on a filtered new transaction.
+
+### Verified
+- `pnpm lint`, `typecheck`, `format:check`, `docs:check` and `build`
+  pass. `pnpm test:unit`: everything passes except the Neon storage tests,
+  which need `storage-tests` credentials this container does not have.
+- Playwright was not run (Muhammad runs it).
+
+### What's next
+- One shared button style for every feature (still per feature).
+
+### Open problems
+- None.

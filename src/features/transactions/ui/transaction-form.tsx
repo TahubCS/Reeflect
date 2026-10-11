@@ -69,6 +69,13 @@ function Note({
 }
 
 /** Add or edit a transaction by hand (F-04). */
+/**
+ * The Transactions page itself. Cancel can carry an account filter
+ * (`…/transactions?account=…`), which links to subpages must drop.
+ */
+export const transactionsPath = (cancelHref: string): string =>
+  cancelHref.split("?")[0]!;
+
 export function TransactionForm({
   action,
   initial,
@@ -91,6 +98,7 @@ export function TransactionForm({
     transfer: useId(),
   };
   const { errors } = state;
+  const transactionsHref = transactionsPath(cancelHref);
   // After a rejected submit, show what was typed rather than the start values.
   const value = (name: TransactionFormField): string =>
     state.values ? (state.values[name] ?? "") : initial[name];
@@ -242,10 +250,10 @@ export function TransactionForm({
       )}
       <Note id={ids.transfer} error={errors.transfer} />
       <p className={styles.hint}>
-        <Link href={`${cancelHref}/transfers`}>Review transfers</Link> to pair
-        activity or remove a relationship. Linked bill evidence must be reviewed
-        in{" "}
-        <Link href={cancelHref.replace(/\/transactions$/, "/bills")}>
+        <Link href={`${transactionsHref}/transfers`}>Review transfers</Link> to
+        pair activity or remove a relationship. Linked bill evidence must be
+        reviewed in{" "}
+        <Link href={transactionsHref.replace(/\/transactions$/, "/bills")}>
           Bills
         </Link>{" "}
         before changing its transfer label.

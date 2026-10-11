@@ -156,6 +156,22 @@ test("filters the list to one account", async ({ browser, baseURL }) => {
   await expect(page).toHaveURL(/\?account=[0-9a-f-]{36}$/);
   await expect(row(page, "Electric")).toBeVisible();
   await expect(row(page, "Coffee")).toHaveCount(0);
+  // Adding from the filtered list: Cancel keeps the filter, but the hint's
+  // links go to Review transfers and Bills themselves.
+  await page.getByRole("link", { name: "Add a transaction" }).click();
+  await expect(page).toHaveURL(/\/transactions\/new\?account=/);
+  const main = page.getByRole("main");
+  await expect(
+    main.getByRole("link", { name: "Review transfers" }),
+  ).toHaveAttribute("href", /\/w\/[^/]+\/transactions\/transfers$/);
+  await expect(main.getByRole("link", { name: "Bills" })).toHaveAttribute(
+    "href",
+    /\/w\/[^/]+\/bills$/,
+  );
+  await expect(page.getByRole("link", { name: "Cancel" })).toHaveAttribute(
+    "href",
+    /\/transactions\?account=[0-9a-f-]{36}$/,
+  );
 });
 
 test("another user's transaction is not found", async ({

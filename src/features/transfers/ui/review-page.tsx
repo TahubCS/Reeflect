@@ -28,6 +28,16 @@ function href(
     if (value !== undefined) search.set(key, String(value));
   return `/w/${workspaceId}/transactions/transfers?${search}`;
 }
+// "Oct 9, 2026", read as a calendar date (UTC), so it is the same on the
+// server and in the browser.
+const dateFormat = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
+const day = (iso: string) => dateFormat.format(new Date(`${iso}T00:00:00Z`));
+
 function amount(row: ReviewRow) {
   return Number.isSafeInteger(row.amountCents)
     ? formatSigned(cents(row.amountCents))
@@ -38,7 +48,7 @@ function Fact({ row }: { row: ReviewRow }) {
     <div className={styles.fact}>
       <strong>{row.accountName}</strong>
       <span>
-        {row.postedOn} · {amount(row)}
+        {day(row.postedOn)} · {amount(row)}
       </span>
       <span>{row.description}</span>
       <span className={styles.hint}>
@@ -125,7 +135,7 @@ function ReviewForm({
                 onChange={() => setSelected(row.id)}
               />
               <span>
-                <strong>{row.accountName}</strong> · {row.postedOn} ·{" "}
+                <strong>{row.accountName}</strong> · {day(row.postedOn)} ·{" "}
                 {amount(row)}
                 <br />
                 {row.description}
@@ -217,8 +227,8 @@ export function TransferReviewPage({
       </p>
       <p className={styles.hint}>
         {defaultWindow ? "90-day review window" : "Selected review window"}:{" "}
-        {query.from} through {query.to}. This page shows bounded recorded
-        activity, not a complete account history.
+        {day(query.from)} through {day(query.to)}. This page shows bounded
+        recorded activity, not a complete account history.
       </p>
       {!data.canEdit && (
         <p>

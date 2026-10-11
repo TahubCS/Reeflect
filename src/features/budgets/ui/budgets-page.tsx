@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Confirm } from "@/components/ui/confirm";
 import { absolute, formatCents } from "@/lib/money";
 import {
   copyBudgetsAction,
@@ -191,15 +192,20 @@ export function BudgetsPage({ data }: { data: BudgetsView }) {
                   )}
                 />
                 {row.allocation !== null ? (
-                  <BudgetOperation
-                    action={removeBudgetAction.bind(
-                      null,
-                      workspaceId,
-                      month,
-                      row.id,
-                    )}
+                  <Confirm
                     label="Remove budget"
-                  />
+                    consequence="This clears the plan for this category this month. Spending stays as it is; you can set a new budget any time."
+                  >
+                    <BudgetOperation
+                      action={removeBudgetAction.bind(
+                        null,
+                        workspaceId,
+                        month,
+                        row.id,
+                      )}
+                      label="Confirm remove budget"
+                    />
+                  </Confirm>
                 ) : null}
               </div>
             ) : null}

@@ -175,6 +175,17 @@ select {
   color: inherit;
 }
 
+/* A status message that stays in the page so screen readers announce its
+   first message; while empty it takes no space. */
+.live-region:empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 :focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 2px;
