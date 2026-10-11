@@ -14,6 +14,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { uuidv7 } from "../id";
 import { organization, user } from "./auth";
+import { category } from "./categorization";
 
 const timestamptz = (name: string) => timestamp(name, { withTimezone: true });
 
@@ -128,6 +129,21 @@ export const agentPendingLog = pgTable("agent_pending_log", {
   /** The accounts that were listed, in the order they were numbered. */
   accountIds: text("account_ids").array().notNull(),
   askedAt: timestamptz("asked_at").notNull(),
+  /**
+   * What is being asked. `account`: which account a text's spending is for
+   * (ADR-065). `receipt`: whether to log what was read from a receipt photo
+   * (ADR-067); the amount is then a model's read, checked by code, and
+   * nothing is a transaction until the person says yes.
+   */
+  kind: text("kind", { enum: ["account", "receipt"] })
+    .notNull()
+    .default("account"),
+  /** The category shown in a receipt's question, so the save matches it. */
+  categoryId: text("category_id").references(() => category.id, {
+    onDelete: "set null",
+  }),
+  /** The photo's message id: one photo is asked about, and saved, once. */
+  messageId: text("message_id"),
 });
 
 /**

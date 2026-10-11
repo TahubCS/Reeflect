@@ -109,7 +109,7 @@ Priorities follow ADR-043. Lanes: A = Data, B = Web, C = Agent.
 | F-26 | Subscription alerts | P0 | C | When a new subscription is detected, the agent texts that it found one, with the monthly and yearly cost on an image card; the user replies keep or cancel to set the mark. | ADR-031, ADR-038 |
 | F-27 | Log spending by text | P0 | C | "12 lunch": code takes the amount from the text, Gemini picks the category, the agent confirms with the category's remaining budget. | ADR-035 |
 | F-28 | Category and balance questions | P0 | C | "How much did I spend on food?" answered through tools with exact numbers. | ADR-031, ADR-035 |
-| F-29 | Receipt photos | Later | C | Photo of a receipt becomes a proposed transaction, saved only after the user confirms. | ADR-035 |
+| F-29 | Receipt photos | Later | C | Photo of a receipt becomes a proposed transaction, saved only after the user confirms. Built, and off unless `AGENT_RECEIPT_PHOTOS` is on. | ADR-035, ADR-067 |
 | F-30 | Weekly recap text | Later | C | Sunday evening summary with the week-ahead image. | ADR-038 |
 | F-31 | Household group chat | Later | C | The agent in a family group chat answers about the household calendar only. | ADR-034 |
 | F-32 | Agent worker | P0 | C | Long-running Spectrum process on Render that relays messages between iMessage and the Next.js brain. | ADR-032 |

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_PHOTO_BYTES,
+  PHOTO_MIME_TYPES,
   PLATFORMS,
   sendRequestSchema,
   turnRequestSchema,
@@ -51,6 +53,73 @@ describe("turnRequestSchema", () => {
     for (const input of bad) {
       expect(turnRequestSchema.safeParse(input).success).toBe(false);
     }
+  });
+});
+
+describe("a turn's photo (ADR-067)", () => {
+  const data = Buffer.from("not really a picture").toString("base64");
+  const withPhoto = (photo: unknown) =>
+    turnRequestSchema.safeParse({ ...valid, text: "", photo });
+
+  it("accepts each picture type with its bytes", () => {
+    expect(PHOTO_MIME_TYPES).toEqual([
+      "image/jpeg",
+      "image/png",
+      "image/heic",
+      "image/heif",
+      "image/webp",
+    ]);
+    for (const mimeType of PHOTO_MIME_TYPES) {
+      expect(withPhoto({ status: "attached", mimeType, data }).success).toBe(
+        true,
+      );
+    }
+  });
+
+  it("accepts each reason a picture was not forwarded", () => {
+    for (const status of [
+      "too_large",
+      "unsupported",
+      "several",
+      "unavailable",
+    ]) {
+      expect(withPhoto({ status }).success).toBe(true);
+    }
+  });
+
+  it("accepts a picture exactly at the ceiling and none above it", () => {
+    const atCeiling = "A".repeat((MAX_PHOTO_BYTES / 3) * 4);
+    const photo = { status: "attached", mimeType: "image/jpeg" };
+    expect(withPhoto({ ...photo, data: atCeiling }).success).toBe(true);
+    expect(withPhoto({ ...photo, data: `${atCeiling}AAAA` }).success).toBe(
+      false,
+    );
+  });
+
+  it("rejects other types, bytes that are not base64, and unknown reasons", () => {
+    const bad: unknown[] = [
+      null,
+      {},
+      "attached",
+      { status: "attached", mimeType: "image/gif", data },
+      { status: "attached", mimeType: "application/pdf", data },
+      { status: "attached", mimeType: "image/jpeg" },
+      { status: "attached", mimeType: "image/jpeg", data: "" },
+      { status: "attached", mimeType: "image/jpeg", data: "not base64!" },
+      { status: "attached", mimeType: "image/jpeg", data: 42 },
+      { status: "lost" },
+    ];
+    for (const photo of bad) {
+      expect(withPhoto(photo).success).toBe(false);
+    }
+  });
+
+  it("is dropped, not refused, by a schema that does not know it", () => {
+    // What an app from before this field does with a newer worker's turn.
+    const older = turnRequestSchema.omit({ photo: true });
+    expect(
+      older.parse({ ...valid, text: "", photo: { status: "several" } }),
+    ).toEqual({ ...valid, text: "" });
   });
 });
 

@@ -62,6 +62,7 @@ Update this table when work is assigned or finished. Features are listed in
 | F-26 Subscription alerts | C | Unassigned | — | Not started |
 | F-27 Log spending by text | C | Muhammad Tahub Khatri | `feat/agent-log-spending` | Built (HO-071, ADR-064): log, ask when unsure, UNDO. The account question is remembered and answered in the next text (HO-073, ADR-065). Not built: money in, days before yesterday, receipts |
 | F-28 Category and balance questions | C | Muhammad Tahub Khatri | `feat/agent-questions` | Built (HO-072, ADR-059): this month's spending and budgets by category, the next payments before payday, each account's balance. Not built: any period other than this month so far |
+| F-29 Receipt photos | C | Muhammad Tahub Khatri | `feat/agent-receipt-photos` | Built behind `AGENT_RECEIPT_PHOTOS`, off by default (HO-115, ADR-067). Not tried on a real phone |
 | F-33 Quiet hours settings | B + C | Simon Ormond | `feat/quiet-hours` | Built (HO-096, ADR-104 Proposed): Settings → Notifications and by text, with UNDO. Nothing sends proactive texts yet |
 | F-32 Agent worker | C | Muhammad Tahub Khatri | `feat/agent-worker` | Done, replies only (HO-039, PR #17); live on Render (HO-049) |
 | F-22 Bill reminders (P1) | A + C | Unassigned | — | Not started |
@@ -3989,3 +3990,85 @@ rows", transactions 2 "show more" in steps of 20, plus a view-only list.
 - The e2e run retook the Bills, Budgets and Recurring screenshots in
   `docs/screenshots/` in the new style; other docs images may still show the
   old look.
+
+## HO-115: F-29, receipt photos: read by a model, checked by code, saved on yes (ADR-067)
+
+- **Date:** 2026-10-11 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code)
+- **Branch / PR:** `feat/agent-receipt-photos` / not opened
+
+### What changed
+- **How this was done.** `fix/agent-log-account-followup` was committed and
+  pushed at `3f5f8cb` so this work could build on it. The agent was asked
+  to run in the cloud but ran on this machine, in the worktree
+  `.claude/worktrees/agent-a503939b6c667a740`. It wrote a plan first;
+  Muhammad approved it, and decided the switch is off by default with
+  generated receipts only.
+- **A photo of a receipt becomes a question, and "yes" makes it a
+  transaction** (ADR-067, Proposed). `AGENT_RECEIPT_PHOTOS=on` turns it on;
+  off, a photo gets "I can't read photos yet. Text the amount ...", and no
+  model is called.
+- **Worker** (`agent-worker/src/turn.ts`, `photo.ts`, `worker.ts`): forwards
+  one photo as base64 in the turn (3,000,000 bytes at most; JPEG, PNG,
+  HEIC, HEIF, WebP), or says why it could not. It now also forwards what a
+  threaded reply holds: before, a text swiped onto a message was dropped.
+- **Protocol** (`packages/agent-protocol`): the turn has an optional
+  `photo`. Deploy the app before the worker.
+- **Reading** (`src/features/agent/domain/receipt.ts`,
+  `server/tools/logReceipt.ts`): one model request with the picture and the
+  category names; five fields come back and code checks each. New
+  `parseReceiptTotal` in `src/lib/money`. `src/lib/ai` can send a picture
+  and ask for JSON in a given shape; a photo gets 8 seconds a model.
+- **Waiting** in `agent_pending_log`: **migration 0017** adds `kind`,
+  `category_id` and `message_id`. One account: "yes" saves. Several: the
+  account's number or name saves. "no" drops it. "yes" or "no" with
+  nothing waiting now gets a reply that says so.
+- **Saving** goes through F-27's `saveOn` with `source: "text"`: the same
+  limit, UNDO and "texted in" label. Nothing in the transactions feature
+  changed.
+- `pnpm ai:check receipt` sends the test models a generated receipt.
+  Fixtures: `tests/fixtures/receipts/`, drawn by `generate.ts`.
+- The turn order in `runAgentTurn` is LINK, STOP, the link, a photo, quiet
+  hours, the open question, logging, the answer.
+- **Merged with main (after PR #40):** main had taken this entry's first
+  number for the planning note and migration 0016 for quiet hours, so this
+  entry is HO-115 and the migration was regenerated as **0017**. Conflicts
+  were in `runAgentTurn.ts` and its test, `logSpending.ts`, `pending.ts`,
+  `messaging.ts`, `env.ts`, the migration journal and four docs; both
+  sides were kept. A photo is handled before quiet hours, so a caption is
+  never read as a quiet-hours command. Muhammad's handoff block was full:
+  AGENTS.md section 9 now gives him a second block.
+
+### Verified
+- `pnpm ai:check receipt`, test model `gemini-3.1-flash-lite`, generated
+  receipt: it takes a picture, answers in the shape asked for through
+  `response_format` with no other setting, and read the total and
+  "Groceries" three times, in about 6 seconds each. Two other tries got a
+  503 from Google, as the plain `pnpm ai:check` did in the same minute.
+  The users' models were not asked.
+- **After the merge:** `pnpm lint`, `format:check`, `typecheck`,
+  `docs:check`, `build` and `scan:bundle` pass. `pnpm test:unit`: 2520
+  pass; the 8 that fail are the storage tests that need
+  `.env.storage-tests`, so coverage thresholds were not evaluated.
+  `pnpm test:e2e`: all 123 pass.
+- Tests ran on a separate local database, `app_test_f29`, on the same
+  Docker server, rebuilt from all migrations after the merge. It can be
+  dropped.
+
+### What's next
+- Apply migration 0017 where 0016 is applied, before deploying
+  (`pnpm db:migrate:to`). Deploy the app, then the worker.
+- On a real phone with the switch on and a generated receipt on screen:
+  a photo, "yes", the calendar, UNDO; a photo with a caption; two photos;
+  a Live Photo; a "yes" swiped onto the question.
+- Before the switch is on for real users: a billing-enabled key, and a
+  daily limit on photo reads for each phone (ADR-067).
+
+### Open problems
+- Not tried with a real iMessage: the types and sizes iPhones send, HEIC,
+  and whether a Live Photo arrives as one file or two are unverified.
+- A photo takes about 6 seconds to read, so within the 14 second total
+  only the first model gets a full try.
+- A tapback is not a yes; EXIF data in a photo reaches Gemini; a photo
+  over 3 MB is refused; a receipt from another day is saved as today.
+- A merchant whose name holds a digit ("7-Eleven") is saved as "Receipt".

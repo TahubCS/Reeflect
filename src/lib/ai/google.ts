@@ -18,12 +18,28 @@ const MAX_OUTPUT_TOKENS = 2_000;
 export function googleTransport(apiKey: string): Transport {
   const client = new GoogleGenAI({ apiKey });
 
-  return async ({ model, system, user, timeoutMs }) => {
+  return async ({ model, system, user, image, schema, timeoutMs }) => {
     const interaction = await client.interactions.create(
       {
         model,
-        input: user,
+        // A picture travels inline with the words and is not kept either.
+        input:
+          image === undefined
+            ? user
+            : [
+                { type: "text", text: user },
+                { type: "image", data: image.data, mime_type: image.mimeType },
+              ],
         system_instruction: system,
+        ...(schema === undefined
+          ? {}
+          : {
+              response_format: {
+                type: "text" as const,
+                mime_type: "application/json",
+                schema,
+              },
+            }),
         store: false,
         generation_config: {
           // The lowest level every model in the chain accepts: the

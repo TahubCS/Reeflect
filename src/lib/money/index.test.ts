@@ -15,6 +15,7 @@ import {
   parseDecimalString,
   parseDollars,
   parseExportAmount,
+  parseReceiptTotal,
   parseStatementAmount,
   positivePart,
   quantile,
@@ -213,6 +214,59 @@ describe("parseStatementAmount", () => {
 
   it("never returns negative zero", () => {
     expect(Object.is(parseStatementAmount("-$0.00"), -0)).toBe(false);
+  });
+});
+
+describe("parseReceiptTotal", () => {
+  it.each([
+    ["23.40", 2340],
+    ["$23.40", 2340],
+    [" $23.40 ", 2340],
+    ["0.01", 1],
+    ["1,204.99", 120499],
+    ["$1,204.99", 120499],
+    ["1204.99", 120499],
+    ["9,999.99", 999999],
+    ["1,000,000.00", 100000000],
+    ["1234567.00", 123456700],
+  ])("reads %s as %i cents", (text, expected) => {
+    expect(parseReceiptTotal(text)).toBe(expected);
+  });
+
+  it.each([
+    "",
+    " ",
+    "23.4",
+    "23",
+    "23.",
+    ".40",
+    "12.345",
+    "0.00",
+    "$0.00",
+    "-5.00",
+    "-$5.00",
+    "(5.00)",
+    "5.00-",
+    "5.00 CR",
+    "23,40",
+    "1,20.00",
+    "12,34.00",
+    "1,2345.00",
+    ",123.00",
+    "12345678.00",
+    "23.40 12.00",
+    "22.00, 23.40",
+    "USD 23.40",
+    "23.40 USD",
+    "€23.40",
+    "$ 23.40",
+    "$$23.40",
+    "twenty",
+    "23.40abc",
+    "2.3e1",
+    "٢٣.٤٠",
+  ])("rejects %j", (text) => {
+    expect(parseReceiptTotal(text)).toBeNull();
   });
 });
 

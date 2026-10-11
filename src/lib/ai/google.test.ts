@@ -82,3 +82,51 @@ describe("generateText without a key", () => {
     expect(create).not.toHaveBeenCalled();
   });
 });
+
+describe("a request with a picture (ADR-067)", () => {
+  const image = { mimeType: "image/png", data: "aGVsbG8=" };
+  const schema = { type: "object", properties: { total: { type: "string" } } };
+
+  it("sends the picture inline beside the words, and still keeps nothing", async () => {
+    create.mockResolvedValue({ status: "completed", output_text: "{}" });
+
+    await googleTransport("key-for-tests")({ ...call, image, schema });
+
+    const [params, options] = create.mock.calls[0]!;
+    expect(params).toMatchObject({
+      model: "gemini-test",
+      input: [
+        { type: "text", text: "hello" },
+        { type: "image", data: "aGVsbG8=", mime_type: "image/png" },
+      ],
+      system_instruction: "be brief",
+      // The answer must be JSON in the shape asked for.
+      response_format: {
+        type: "text",
+        mime_type: "application/json",
+        schema,
+      },
+      store: false,
+    });
+    expect(options).toEqual({ timeout: 4_000, maxRetries: 0 });
+  });
+
+  it("asks for no format when no shape is given, as before", async () => {
+    create.mockResolvedValue({ status: "completed", output_text: "Hi." });
+
+    await googleTransport("key-for-tests")(call);
+
+    const [params] = create.mock.calls[0]!;
+    expect(params.input).toBe("hello");
+    expect(params).not.toHaveProperty("response_format");
+  });
+
+  it("reports unavailable without a key and never calls Google", async () => {
+    const { generateFromImage } = await import("./client");
+
+    await expect(
+      generateFromImage({ system: "read it", user: "Categories:", image }),
+    ).rejects.toBeInstanceOf(AiUnavailableError);
+    expect(create).not.toHaveBeenCalled();
+  });
+});
