@@ -17,7 +17,13 @@ const AUTOMATIC = "";
 function itemNote(item: Item, cancelling: boolean) {
   const what = item.kind === "everyday" ? item.category : KIND_LABEL[item.kind];
   if (cancelling) return `${what}, planning to cancel`;
-  if (!item.source) return `${what}, expected`;
+  if (!item.source) {
+    const expected =
+      item.kind === "income"
+        ? "Expected payday"
+        : `Expected ${what.toLowerCase()}`;
+    return item.onCard ? `${expected}, on card` : expected;
+  }
   const parts = [`${what}, ${SOURCE_LABEL[item.source]}`];
   if (item.onCard) parts.push("on card");
   const note = parts.join(", ");

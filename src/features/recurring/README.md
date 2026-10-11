@@ -55,6 +55,23 @@ within safe integer arithmetic. Exceeding the analysis bound shows the page's
 retry state; it never silently computes totals from a partial history. Exceeding
 the saved-series bound returns an error before a refresh writes anything.
 
+## Paydays (ADR-060)
+
+- The same timing rules read posted **deposits into checking and savings** and
+  suggest them as kind `income`, shown as **Payday**. Card credits, transfers,
+  pending and future rows are not read. Charges carry `accountType` from the
+  ledger query for this.
+- A payee that has charges on an account is not also read as pay on it
+  (`groupAll` in `domain/patterns.ts`): one account and payee hold one saved
+  payment, and a shop's refunds are not pay.
+- Paydays are confirmed, added by hand, corrected and dismissed like any other
+  payment. They stay out of cost totals and the payment count; the summary's
+  `income` is expected pay a month from confirmed active paydays. Their
+  `actual` is deposits this month. Keep / planning to cancel stays
+  subscriptions only.
+- The calendar (`src/features/cashflow`) reads confirmed, active payments
+  through `listRecurringPayments` and places them on their expected dates.
+
 ## Actual activity and estimates
 
 - Evidence uses posted negative outflows only. Pending/future rows, zero amounts,
@@ -124,8 +141,8 @@ Migration **0009_recurring_payments** follows main's 0008_insight_sample. It add
 only recurring metadata and an account ownership index. That index precedes its
 dependent foreign key in the SQL. Apply migrations before running the feature.
 
-F-22 reminder scheduling, F-26 proactive iMessage alerts, lender provenance and
-live-data calendar integration remain separate work. This feature supplies APIs
+F-22 reminder scheduling, F-26 proactive iMessage alerts and lender provenance
+remain separate work; the calendar reads confirmed payments (ADR-060). This feature supplies APIs
 for those callers; it does not send messages or create ledger transactions.
 
 ## Verification

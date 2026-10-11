@@ -119,6 +119,7 @@ export function PaymentForm({
         {choice("kind", "Payment kind", initial?.kind ?? "bill", [
           { value: "bill", label: "Bill" },
           { value: "subscription", label: "Subscription" },
+          { value: "income", label: "Payday" },
         ])}
         {choice(
           "amountMode",

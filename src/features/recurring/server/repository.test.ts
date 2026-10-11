@@ -463,4 +463,55 @@ describe("recurring persistence with real PostgreSQL", () => {
     await db.delete(organization).where(eq(organization.id, ws));
     expect(await row(ws, merchant)).toBeUndefined();
   });
+  it("suggests, confirms and keeps a payday from deposits into checking (ADR-060)", async () => {
+    const merchant = name();
+    await charges(merchant, a, accountA, [145000, 145000, 145000]);
+
+    const suggested = (await listRecurringPayments(a, NOW)).payments.find(
+      (payment) => payment.merchant === merchant,
+    );
+    expect(suggested).toMatchObject({
+      kind: "income",
+      decision: "candidate",
+      nextOn: "2026-11-01",
+    });
+
+    expect(await confirmPattern(a, accountA, merchant, NOW)).toBe("ok");
+    expect(await row(a, merchant)).toMatchObject({
+      kind: "income",
+      decision: "confirmed",
+      baselineAmountCents: 145000,
+    });
+    expect(await setPaymentIntent(a, accountA, merchant, "cancel")).toBe(
+      "not_subscription",
+    );
+    const { summary } = await listRecurringPayments(a, NOW);
+    expect(summary.income).toBeGreaterThanOrEqual(145000);
+    expect(
+      (await listSubscriptions(a, NOW)).some(
+        (payment) => payment.merchant === merchant,
+      ),
+    ).toBe(false);
+  });
+  it("saves a payday entered by hand", async () => {
+    const merchant = name();
+
+    expect(
+      await savePayment(a, {
+        ...input(merchant),
+        name: "Pay",
+        kind: "income",
+        amountMode: "fixed",
+        unit: "days",
+        every: 14,
+        amountCents: 145000,
+      }),
+    ).toBe("ok");
+    expect(await row(a, merchant)).toMatchObject({
+      kind: "income",
+      decision: "confirmed",
+      manual: true,
+      userIntent: "none",
+    });
+  });
 });

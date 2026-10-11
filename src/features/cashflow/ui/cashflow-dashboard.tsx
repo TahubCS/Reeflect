@@ -2,10 +2,18 @@
 
 import { MotionConfig, motion } from "motion/react";
 import Link from "next/link";
-import { type ReactNode, useMemo, useState } from "react";
-import { APP_NAME } from "@/config/app";
-import { absolute, formatCents, times } from "@/lib/money";
 import {
+  type ReactNode,
+  useMemo,
+  useOptimistic,
+  useState,
+  useTransition,
+} from "react";
+import { APP_NAME } from "@/config/app";
+import { cadenceLabel } from "@/features/recurring/client";
+import { absolute, formatCents } from "@/lib/money";
+import {
+  type Recurring,
   buildMonth,
   sourceCounts,
   subscriptionCosts,
@@ -16,15 +24,16 @@ import {
   type YearMonth,
   addMonths,
   formatLong,
+  formatShort,
   monthName,
   monthOf,
   monthTitle,
   monthsApart,
-  ordinal,
   parseIso,
   toIso,
 } from "../domain/dates";
 import { MONTHS_AHEAD, UNCATEGORIZED } from "../domain/from-records";
+import { setSubscriptionIntentAction } from "../server/actions";
 import type { Dashboard } from "../server/load";
 import { Agenda } from "./agenda";
 import { BalanceLine } from "./balance-line";
@@ -83,15 +92,33 @@ export function CashflowDashboard({
   categories,
   canEdit,
   linkState,
+  suggestions,
 }: Dashboard) {
   const [view, setView] = useState<YearMonth>(monthOf(today));
   const [selected, setSelected] = useState<IsoDate>(today);
   const [hovered, setHovered] = useState<IsoDate | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [layout, setLayout] = useState<"calendar" | "list">("calendar");
-  const [cancelPlans, setCancelPlans] = useState<ReadonlySet<string>>(
-    new Set(),
+  // Saved on Recurring payments (ADR-058); a tap shows at once while it saves.
+  const savedPlans = useMemo(
+    () =>
+      new Set(
+        data.recurring
+          .filter((rule) => rule.userIntent === "cancel")
+          .map((rule) => rule.id),
+      ) as ReadonlySet<string>,
+    [data],
   );
+  const [cancelPlans, planCancel] = useOptimistic(
+    savedPlans,
+    (current, change: { id: string; cancelling: boolean }) => {
+      const next = new Set(current);
+      if (change.cancelling) next.add(change.id);
+      else next.delete(change.id);
+      return next as ReadonlySet<string>;
+    },
+  );
+  const [, startSaving] = useTransition();
 
   const month = useMemo(
     () => buildMonth(data, view, today),
@@ -116,12 +143,18 @@ export function CashflowDashboard({
     );
   };
 
-  const toggleCancel = (id: string) =>
-    setCancelPlans((current) => {
-      const next = new Set(current);
-      if (!next.delete(id)) next.add(id);
-      return next;
+  const toggleCancel = (rule: Recurring) => {
+    if (!rule.target) return;
+    const cancelling = !cancelPlans.has(rule.id);
+    const target = rule.target;
+    startSaving(async () => {
+      planCancel({ id: rule.id, cancelling });
+      await setSubscriptionIntentAction(workspaceId, {
+        ...target,
+        intent: cancelling ? "cancel" : "keep",
+      });
     });
+  };
 
   if (accounts.length === 0) {
     return (
@@ -157,6 +190,15 @@ export function CashflowDashboard({
                 You have <Figure>{formatCents(summary.balanceToday)}</Figure>{" "}
                 today.
               </h1>
+            )}
+            {!payday && (
+              <p className="hero-why">
+                Confirm your payday on{" "}
+                <Link href={`/w/${workspaceId}/subscriptions`}>
+                  Recurring payments
+                </Link>{" "}
+                to see what you can spend each day until then.
+              </p>
             )}
             {payday && (
               <p className="hero-why">
@@ -359,13 +401,25 @@ export function CashflowDashboard({
 
             <section aria-labelledby="subscription-heading">
               <h2 id="subscription-heading">Subscriptions</h2>
+              {suggestions > 0 && (
+                <p className="lede">
+                  <Link
+                    href={`/w/${workspaceId}/subscriptions?state=candidate`}
+                  >
+                    {suggestions === 1
+                      ? "1 recurring payment to review"
+                      : `${suggestions} recurring payments to review`}
+                  </Link>
+                  . Once you confirm them they show on the calendar.
+                </p>
+              )}
               {subscriptions.count === 0 ? (
                 <p className="lede">
-                  Your subscriptions and regular bills are on the{" "}
+                  No confirmed subscriptions yet. They come from{" "}
                   <Link href={`/w/${workspaceId}/subscriptions`}>
                     Recurring payments
-                  </Link>{" "}
-                  page for now.
+                  </Link>
+                  .
                 </p>
               ) : (
                 <>
@@ -394,17 +448,22 @@ export function CashflowDashboard({
                                 {rule.name}
                               </span>
                               <span className="item-note">
-                                {formatCents(absolute(rule.amount))} on the{" "}
-                                {ordinal(rule.day)},{" "}
-                                {formatCents(times(absolute(rule.amount), 12))}{" "}
-                                a year
+                                {formatCents(absolute(rule.amount))},{" "}
+                                {cadenceLabel(
+                                  rule.unit,
+                                  rule.every,
+                                ).toLowerCase()}{" "}
+                                · next {formatShort(rule.nextOn)},{" "}
+                                {formatCents(rule.yearly)} a year
+                                {rule.onCard ? ", on card" : ""}
                               </span>
                             </span>
                             <button
                               type="button"
                               className="plan"
                               aria-pressed={cancelling}
-                              onClick={() => toggleCancel(rule.id)}
+                              disabled={!canEdit}
+                              onClick={() => toggleCancel(rule)}
                             >
                               {cancelling ? "Planning to cancel" : "Keeping"}
                             </button>

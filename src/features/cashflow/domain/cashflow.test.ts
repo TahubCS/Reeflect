@@ -5,6 +5,7 @@ import {
   type Entry,
   type Recurring,
   buildMonth,
+  occurrences,
   sourceCounts,
   subscriptionCosts,
   summarize,
@@ -25,13 +26,28 @@ function entry(overrides: Partial<Entry> & Pick<Entry, "date">): Entry {
   };
 }
 
+/** Monthly on `day`, anchored in January 2026 so short months clamp. */
+function monthlyOn(day: number) {
+  return {
+    unit: "months" as const,
+    every: 1,
+    nextOn: `2026-01-${String(day).padStart(2, "0")}`,
+  };
+}
+
+function yearOf(amount: number) {
+  const monthly = cents(Math.abs(amount));
+  return { monthly, yearly: cents(Math.abs(amount) * 12) };
+}
+
 const PAYCHECK: Recurring = {
   id: "pay",
   name: "Paycheck",
   amount: cents(200000),
   kind: "income",
   category: "Pay",
-  day: 15,
+  ...monthlyOn(15),
+  ...yearOf(200000),
 };
 
 function bill(day: number, amount: number, id = `bill-${day}`): Recurring {
@@ -41,7 +57,8 @@ function bill(day: number, amount: number, id = `bill-${day}`): Recurring {
     amount: cents(amount),
     kind: "bill",
     category: "Housing",
-    day,
+    ...monthlyOn(day),
+    ...yearOf(amount),
   };
 }
 
@@ -143,7 +160,7 @@ describe("buildMonth", () => {
 
     expect(february.days[27]?.items).toMatchObject([
       {
-        id: "rent@2026-02",
+        id: "rent@2026-02-28",
         date: "2026-02-28",
         planned: true,
         recurringId: "rent",
@@ -244,7 +261,7 @@ describe("summarize: the per-day amount", () => {
 
   it("uses one day when payday is tomorrow", () => {
     const summary = summarize(
-      data({ recurring: [{ ...PAYCHECK, day: 11 }] }),
+      data({ recurring: [{ ...PAYCHECK, ...monthlyOn(11) }] }),
       TODAY,
     );
 
@@ -378,7 +395,8 @@ describe("subscriptionCosts", () => {
     amount: cents(amount),
     kind: "subscription",
     category: "Subscriptions",
-    day: 9,
+    ...monthlyOn(9),
+    ...yearOf(amount),
   });
   const recurring = [
     subscription("streaming", -1549),
@@ -466,6 +484,94 @@ describe("card rows", () => {
       name: "Groceries",
       total: 3000,
       count: 1,
+    });
+  });
+});
+
+describe("occurrences", () => {
+  const every = (
+    unit: "days" | "months",
+    n: number,
+    nextOn: string,
+  ): Recurring => ({
+    ...PAYCHECK,
+    unit,
+    every: n,
+    nextOn,
+  });
+
+  it("steps every 14 days from the next date, across months", () => {
+    const rule = every("days", 14, "2026-02-13");
+
+    expect(occurrences(rule, FEBRUARY)).toEqual(["2026-02-13", "2026-02-27"]);
+    expect(occurrences(rule, { year: 2026, month: 3 })).toEqual([
+      "2026-03-13",
+      "2026-03-27",
+    ]);
+  });
+
+  it("falls only in the right months for a quarterly item", () => {
+    const rule = every("months", 3, "2026-01-20");
+
+    expect(occurrences(rule, FEBRUARY)).toEqual([]);
+    expect(occurrences(rule, { year: 2026, month: 4 })).toEqual(["2026-04-20"]);
+    expect(occurrences(rule, { year: 2027, month: 1 })).toEqual(["2027-01-20"]);
+  });
+
+  it("has nothing before the next date", () => {
+    expect(
+      occurrences(every("months", 1, "2026-05-01"), { year: 2026, month: 3 }),
+    ).toEqual([]);
+  });
+
+  it("lists a weekly item four or five times a month", () => {
+    expect(occurrences(every("days", 7, "2026-02-02"), FEBRUARY)).toHaveLength(
+      4,
+    );
+  });
+});
+
+describe("repeating items on a card", () => {
+  it("show as expected spending without moving the balance line or the sum", () => {
+    const cardSub: Recurring = {
+      ...bill(20, -1500, "music"),
+      kind: "subscription",
+      onCard: true,
+    };
+    const month = buildMonth(
+      data({ recurring: [PAYCHECK, cardSub] }),
+      FEBRUARY,
+      TODAY,
+    );
+    const summary = summarize(data({ recurring: [PAYCHECK, cardSub] }), TODAY);
+
+    expect(month.days[19]?.items).toMatchObject([
+      { name: "Rent", onCard: true, planned: true },
+    ]);
+    expect(month.days[19]?.endBalance).toBe(100000 + 200000);
+    expect(summary.dueTotal).toBe(0);
+  });
+});
+
+describe("subscriptionCosts with other schedules", () => {
+  it("uses each item's yearly estimate, so a quarterly one is not counted monthly", () => {
+    const quarterly: Recurring = {
+      ...bill(1, -3000, "storage"),
+      kind: "subscription",
+      unit: "months",
+      every: 3,
+      monthly: cents(1000),
+      yearly: cents(12000),
+    };
+
+    expect(
+      subscriptionCosts(data({ recurring: [quarterly] }), new Set(["storage"])),
+    ).toEqual({
+      count: 1,
+      monthly: 1000,
+      yearly: 12000,
+      markedCount: 1,
+      yearlySavingIfCancelled: 12000,
     });
   });
 });

@@ -31,6 +31,12 @@ type Props = {
   total: number;
   pageSize: number;
 };
+const KIND_LABEL = {
+  bill: "Bill",
+  subscription: "Subscription",
+  income: "Payday",
+} as const;
+
 const INTENT_LABEL = {
   none: "No choice saved",
   keep: "Keep",
@@ -61,9 +67,8 @@ function PaymentCard({
         </span>
       </div>
       <p>
-        {payment.accountName} ·{" "}
-        {payment.kind === "bill" ? "Bill" : "Subscription"} · {payment.cadence}{" "}
-        · {payment.amountMode === "fixed" ? "Fixed amount" : "Variable amount"}
+        {payment.accountName} · {KIND_LABEL[payment.kind]} · {payment.cadence} ·{" "}
+        {payment.amountMode === "fixed" ? "Fixed amount" : "Variable amount"}
       </p>
       <p className={styles.amount}>
         {formatCents(payment.amount)}{" "}
@@ -81,14 +86,20 @@ function PaymentCard({
           <dd>{formatCents(payment.yearly)}</dd>
         </div>
         <div>
-          <dt>Actual net charges this month</dt>
+          <dt>
+            {payment.kind === "income"
+              ? "Deposits this month"
+              : "Actual net charges this month"}
+          </dt>
           <dd>{formatCents(payment.actual)}</dd>
         </div>
         <div>
           <dt>
             {payment.dateSource === "user"
               ? "Next date entered by you"
-              : "Expected next charge"}
+              : payment.kind === "income"
+                ? "Expected next payday"
+                : "Expected next charge"}
           </dt>
           <dd>{payment.nextOn ?? "Unknown — add a date to resume tracking"}</dd>
         </div>
@@ -97,7 +108,14 @@ function PaymentCard({
         <p className={styles.note}>
           Recent range {formatCents(payment.low)}–{formatCents(payment.high)}{" "}
           from {payment.sampleCount}{" "}
-          {payment.sampleCount === 1 ? "charge" : "charges"}.{" "}
+          {payment.kind === "income"
+            ? payment.sampleCount === 1
+              ? "deposit"
+              : "deposits"
+            : payment.sampleCount === 1
+              ? "charge"
+              : "charges"}
+          .{" "}
           {payment.amountMode === "variable"
             ? "The typical estimate uses the recent median unless you set an amount."
             : ""}
@@ -118,9 +136,10 @@ function PaymentCard({
       ) : null}
       {payment.decision === "candidate" ? (
         <p>
-          Found repeated dates across {payment.charges.length} matching charges.
-          Check the evidence before confirming. This suggestion is excluded from
-          estimated totals.
+          Found repeated dates across {payment.charges.length} matching{" "}
+          {payment.kind === "income" ? "deposits" : "charges"}. Check the
+          evidence before confirming. This suggestion is excluded from estimated
+          totals.
         </p>
       ) : null}
       {payment.kind === "subscription" && payment.decision === "confirmed" ? (
@@ -133,7 +152,10 @@ function PaymentCard({
       ) : null}
       {payment.charges.length ? (
         <details>
-          <summary>Recent matching charges ({payment.charges.length})</summary>
+          <summary>
+            Recent matching {payment.kind === "income" ? "deposits" : "charges"}{" "}
+            ({payment.charges.length})
+          </summary>
           <ul className={styles.charges}>
             {payment.charges.map((charge) => (
               <li key={charge.id}>
@@ -233,7 +255,10 @@ export function RecurringPage({
       <div className={styles.heading}>
         <div>
           <h1>Recurring payments</h1>
-          <p>Bills and subscriptions, understood from your payment patterns.</p>
+          <p>
+            Bills, subscriptions and paydays, understood from your payment
+            patterns.
+          </p>
         </div>
         {canEdit ? (
           <ActionForm action={refreshAction}>
@@ -268,6 +293,13 @@ export function RecurringPage({
           <h2>Potential annual savings</h2>
           <p className={styles.amount}>{formatCents(summary.saving)}</p>
           <p>If the subscriptions marked planning to cancel stop</p>
+        </div>
+        <div>
+          <h2>Expected pay</h2>
+          <p className={styles.amount}>
+            {formatCents(summary.income)} <span>per month</span>
+          </p>
+          <p>From confirmed paydays; not counted in costs</p>
         </div>
       </section>
       <p className={styles.note}>
@@ -305,6 +337,7 @@ export function RecurringPage({
             <option value="all">All payments</option>
             <option value="bill">Bills</option>
             <option value="subscription">Subscriptions</option>
+            <option value="income">Paydays</option>
           </select>
         </label>
         <label>
