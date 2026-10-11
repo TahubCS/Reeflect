@@ -5,6 +5,7 @@ packages:
   - packages/*
 
 allowBuilds:
+  "@google/genai": false
   "@prisma/client": false
   better-sqlite3: false
   esbuild: false
