@@ -4346,3 +4346,38 @@ rows", transactions 2 "show more" in steps of 20, plus a view-only list.
 ### Open problems
 - Published CI and teammate review remain pending. Transfer review
   bounds and readiness limits remain as documented in HO-116 and HO-117.
+
+## HO-119: Dark mode pages sit on the header's gridded night band
+
+- **Date:** 2026-10-11 (UTC)
+- **Author:** Muhammad Tahub Khatri with Claude Code
+- **Branch / PR:** `claude/confident-lamport-14r5fp` / PR linked from the branch
+
+### What changed
+- In dark mode the page ground matched neither the header's colour nor
+  its grid: pages were blue-grey `#111416`, the header near-black
+  `#0a0a0a` with faint grid lines.
+- `--bg` in dark mode is now `#0a0a0a`, the header's `--head-bg`.
+- New `--page-grid` token: `transparent` in light mode, the header's
+  `--head-grid` in dark mode. `body` draws it with the header's 3.5rem
+  grid.
+- The body, the sticky header (`src/app/(app)/layout.module.css`) and the
+  dashboard hero use `background-attachment: fixed`, so their grid lines
+  line up while the page scrolls.
+- Light mode is unchanged: light grey pages under the dark header band.
+- `tests/e2e/app-nav.spec.ts`: dark mode, body and header have the same
+  background colour, grid, size and attachment; light mode, they differ.
+
+### Verified
+- `pnpm build` passes. Earlier in the session, `app-nav`, `bills`,
+  `budgets`, `recurring`, `calendar` and `accounts` e2e specs passed
+  locally. Muhammad will run the e2e suite himself from here.
+
+### What's next
+- Decide whether light mode should also take the dark ground.
+- The committed screenshots in `docs/screenshots/` still show the old dark
+  ground; they regenerate the next time their specs run.
+
+### Open problems
+- iOS Safari ignores `background-attachment: fixed`, so there the grid
+  scrolls with the page and may not line up exactly with the header.

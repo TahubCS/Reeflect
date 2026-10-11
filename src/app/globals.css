@@ -31,6 +31,10 @@
   --head-grid: rgb(255 255 255 / 0.035);
   --head-in: #6bd49a;
 
+  /* Lines on the page ground. None in light mode; in dark mode the ground
+     is the header's night band, grid and all, so the two read as one. */
+  --page-grid: transparent;
+
   /* Figures that should line up like a statement. */
   --font-num: var(--font-mono), ui-monospace, Menlo, monospace;
 
@@ -51,7 +55,8 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #111416;
+    /* The header's night (--head-bg below), so pages and header match. */
+    --bg: #0a0a0a;
     --surface: #181c1f;
     --surface-soft: #15181b;
     --ink: #ededed;
@@ -64,6 +69,7 @@
     --sub: #9da8f2;
     --head-bg: #0a0a0a;
     --head-tint: #22272b;
+    --page-grid: var(--head-grid);
 
     --sample-bg: #3a2b12;
     --sample-ink: #f1cf91;
@@ -129,8 +135,16 @@ html {
   scroll-padding-top: 8rem;
 }
 
+/* The grid is fixed to the window, like the sticky header's and the
+   dashboard hero's, so its lines run on unbroken from the header into the
+   page while it scrolls. */
 body {
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(var(--page-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--page-grid) 1px, transparent 1px);
+  background-size: 3.5rem 3.5rem;
+  background-attachment: fixed;
   color: var(--ink);
   font-family: var(--font-body), system-ui, sans-serif;
   line-height: 1.5;
@@ -205,6 +219,7 @@ strong {
     linear-gradient(var(--head-grid) 1px, transparent 1px),
     linear-gradient(90deg, var(--head-grid) 1px, transparent 1px);
   background-size: 3.5rem 3.5rem;
+  background-attachment: fixed;
   color: var(--head-ink);
 }
 
