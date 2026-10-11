@@ -12,11 +12,12 @@ import {
   createLinkCodeAction,
   disconnectAction,
   rejectLinkAction,
+  setAlertTypesAction,
   setProactiveOptInAction,
   setQuietHoursAction,
 } from "./actions";
 import { claimLinkCode, findIdentity, getLinkState } from "./link";
-import { getQuietHours } from "./notifications";
+import { getAlertTypes, getQuietHours } from "./notifications";
 
 // Integration tests against the Docker database (TEST-05). The session and
 // Next's router refresh are the only parts replaced. Calls from a
@@ -217,6 +218,11 @@ describe("phone link actions", () => {
     () => disconnectAction(workspaceId),
     () => setProactiveOptInAction(workspaceId, true),
     () => setQuietHoursAction(workspaceId, "23:00", "07:00"),
+    () =>
+      setAlertTypesAction(workspaceId, {
+        subscriptionAlerts: true,
+        billReminders: true,
+      }),
   ];
 
   it("is not found for a workspace the user owns that is not their Personal one", async () => {
@@ -290,5 +296,36 @@ describe("setQuietHoursAction", () => {
       startMinute: 22 * 60,
       endMinute: 6 * 60,
     });
+  });
+});
+
+describe("setAlertTypesAction", () => {
+  it("saves which proactive texts the signed-in user wants", async () => {
+    const me = await newUser();
+    signedIn.session = { user: { id: me.userId } };
+
+    await setAlertTypesAction(me.workspaceId, {
+      subscriptionAlerts: false,
+      billReminders: true,
+    });
+
+    expect(await getAlertTypes(me.userId)).toEqual({
+      subscriptionAlerts: false,
+      billReminders: true,
+    });
+    expect(worker.sendToPhone).not.toHaveBeenCalled();
+  });
+
+  it("refuses anything but two booleans", async () => {
+    const me = await newUser();
+    signedIn.session = { user: { id: me.userId } };
+
+    await expect(
+      setAlertTypesAction(me.workspaceId, {
+        subscriptionAlerts: "yes",
+        billReminders: true,
+      } as unknown as { subscriptionAlerts: boolean; billReminders: boolean }),
+    ).rejects.toThrow();
+    expect((await getAlertTypes(me.userId)).subscriptionAlerts).toBe(true);
   });
 });

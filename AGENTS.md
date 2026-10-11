@@ -260,10 +260,10 @@ src/
                             (dashboard, accounts, …, settings) (ADR-007)
       <name>/               flat URL (/dashboard) that redirects into the
                             user's Personal workspace
-    api/                    route handlers: auth, health; Plaid webhooks,
-                            agent turn and job tick (planned)
+    api/                    route handlers: auth, health, agent turn, job
+                            tick; Plaid webhooks (planned)
   features/                 one folder per feature, owned by whoever is assigned
-    <feature>/              built so far: accounts, agent, auth, bills, budgets,
+    <feature>/              built so far: accounts, agent, alerts, auth, bills, budgets,
                             cashflow, categorization, imports, insights,
                             landing, messaging, plans, recurring,
                             synthetic, transactions

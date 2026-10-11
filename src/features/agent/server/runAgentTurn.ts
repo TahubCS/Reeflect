@@ -1,5 +1,6 @@
 import "server-only";
 import type { TurnRequest } from "@reeflect/agent-protocol";
+import { alertReplyTurn } from "@/features/alerts";
 import {
   type ClaimResult,
   claimLinkCode,
@@ -77,6 +78,11 @@ export async function runAgentTurn(
   // ADR-038).
   const quiet = parseQuietHoursCommand(turn.text);
   if (quiet.type !== "none") return quietHoursTurn(quiet, identity.userId);
+
+  // Then a reply to the last alert: KEEP, CANCEL, IGNORE or DETAILS
+  // (F-22, F-26, ADR-105).
+  const alertReply = await alertReplyTurn(turn.text, identity);
+  if (alertReply !== null) return alertReply;
 
   // The open question is answered next: "2" or "checking" for an account
   // (ADR-065), "yes" or "no" for a receipt (ADR-067).
