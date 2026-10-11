@@ -95,6 +95,7 @@ when coverage is already met.
 |---|---|
 | Repositories | Every repository function returns only rows for the given `workspaceId`, tested with two workspaces seeded with similar data |
 | Import commit | Commit is atomic: a failure mid-commit leaves no partial rows; re-commit is idempotent |
+| Statement storage | The stored CSV is read back exactly; a blocked preview stores nothing; a changed or missing CSV stops the commit; discard and account delete remove files. Runs against the Neon `storage-tests` branch's bucket (ADR-053), never production's; credentials from `.env.storage-tests` or CI secrets (`tests/support/storage-env.ts`) |
 | Migrations | All migrations apply cleanly to an empty database |
 | Cascade deletes | Deleting an account or workspace removes all dependent rows |
 | Synthetic batches | Loading is atomic (one bad row writes nothing); deleting a batch removes its workspaces, accounts, transactions and markers and leaves other batches alone; a batch row cannot be deleted while its workspaces exist (`scripts/batch/store.test.ts`) |

@@ -10,7 +10,7 @@ import {
   updateAccountAction,
 } from "./actions";
 import { createAccount, getAccount, listAccounts } from "./repository";
-import { statementStore } from "@/lib/storage";
+import { testStore } from "../../../../tests/support/storage";
 import { statementCsvKey } from "@/lib/storage/keys";
 
 // Integration tests against the Docker database (TEST-05); only the session
@@ -241,7 +241,7 @@ describe("deleteAccountAction", () => {
       maskLast4: null,
       balanceCents: null,
     });
-    const store = statementStore()!;
+    const store = testStore();
     const mine = statementCsvKey(workspace, id, "batch-1");
     const other = statementCsvKey(workspace, "another-account", "batch-1");
     await store.put(mine, "csv", "text/csv");

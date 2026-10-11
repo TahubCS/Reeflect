@@ -913,10 +913,20 @@ Rules:
     amounts as plain decimals from `src/lib/money`. Rows only: no name,
     address or full account number.
   - **Where:** a private bucket `statements` in Neon object storage
-    (S3-compatible, declared in `neon.ts`), key
+    (declared in `neon.ts`), key
     `w/<workspaceId>/a/<accountId>/<importBatchId>.csv`. `import_batch`
-    stores the key and the CSV's SHA-256. Locally and in CI, S3Mock in
-    Docker stands in; tests never touch Neon.
+    stores the key and the CSV's SHA-256. The app talks to it only through
+    Neon's Files SDK adapter (`files-sdk/neon`), which uses the AWS S3
+    client internally; the four `AWS_*` variable names are Neon's.
+  - **Neon in every environment, no emulator:** each environment uses a
+    Neon branch's own bucket (storage credentials are branch-scoped).
+    Deployments use their branch's bucket. Local development, Vitest and
+    Playwright use the schema-only branch `storage-tests`, whose
+    credentials come from a gitignored `.env.storage-tests` locally and from
+    repository secrets in CI. This is the one exception to "tests never
+    touch Neon": the database in tests is still local Postgres, and nothing
+    in tests ever uses production's bucket. Test keys sit under random
+    workspace ids, so parallel runs don't collide.
   - **Checks that the CSV is accurate:** before it is stored, the CSV is
     read back and must equal the parsed rows exactly. At commit, the stored
     file is downloaded, its SHA-256 compared with the preview's, parsed and
@@ -939,7 +949,10 @@ Rules:
   check); keeping the PDF too (more to protect: full account numbers and
   addresses).
 - **Consequences:** Five storage environment variables; without them import
-  is switched off rather than failing. Vercel caps a request body at 4.5 MB,
+  is switched off rather than failing. Storage tests need network access
+  and the `storage-tests` credentials; CI needs four repository secrets,
+  and pull requests from forks don't get them. Objects the E2E tests leave
+  in the test bucket accumulate until the bucket is cleared. Vercel caps a request body at 4.5 MB,
   below ADR-044's 10 MB, so larger PDFs fail there until uploads go another
   way. A failed storage delete leaves an orphaned file, logged by id.
 

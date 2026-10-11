@@ -1564,16 +1564,24 @@ recommendation, not a decision.
   - server actions and the `/import` page: upload, a blocked result with
     its checks, preview, first-import confirmation, commit, discard, and
     waiting previews
-- **`src/lib/storage/`:** S3 client for Neon object storage (path-style),
+- **`src/lib/storage/`:** the statements bucket through Neon's Files SDK adapter,
   and keys `w/<ws>/a/<account>/<batch>.csv`. Deleting an account deletes
   its CSVs. Env vars: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
   `AWS_ENDPOINT_URL_S3`, `AWS_REGION`, `STATEMENTS_BUCKET`, all five or
   none. Without them import is switched off; they are **not** required on
   Vercel, so deploys don't break.
 - **`neon.ts`** declares the bucket (`@neon/config`).
-- **Local and CI storage:** S3Mock (`adobe/s3mock:4.7.0`) in
-  `docker-compose.yml` (host port 9100) and in the CI `unit` and `e2e`
-  jobs. MinIO's images are no longer on Docker Hub.
+- **Storage is Neon everywhere (no emulator):** the app uses Neon's Files
+  SDK adapter (`files-sdk@2.6.0`, pinned; `files-sdk/neon`). Our code never
+  imports `@aws-sdk`, but the adapter needs four `@aws-sdk/*` packages
+  installed. Tests and local development use a new **schema-only Neon
+  branch `storage-tests`** (`br-polished-hall-b439q9bu`) with its own
+  `statements` bucket. Credentials come from gitignored
+  `.env.storage-tests`, and Vitest and Playwright read only the storage
+  variables from it (`tests/support/storage-env.ts`). CI reads four
+  repository secrets: `NEON_TEST_STORAGE_ACCESS_KEY_ID`,
+  `NEON_TEST_STORAGE_SECRET_ACCESS_KEY`, `NEON_TEST_STORAGE_ENDPOINT`,
+  `NEON_TEST_STORAGE_REGION`.
 - `next.config.ts`: server action body limit 11 MB.
 - `src/lib/money`: `parseStatementAmount`, `toDecimalString`,
   `parseDecimalString`.
@@ -1583,11 +1591,16 @@ recommendation, not a decision.
   missed `tests/fixtures/synthetic/private/`, where the sample statement is.
 - **Isolation matrix:** `EntryPointTarget` gained `importBatchId`; the
   three import actions are in it.
-- **Tests:** `pnpm test:unit` (780) and `pnpm test:e2e` (67, including the
+- **Tests:** `pnpm test:unit` (779) and `pnpm test:e2e` (67, including the
   new `pdf-import.spec.ts`) pass. `pnpm lint`, `typecheck`, `format:check`,
-  `docs:check` and `scan:bundle` pass.
+  `docs:check` and `scan:bundle` pass. Storage tests ran against the Neon
+  `storage-tests` bucket.
 
 ### What's next
+- **Add the four CI secrets** (GitHub → Settings → Secrets and variables →
+  Actions), with the values from `.env.storage-tests`; until then CI's
+  storage tests fail. Teammates pull `.env.storage-tests` themselves with
+  the command in AGENTS.md section 5.
 - **Deploy:**
   1. `neon link`, then `neon deploy` to create the bucket.
   2. Set the five storage vars on Vercel (Production and Preview), with
@@ -1609,6 +1622,11 @@ recommendation, not a decision.
   that wrap onto a second line) may need template changes. A dropped row
   can't go unnoticed, because reconciliation blocks the import.
 - Vercel caps request bodies at 4.5 MB, below ADR-044's 10 MB.
+- E2E runs leave objects in the `storage-tests` bucket; nothing clears it
+  yet.
+- One full E2E run on 2026-10-10 failed across unrelated specs (calendar,
+  auth, import) with ~2.7-minute timeouts. The next full run and the import
+  spec alone passed. Cause not found; watch for it in CI.
 - Deleting a workspace (F-19, not built) must also delete `w/<ws>/` from
   the bucket.
 - A failed storage delete leaves an orphaned CSV, logged by id.

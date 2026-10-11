@@ -220,9 +220,14 @@ thing it runs:
 Once `agent-worker/` and `packages/` exist (they don't yet), root
 `pnpm lint`, `pnpm typecheck` and `pnpm test:unit` must cover them too.
 
-Unit and E2E tests need the local services: `docker compose up -d` starts
-Postgres (host port 5433) and S3Mock for object storage (host port 9100).
-Tests never use the Neon database or bucket in `.env.local`.
+Unit and E2E tests need the local database: `docker compose up -d` (host
+port 5433). Tests never use the Neon database in `.env.local`. Object
+storage is the one exception: storage tests use the Neon `storage-tests`
+branch's bucket (ADR-053). Pull its credentials once with
+`neon env pull --project-id small-tree-10245355 --branch storage-tests --file .env.storage-tests`
+and add `STATEMENTS_BUCKET=statements` to that file. Tests read only the
+storage variables from it, never its `DATABASE_URL`, and never use
+production's bucket.
 
 Use `pnpm` only. Never commit `package-lock.json` or `yarn.lock`.
 
@@ -259,8 +264,8 @@ src/
                             Personal workspace on sign-up
     email/                  Resend sender and email templates; local outbox
                             without a key (ADR-052)
-    storage/                statements bucket in Neon object storage, S3Mock
-                            locally (ADR-053)
+    storage/                statements bucket in Neon object storage, through
+                            Neon's Files SDK adapter (ADR-053)
     env.ts                  zod validation of the app's environment variables
     security/               encryption, rate limiting, redaction (planned)
     ai/                     model client, placeholder filling, digit scan (planned)

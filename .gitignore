@@ -50,3 +50,4 @@ plan.md
 
 # real or redacted sample statements: never committed (TEST-08)
 tests/fixtures/**/private/
+.neon

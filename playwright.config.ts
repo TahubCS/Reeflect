@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { testStorageEnv } from "./tests/support/storage-env";
 
 const isCi = Boolean(process.env.CI);
 // Set PORT when something else (such as `pnpm dev`) already uses 3000.
@@ -48,14 +49,10 @@ export default defineConfig({
       // links there (ADR-052). Empty values win over .env.local.
       RESEND_API_KEY: "",
       EMAIL_FROM: "",
-      // S3Mock from docker-compose.yml, never Neon object storage (ADR-053).
-      // These win over any AWS_* values in .env.local.
-      AWS_ACCESS_KEY_ID: "test-access-key",
-      AWS_SECRET_ACCESS_KEY: "test-secret-key",
-      AWS_ENDPOINT_URL_S3:
-        process.env.AWS_ENDPOINT_URL_S3 ?? "http://localhost:9100",
-      AWS_REGION: "us-east-1",
-      STATEMENTS_BUCKET: "statements",
+      // The Neon `storage-tests` branch's bucket, never production's
+      // (ADR-053): from CI secrets or .env.storage-tests. These win over
+      // any storage values in .env.local.
+      ...testStorageEnv(),
     },
   },
 });

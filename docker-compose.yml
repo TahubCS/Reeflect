@@ -1,9 +1,8 @@
 # Local services for development and tests. Same credentials as CI.
 #   docker compose up -d
 # PostgreSQL (ADR-005) on host port 5433, so it does not clash with another
-# local Postgres. S3Mock stands in for Neon object storage (ADR-053) on host
-# port 9100, with the `statements` bucket created at start. It accepts any
-# access key, so tests use dummy ones.
+# local Postgres. Object storage is not here: every environment uses a Neon
+# branch's bucket (ADR-053).
 services:
   postgres:
     image: postgres:16
@@ -18,10 +17,3 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-
-  s3:
-    image: adobe/s3mock:4.7.0
-    environment:
-      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: statements
-    ports:
-      - "9100:9090"

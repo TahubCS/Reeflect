@@ -61,11 +61,11 @@ const envSchema = z
     /** Sender on the Resend-verified domain, e.g. `Reeflect <no-reply@…>`. */
     EMAIL_FROM: optionalText,
     /**
-     * Neon object storage, S3-compatible (ADR-053). `neon env pull` writes
-     * the four AWS_* values for a branch; the bucket name is ours. Locally
-     * and in CI they point at S3Mock from docker-compose.yml. All five or
-     * none: without them statement import is switched off, so a deployment
-     * without storage still starts.
+     * Neon object storage (ADR-053). Neon names the four AWS_* values and
+     * `neon env pull` writes them for a branch; the bucket name is ours.
+     * Local development and tests use the `storage-tests` branch. All five
+     * or none: without them statement import is switched off, so a
+     * deployment without storage still starts.
      */
     AWS_ACCESS_KEY_ID: optionalText,
     AWS_SECRET_ACCESS_KEY: optionalText,

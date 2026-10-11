@@ -1,30 +1,28 @@
 import "server-only";
-import {
-  DeleteObjectCommand,
-  DeleteObjectsCommand,
-  GetObjectCommand,
-  ListObjectsV2Command,
-  NoSuchKey,
-  PutObjectCommand,
-  S3Client,
-} from "@aws-sdk/client-s3";
+import { Files, FilesError } from "files-sdk";
+import { neon } from "files-sdk/neon";
 import { env } from "@/lib/env";
 
-// The statements bucket in Neon object storage (ADR-053), or S3Mock locally
-// and in CI. S3-compatible: path-style addressing, SigV4. Server-only; the
-// browser never gets a key or a URL to an object. Never log an object's
-// body: it holds a person's transactions.
+// The statements bucket in Neon object storage (ADR-053), through Neon's
+// Files SDK adapter. Every environment uses a Neon branch's bucket: local
+// development and tests use the `storage-tests` branch, deployments their
+// own branch (ADR-053). Server-only; the browser never gets a key or a URL
+// to an object. Never log an object's body: it holds a person's
+// transactions.
 
 export type ObjectStore = {
   put(key: string, body: string, contentType: string): Promise<void>;
   /** The object as text, or null when there is no object at `key`. */
   get(key: string): Promise<string | null>;
   delete(key: string): Promise<void>;
+  /** Every key that starts with `prefix`. */
+  listKeys(prefix: string): Promise<string[]>;
   /** Deletes every object whose key starts with `prefix`. */
   deletePrefix(prefix: string): Promise<void>;
 };
 
-type StorageConfig = {
+/** A Neon branch's storage, as `neon env pull` writes it. */
+export type NeonStorageConfig = {
   accessKeyId: string;
   secretAccessKey: string;
   endpoint: string;
@@ -32,69 +30,56 @@ type StorageConfig = {
   bucket: string;
 };
 
-export function createObjectStore(config: StorageConfig): ObjectStore {
-  const client = new S3Client({
-    endpoint: config.endpoint,
-    region: config.region,
-    forcePathStyle: true,
-    credentials: {
+export function createObjectStore(config: NeonStorageConfig): ObjectStore {
+  // Credentials are passed in, never taken from a machine-wide default, so
+  // only the validated Neon branch values are ever used.
+  const files = new Files({
+    adapter: neon({
+      bucket: config.bucket,
+      endpoint: config.endpoint,
+      region: config.region,
       accessKeyId: config.accessKeyId,
       secretAccessKey: config.secretAccessKey,
-    },
+    }),
   });
-  const Bucket = config.bucket;
+  async function listKeys(prefix: string): Promise<string[]> {
+    const keys: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await files.list({ prefix, cursor });
+      keys.push(...page.items.map((item) => item.key));
+      cursor = page.cursor;
+    } while (cursor);
+    return keys;
+  }
+
   return {
     async put(key, body, contentType) {
-      await client.send(
-        new PutObjectCommand({
-          Bucket,
-          Key: key,
-          Body: body,
-          ContentType: contentType,
-        }),
-      );
+      await files.upload(key, body, { contentType });
     },
     async get(key) {
       try {
-        const object = await client.send(
-          new GetObjectCommand({ Bucket, Key: key }),
-        );
-        return (await object.Body?.transformToString("utf-8")) ?? null;
+        return await (await files.download(key)).text();
       } catch (error) {
-        if (error instanceof NoSuchKey) return null;
+        if (error instanceof FilesError && error.code === "NotFound")
+          return null;
         throw error;
       }
     },
     async delete(key) {
-      await client.send(new DeleteObjectCommand({ Bucket, Key: key }));
+      await files.delete(key);
     },
+    listKeys,
     async deletePrefix(prefix) {
-      let token: string | undefined;
-      do {
-        const page = await client.send(
-          new ListObjectsV2Command({
-            Bucket,
-            Prefix: prefix,
-            ContinuationToken: token,
-          }),
-        );
-        const keys = (page.Contents ?? []).flatMap((item) =>
-          item.Key ? [{ Key: item.Key }] : [],
-        );
-        if (keys.length > 0) {
-          await client.send(
-            new DeleteObjectsCommand({ Bucket, Delete: { Objects: keys } }),
-          );
-        }
-        token = page.IsTruncated ? page.NextContinuationToken : undefined;
-      } while (token);
+      const keys = await listKeys(prefix);
+      if (keys.length > 0) await files.delete(keys);
     },
   };
 }
 
 let shared: ObjectStore | null | undefined;
 
-/** The statements bucket, or null when object storage isn't configured. */
+/** The statements bucket, or null when Neon storage isn't configured. */
 export function statementStore(): ObjectStore | null {
   if (shared !== undefined) return shared;
   const {

@@ -1,5 +1,4 @@
 import { readFileSync } from "node:fs";
-import { ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -10,9 +9,9 @@ import { listTransactions } from "@/features/transactions/server/repository";
 import { db } from "@/lib/db/client";
 import { transaction } from "@/lib/db/schema";
 import { cents } from "@/lib/money";
-import { statementStore } from "@/lib/storage";
 import { accountPrefix } from "@/lib/storage/keys";
 import { fixtures } from "../../../../tests/support/db-fixtures";
+import { testStore } from "../../../../tests/support/storage";
 import { toCsv } from "../domain/csv";
 import {
   commitStatement,
@@ -22,10 +21,11 @@ import {
 } from "./pipeline";
 import { getBatch, listPreviews } from "./repository";
 
-// Integration tests against the Docker database and S3Mock (TEST-05).
+// Integration tests against the Docker database and the Neon
+// `storage-tests` bucket (TEST-05, ADR-053).
 
 const f = fixtures();
-const store = statementStore()!;
+const store = testStore();
 let workspace: string;
 let userId: string;
 
@@ -71,19 +71,7 @@ const commit = (batchId: string, confirmIdentity = true) =>
   commitStatement({ workspaceId: workspace, batchId, confirmIdentity, store });
 
 async function storedKeys(accountId: string): Promise<string[]> {
-  const client = new S3Client({
-    endpoint: process.env.AWS_ENDPOINT_URL_S3,
-    region: process.env.AWS_REGION,
-    forcePathStyle: true,
-    credentials: { accessKeyId: "test", secretAccessKey: "test" },
-  });
-  const page = await client.send(
-    new ListObjectsV2Command({
-      Bucket: process.env.STATEMENTS_BUCKET,
-      Prefix: accountPrefix(workspace, accountId),
-    }),
-  );
-  return (page.Contents ?? []).map((item) => item.Key!);
+  return store.listKeys(accountPrefix(workspace, accountId));
 }
 
 async function saved(accountId: string, file: string): Promise<string> {

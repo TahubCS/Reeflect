@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createAccount } from "@/features/accounts/server/repository";
 import { cents } from "@/lib/money";
-import { statementStore } from "@/lib/storage";
+import { testStore } from "../../../../tests/support/storage";
 import {
   fixtures,
   isNotFound,
@@ -15,7 +15,8 @@ import {
 } from "./actions";
 import { listPreviews } from "./repository";
 
-// Integration tests against the Docker database and S3Mock (TEST-05); only
+// Integration tests against the Docker database and the Neon
+// `storage-tests` bucket (TEST-05, ADR-053); only
 // the session is faked. The isolation matrix covers other workspaces.
 const getSession = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/auth/session", () => ({ getSession }));
@@ -65,7 +66,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await statementStore()!.deletePrefix(`w/${workspace}/`);
+  await testStore().deletePrefix(`w/${workspace}/`);
   await f.cleanUp();
 });
 
