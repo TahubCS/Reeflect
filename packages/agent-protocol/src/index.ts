@@ -10,6 +10,19 @@ export const PLATFORMS = ["imessage", "terminal"] as const;
 
 export type Platform = (typeof PLATFORMS)[number];
 
+/**
+ * What the person sent (ADR-066). `text` is read; the others are answered
+ * with a fixed reply, so nothing someone sends is met with silence: `edit`
+ * (a text changed after it was sent), `attachment` (a photo or file),
+ * `voice` (a voice note).
+ */
+export const MESSAGE_KINDS = ["text", "edit", "attachment", "voice"] as const;
+
+export type MessageKind = (typeof MESSAGE_KINDS)[number];
+
+/** `direct` is a one-to-one chat; the agent answers nothing else (ADR-034). */
+export const SPACE_TYPES = ["direct", "group"] as const;
+
 export const turnRequestSchema = z.object({
   platform: z.enum(PLATFORMS),
   /** The sender's phone number or address, as the platform reports it. */
@@ -17,9 +30,15 @@ export const turnRequestSchema = z.object({
   spaceId: z.string().min(1).max(200),
   messageId: z.string().min(1).max(200),
   text: z.string().max(4000),
+  kind: z.enum(MESSAGE_KINDS).default("text"),
+  /** Omitted by an older worker; the app treats a missing type as direct. */
+  spaceType: z.enum(SPACE_TYPES).optional(),
 });
 
+/** What the app reads, after defaults. */
 export type TurnRequest = z.infer<typeof turnRequestSchema>;
+/** What a worker may send: `kind` can be left out for plain text. */
+export type TurnRequestInput = z.input<typeof turnRequestSchema>;
 
 export const turnResponseSchema = z.object({
   reply: z.string().min(1),

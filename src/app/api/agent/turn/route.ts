@@ -25,10 +25,11 @@ export async function POST(request: Request): Promise<Response> {
     const body: TurnResponse = { reply: await runAgentTurn(turn.data) };
     return Response.json(body);
   } catch (error) {
-    // Ids only: never the handle or the message text.
+    // Ids and the error's name only. Never its message: a failed query's
+    // message lists its parameters, which hold the phone number.
     console.error("agent turn failed", {
       messageId: turn.data.messageId,
-      message: error instanceof Error ? error.message : "unknown",
+      reason: error instanceof Error ? error.name : "unknown",
     });
     return Response.json({ error: "turn failed" }, { status: 500 });
   }

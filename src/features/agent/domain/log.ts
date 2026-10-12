@@ -29,6 +29,12 @@ export type Unclear =
   | "too_large"
   | "not_usd"
   | "income"
+  /** "got 100 from mom": in or out cannot be told from the words. */
+  | "direction"
+  /** A card payment or a move between their own accounts (ADR-020). */
+  | "transfer"
+  /** "food budget 300": a budget or a goal, not a purchase. */
+  | "setting"
   | "other_day";
 
 export type LogCommand =
@@ -84,9 +90,20 @@ export function editDistance(a: string, b: string): number {
 // "pain"), so their common misspellings are listed.
 const SPENT_WORDS = ["spent", "bought", "purchased", "charged"];
 const SPENT_EXACT = new Set(["paid", "payed", "piad", "pd"]);
+// Real words one typo away from a spending word that mean something else:
+// "changed budget to 300", "sent 20 to mom", "bought a charger 20".
+const NOT_SPENT = new Set([
+  "changed",
+  "sent",
+  "brought",
+  "charger",
+  "chargers",
+  "charges",
+]);
 
 function isSpentWord(word: string): boolean {
   if (SPENT_EXACT.has(word)) return true;
+  if (NOT_SPENT.has(word)) return false;
   return (
     word.length >= 4 &&
     SPENT_WORDS.some((target) => editDistance(word, target) <= 1)
@@ -117,7 +134,61 @@ const INCOME_WORDS = new Set([
   "deposited",
   "income",
   "reimbursed",
+  "reimbursement",
+  "sold",
+  "bonus",
+  "cashback",
+  "returned",
 ]);
+
+// Money someone gave them: "John paid me 20", "got $100 from mom", "got 20
+// back".
+const INCOME_PHRASE =
+  /\b(?:got paid|paid back|(?:paid|sent|gave|venmoed|venmo'd|zelled|transferred) me|got (?:\$?\d[\d,.]*\$? ?(?:dollars |bucks )?)?back|got \$?\d[\d,.]*\$? (?:dollars |bucks )?from)\b/;
+
+// "got 5 tacos from chipotle" is spending, "got 100 from mom" is not; when
+// "from" follows "got" with something other than an amount between, the
+// direction is not clear enough to save.
+const DIRECTION = /\b(?:got|sent)\b.*\bfrom\b|\bsent\b/;
+
+// A card payment or money moved between their own accounts is never
+// spending (ADR-020).
+const TRANSFER = new RegExp(
+  [
+    String.raw`\b(?:paid|pay|paying|payed) (?:off|down)\b`,
+    String.raw`\b(?:paid|pay|paying|payed) (?:my|the) (?:credit card|card|cc|visa|amex|mastercard|discover)(?: bill)?\b`,
+    String.raw`\bcard (?:payment|bill)\b`,
+    String.raw`\btransfer(?:red|ed|ring)?\b`,
+    String.raw`\b(?:to|into) (?:my |the )?savings\b`,
+    String.raw`\b(?:put|move|moved|saved?) .*\bin (?:my |the )?savings\b`,
+  ].join("|"),
+);
+
+// A budget or a goal with a number is a setting, not a purchase.
+const SETTING_WORDS = new Set(["budget", "budgets", "limit", "goal", "goals"]);
+
+// The text says what they have or owe, not what they spent: "I have 500",
+// "my balance is 500", "credit score 720".
+const STATE_WORDS = new Set([
+  "have",
+  "has",
+  "balance",
+  "balances",
+  "score",
+  "owe",
+  "owes",
+  "owed",
+  "worth",
+  "remaining",
+  "available",
+]);
+
+// Not done, or not done yet: "I didn't spend 20", "need to pay rent 1200".
+// ("phone plan 40" is a purchase, so "plan" alone is not here.)
+const NEGATION =
+  /\b(?:don't|dont|didn't|didnt|never|not|won't|wont|haven't|havent|hasn't|hasnt)\b/;
+const INTENTION =
+  /\b(?:need|needs|want|wants|wanna|going to|gonna|gotta|have to|has to|planning|planned|plan to|might|should|about to|will|would like)\b/;
 
 // A text that opens with one of these is a question for the answer path.
 const QUESTION_WORDS = new Set([
@@ -334,7 +405,38 @@ type Token =
 
 const MONEY = /^\$?(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?\$?$/;
 const ABBREVIATED = /^\$?\d+(?:\.\d+)?[km]$/;
+const MALFORMED_MONEY =
+  /^(?:\$?\d+,\d{1,2}\$?|-\$?\d[\d,.]*\$?|\$\d+(?:\.\d+){2,})$/;
 const DATE_LIKE = /^\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?$/;
+// "on the 3rd", "the 21st".
+const ORDINAL_DAY = /^\d{1,2}(?:st|nd|rd|th)$/;
+// "may" is left out (it is also "I may"), and so are short forms that are
+// also names ("jan").
+const MONTH_NAMES = new Set([
+  "january",
+  "february",
+  "march",
+  "april",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
+  "feb",
+  "apr",
+  "jun",
+  "jul",
+  "aug",
+  "sep",
+  "sept",
+  "oct",
+  "nov",
+  "dec",
+]);
+const OTHER_DAY_PHRASE =
+  /\b(?:last|next|this past) (?:week|month|year|weekend)\b|\bago\b|\bday before\b|\bthe other day\b|\b(?:earlier|this) (?:week|month|year)\b|\bover the weekend\b/;
 const YESTERDAY = /\b(?:yesterday|yday|last night)\b/;
 const DAY_PHRASE = new RegExp(YESTERDAY.source, "gi");
 
@@ -373,6 +475,12 @@ function tokenize(text: string): Token[] {
     if (glued && DOLLAR_UNITS.has(glued[2]!)) core = glued[1]!;
     if (ABBREVIATED.test(core)) {
       tokens.push({ kind: "abbreviated" });
+      continue;
+    }
+    // Written as money but not readable as dollars and cents: "12,50",
+    // "$1,00", "-12", "$1.2.3". Asked about, never guessed.
+    if (MALFORMED_MONEY.test(core)) {
+      tokens.push({ kind: "amount", value: null });
       continue;
     }
 
@@ -481,13 +589,32 @@ export function parseLog(input: string): LogCommand {
     lower.endsWith("?") || QUESTION_WORDS.has(wordTexts[0] ?? "");
   if (isQuestion && !isRequest) return NONE;
   if (HABIT.test(lower)) return NONE;
+  // Not done, or not done yet: nothing to log (ADR-064: never guess).
+  if (NEGATION.test(lower)) return NONE;
+  if (INTENTION.test(lower) && !isRequest) return NONE;
 
   const numbers = tokens.length - words.length;
   const spent = wordTexts.some(isSpentWord);
   const weak = wordTexts.some((word) => WEAK_SPEND_WORDS.has(word));
   const income =
     wordTexts.some((word) => INCOME_WORDS.has(word)) ||
-    /\bgot paid\b/.test(lower);
+    INCOME_PHRASE.test(lower);
+
+  // Statements about what they have or owe are answered, not logged.
+  if (
+    !spent &&
+    !isRequest &&
+    !income &&
+    wordTexts.some((word) => STATE_WORDS.has(word))
+  ) {
+    return NONE;
+  }
+  if (numbers > 0) {
+    if (TRANSFER.test(lower)) return unclear("transfer");
+    if (!spent && wordTexts.some((word) => SETTING_WORDS.has(word))) {
+      return unclear("setting");
+    }
+  }
 
   // What they called it: their words without the verbs and the request.
   const phrase = phraseOf(
@@ -533,6 +660,7 @@ export function parseLog(input: string): LogCommand {
   }
 
   if (income) return unclear("income");
+  if (DIRECTION.test(lower)) return unclear("direction");
   if (tokens.some((token) => token.kind === "foreign")) {
     return unclear("not_usd");
   }
@@ -556,10 +684,12 @@ export function parseLog(input: string): LogCommand {
   const otherDay =
     wordTexts.some(
       (word) =>
-        WEEKDAYS.has(word) || word === "tomorrow" || DATE_LIKE.test(word),
-    ) ||
-    /\b(?:last|next|this past) (?:week|month|year|weekend)\b/.test(lower) ||
-    /\bago\b/.test(lower);
+        WEEKDAYS.has(word) ||
+        MONTH_NAMES.has(word) ||
+        word === "tomorrow" ||
+        DATE_LIKE.test(word) ||
+        ORDINAL_DAY.test(word),
+    ) || OTHER_DAY_PHRASE.test(lower);
   if (otherDay) return unclear("other_day");
 
   if (!named) return unclear("no_description");

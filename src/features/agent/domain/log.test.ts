@@ -87,6 +87,18 @@ describe("parseLog: what is logged", () => {
     // Nonsense words with a clear amount are still what they said.
     ["asdf 12 qwer", NONE],
     ["12 asdf qwer", log(1200, "asdf qwer")],
+    // Still logged after the review's guards (HO-115).
+    ["bought a charger 20", log(2000, "charger")],
+    ["phone plan 40", log(4000, "phone plan")],
+    ["spend 12 on lunch", log(1200, "lunch")],
+    ["paid 40 for gas on my card", log(4000, "gas on my card")],
+    ["40 gas from savings", log(4000, "gas from savings")],
+    ["12 lunch with jan", log(1200, "lunch with jan")],
+    // A request is carried out even with "will" in it.
+    [
+      "can you log 12 lunch, we will split it",
+      log(1200, "lunch we will split"),
+    ],
     // Smart quotes and odd spacing from a phone keyboard.
     ["12 joe’s pizza", log(1200, "joe's pizza")],
     ["12 lunch", log(1200, "lunch")],
@@ -162,6 +174,44 @@ describe("parseLog: what it asks about instead of saving", () => {
     ["spent 12 on lunch 10/3", "other_day"],
     ["12 lunch 2 days ago", "other_day"],
     ["12 lunch last week", "other_day"],
+    // Found by the agent review (HO-115): days in words.
+    ["spent 20 on lunch the day before yesterday", "other_day"],
+    ["spent 12 on lunch on the 3rd", "other_day"],
+    ["40 gas in september", "other_day"],
+    ["spent 40 earlier this week", "other_day"],
+    ["12 lunch the other day", "other_day"],
+    // Money coming in, said in other ways.
+    ["John paid me 20", "income"],
+    ["got 100 from mom", "income"],
+    ["got $100 from mom", "income"],
+    ["got 20 back", "income"],
+    ["sold my bike 200", "income"],
+    ["bonus 500", "income"],
+    ["got my reimbursement 50", "income"],
+    ["returned shoes 40", "income"],
+    ["venmoed me 15 for pizza", "income"],
+    // In or out cannot be told.
+    ["got 50 cash from sam", "direction"],
+    // Cautious on purpose: it could be a gift as well as a purchase.
+    ["got 5 tacos from chipotle", "direction"],
+    ["sent mom 20", "direction"],
+    // Card payments and moves between their own accounts (ADR-020).
+    ["paid off my card 300", "transfer"],
+    ["paid my card 300", "transfer"],
+    ["paid the credit card bill 300", "transfer"],
+    ["put 50 in savings", "transfer"],
+    ["50 to savings", "transfer"],
+    ["transferred 200 to checking", "transfer"],
+    // Budgets and goals.
+    ["food budget 300", "setting"],
+    ["set food budget to 300", "setting"],
+    ["changed budget to 300", "setting"],
+    ["savings goal 1000", "setting"],
+    // Written as money, not readable.
+    ["spent 12,50 on lunch", "bad_amount"],
+    ["$1,00 lunch", "bad_amount"],
+    ["-12 lunch", "bad_amount"],
+    ["$1.2.3 lunch", "bad_amount"],
   ])("%j → %s", (text, reason) => {
     expect(parseLog(text)).toEqual(unclear(reason));
   });
@@ -215,6 +265,20 @@ describe("parseLog: what is not about logging at all", () => {
     ["sounds good"],
     ["lunch"],
     ["balance"],
+    // Statements about what they have or owe (HO-115).
+    ["I have 500"],
+    ["my balance is 500"],
+    ["credit score 720"],
+    ["I owe sam 20"],
+    // Not done, or not yet.
+    ["I didn't spend 20 on lunch"],
+    ["never paid 40 for that"],
+    ["I want to spend 200 on shoes"],
+    ["need to pay rent 1200"],
+    ["going to buy shoes 80"],
+    ["gonna spend 30 on gas"],
+    // A real word one typo from a spending word.
+    ["sent 20 to mom"],
     // STOP belongs to other code. (LINK is taken before this parser runs:
     // see runAgentTurn's tests.)
     ["STOP"],
@@ -407,13 +471,16 @@ describe("chooseAccount", () => {
       card,
       { ...card, id: "a5", nickname: "Venture" },
     ];
+    // The account words they used are taken out of what is asked about.
     expect(chooseAccount("gas on card", twoCards)).toEqual({
       ok: false,
       reason: "which",
+      rest: "gas",
     });
     expect(chooseAccount("gas on card", [everyday, rainy])).toEqual({
       ok: false,
       reason: "which",
+      rest: "gas",
     });
     expect(chooseAccount("lunch on visa", [everyday, card])).toEqual({
       ok: false,
@@ -426,6 +493,7 @@ describe("chooseAccount", () => {
     expect(chooseAccount("lunch from everyday", twins)).toEqual({
       ok: false,
       reason: "which",
+      rest: "lunch",
     });
   });
 
@@ -438,9 +506,33 @@ describe("chooseAccount", () => {
       ok: false,
       reason: "loan",
     });
+    // Only loans: said differently, since there is nothing to name.
     expect(chooseAccount("lunch", [car])).toEqual({
       ok: false,
-      reason: "loan",
+      reason: "only_loans",
+    });
+  });
+
+  it("reads a merchant that is also an account's name as the merchant (HO-115)", () => {
+    const target: LogAccount = {
+      id: "t",
+      nickname: "Target",
+      type: "credit_card",
+    };
+    // "45 target": spending at Target, so with two accounts it asks.
+    expect(chooseAccount("target", [everyday, target])).toMatchObject({
+      ok: false,
+      reason: "which",
+    });
+    // With "on" it names the card.
+    expect(chooseAccount("snacks on target", [everyday, target])).toEqual({
+      ok: true,
+      account: target,
+      rest: "snacks",
+    });
+    // After other words it still names the card, as before.
+    expect(chooseAccount("snacks target", [everyday, target])).toMatchObject({
+      account: target,
     });
   });
 
@@ -604,6 +696,37 @@ describe("readAccountAnswer", () => {
     "from my",
   ])("%j is not an answer", (text) => {
     expect(read(text)).toEqual(NOT_AN_ANSWER);
+  });
+
+  it("takes the last four digits of exactly one account (HO-115)", () => {
+    const travel: LogAccount = {
+      id: "t",
+      nickname: "Travel",
+      type: "credit_card",
+      maskLast4: "4521",
+    };
+    const grocery: LogAccount = {
+      id: "g",
+      nickname: "Grocery",
+      type: "credit_card",
+      maskLast4: "9900",
+    };
+    const both = [travel, grocery];
+    for (const text of ["4521", "card ending 4521", "ending in 4521"]) {
+      expect(readAccountAnswer(text, both, both)).toEqual(account(travel));
+    }
+    // No account ends that way: asked again, not read as a new amount.
+    expect(readAccountAnswer("1234", both, both)).toEqual(UNCLEAR);
+    // Written as money, it is not an answer.
+    expect(readAccountAnswer("$4521", both, both)).toEqual(NOT_AN_ANSWER);
+  });
+
+  it("does not shift the numbers when a listed account was deleted (HO-115)", () => {
+    // The first account listed is gone: "2" is still the second one.
+    expect(readAccountAnswer("2", [null, sampleCard], all)).toEqual(
+      account(sampleCard),
+    );
+    expect(readAccountAnswer("1", [null, sampleCard], all)).toEqual(UNCLEAR);
   });
 
   it("counts places in the list it was shown, and names among all accounts", () => {

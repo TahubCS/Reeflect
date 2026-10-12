@@ -12,7 +12,7 @@ export const QUIET_HOURS_REPLIES = {
 } as const;
 
 export function quietHoursSetReply(hours: QuietHours): string {
-  return `Quiet hours set: ${formatQuietHours(hours)}. Reply UNDO to go back.`;
+  return `Quiet hours set: ${formatQuietHours(hours)}, Eastern time. Reply UNDO to go back.`;
 }
 
 export function quietHoursShowReply(hours: QuietHours): string {

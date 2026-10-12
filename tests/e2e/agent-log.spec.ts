@@ -46,7 +46,10 @@ async function addAccount(
 /** Links a new phone to the page's user and returns how to text from it. */
 async function linkPhone(page: Page) {
   const handle = `+1${String(Math.floor(Math.random() * 1e10)).padStart(10, "0")}`;
-  const text = async (message: string): Promise<string> => {
+  const text = async (
+    message: string,
+    kind?: "attachment" | "voice" | "edit",
+  ): Promise<string> => {
     const response = await page.request.post("/api/agent/turn", {
       headers: { authorization: `Bearer ${SERVICE_TOKEN}` },
       data: {
@@ -55,6 +58,7 @@ async function linkPhone(page: Page) {
         spaceId: `any;-;${handle}`,
         messageId: crypto.randomUUID(),
         text: message,
+        ...(kind ? { kind } : {}),
       },
     });
     expect(response.status()).toBe(200);
@@ -153,4 +157,36 @@ test("with two accounts the agent asks which, and the next text can answer", asy
   await openDashboard(page);
   await expect(headline(page)).toHaveText("You have $488.00 today.");
   await expect(dayPanel(page).getByText(/on card · Quicksilver/)).toBeVisible();
+});
+
+test("statements, money coming in and photos are answered, never logged (HO-115)", async ({
+  browser,
+  baseURL,
+}) => {
+  const page = await newUserPage(browser, baseURL);
+  await addAccount(page, { nickname: "Everyday", balance: "500" });
+  const text = await linkPhone(page);
+
+  // Help and small talk are answered by code.
+  expect(await text("help")).toContain("Here's what you can text me");
+  expect(await text("thanks")).toContain("Anytime");
+  expect(await text("tell me a joke")).toContain(
+    "I can only help with your money",
+  );
+
+  // None of these is spending: nothing is saved.
+  expect(await text("I have 500")).not.toMatch(/Logged/);
+  expect(await text("got 100 from mom")).toContain("money coming in");
+  expect(await text("paid off my card 300")).toContain("aren't spending");
+  expect(await text("food budget 300")).toContain("can't change budgets");
+  expect(await text("spent 20 on lunch the day before yesterday")).toContain(
+    "today or yesterday",
+  );
+
+  // A photo gets an answer instead of silence.
+  expect(await text("", "attachment")).toContain("I can only read text");
+
+  await openDashboard(page);
+  await expect(headline(page)).toHaveText("You have $500.00 today.");
+  await expect(dayPanel(page).getByText("texted in")).toHaveCount(0);
 });

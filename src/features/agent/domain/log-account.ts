@@ -6,6 +6,8 @@ export type LogAccount = {
   id: string;
   nickname: string;
   type: "checking" | "savings" | "credit_card" | "loan";
+  /** The last four digits on the card or account, when known. */
+  maskLast4?: string | null;
 };
 
 export type AccountChoice =
@@ -18,11 +20,17 @@ export type AccountChoice =
   | {
       ok: false;
       /**
-       * `none`: no accounts at all. `loan`: they named a loan, or have only
-       * loans. `which`: several fit and the text does not say, or it names
-       * a kind of account they have none or several of.
+       * `none`: no accounts at all. `loan`: they named a loan. `only_loans`:
+       * every account is a loan. `which`: several fit and the text does not
+       * say, or it names a kind of account they have none or several of.
        */
-      reason: "none" | "loan" | "which";
+      reason: "none" | "loan" | "only_loans" | "which";
+      /**
+       * With `which`: the phrase without the account words they did use
+       * ("lunch" from "lunch on card"), so the question names the spending
+       * as they meant it.
+       */
+      rest?: string;
     };
 
 // How people name a kind of account. Longer phrases first, so "debit card"
@@ -63,11 +71,20 @@ function nicknamePattern(nickname: string): string | null {
  * An account's own name, at the end of the text: "lunch from Everyday",
  * "lunch Everyday", "lunch from Everyday checking". Only at the end, so a
  * word inside the description that happens to match a nickname is left
- * alone.
+ * alone. Without "on", "from" and the like, the name must follow words
+ * that say what was bought: "45 target" with a card called Target is
+ * spending at Target, not spending with nothing named.
  */
 const nicknameAtEnd = (pattern: string) =>
   new RegExp(
     `(?:^| )(?:${WITH} )?(?:(?:my|the) )?${pattern}(?: ${KIND_AFTER_NAME}){0,2}$`,
+    "iu",
+  );
+
+/** The nickname with "on", "from" or the like before it. */
+const leadIn = (pattern: string) =>
+  new RegExp(
+    `(?:^| )${WITH} (?:(?:my|the) )?${pattern}(?: ${KIND_AFTER_NAME}){0,2}$`,
     "iu",
   );
 
@@ -99,22 +116,21 @@ export function chooseAccount(
     .filter(
       (candidate): candidate is typeof candidate & { pattern: string } =>
         candidate.pattern !== null &&
-        nicknameAtEnd(candidate.pattern).test(phrase),
+        nicknameAtEnd(candidate.pattern).test(phrase) &&
+        (leadIn(candidate.pattern).test(phrase) ||
+          /\p{L}/u.test(phrase.replace(nicknameAtEnd(candidate.pattern), " "))),
     )
     .sort((a, b) => b.nickname.length - a.nickname.length);
   if (named.length > 0) {
     const best = named.filter(
       ({ nickname }) => nickname.length === named[0]!.nickname.length,
     );
-    // Two accounts with the same name: the text cannot tell them apart.
-    if (best.length > 1) return { ok: false, reason: "which" };
     const { account, pattern } = best[0]!;
+    const rest = tidy(phrase.replace(nicknameAtEnd(pattern), " "));
+    // Two accounts with the same name: the text cannot tell them apart.
+    if (best.length > 1) return { ok: false, reason: "which", rest };
     if (account.type === "loan") return { ok: false, reason: "loan" };
-    return {
-      ok: true,
-      account,
-      rest: tidy(phrase.replace(nicknameAtEnd(pattern), " ")),
-    };
+    return { ok: true, account, rest };
   }
 
   for (const [kind, type] of KIND_PHRASES) {
@@ -122,16 +138,13 @@ export function chooseAccount(
     if (!pattern.test(phrase)) continue;
     if (type === "loan") return { ok: false, reason: "loan" };
     const ofKind = accounts.filter((account) => account.type === type);
-    if (ofKind.length !== 1) return { ok: false, reason: "which" };
-    return {
-      ok: true,
-      account: ofKind[0]!,
-      rest: tidy(phrase.replace(pattern, " ")),
-    };
+    const rest = tidy(phrase.replace(pattern, " "));
+    if (ofKind.length !== 1) return { ok: false, reason: "which", rest };
+    return { ok: true, account: ofKind[0]!, rest };
   }
 
   const spendable = accounts.filter((account) => account.type !== "loan");
-  if (spendable.length === 0) return { ok: false, reason: "loan" };
+  if (spendable.length === 0) return { ok: false, reason: "only_loans" };
   if (spendable.length > 1) return { ok: false, reason: "which" };
   return { ok: true, account: spendable[0]!, rest: phrase };
 }
@@ -173,6 +186,11 @@ const ANSWER_FILLER = new Set([
   "acct",
   "please",
   "pls",
+  "ending",
+  "ends",
+  "last",
+  "four",
+  "digits",
 ]);
 
 const KINDS = new Map(KIND_PHRASES);
@@ -205,12 +223,14 @@ function runIndex(whole: readonly string[], part: readonly string[]): number {
  * with filler around it), so a question or new spending that mentions an
  * account is never taken for one.
  *
- * `listed` are the accounts in the order they were numbered; `accounts` are
- * all the accounts that can hold spending.
+ * `listed` are the accounts in the order they were numbered, with null for
+ * one deleted since (its number then picks nothing, rather than shifting
+ * to the next account); `accounts` are all the accounts that can hold
+ * spending.
  */
 export function readAccountAnswer(
   text: string,
-  listed: readonly LogAccount[],
+  listed: readonly (LogAccount | null)[],
   accounts: readonly LogAccount[],
 ): AccountAnswer {
   if (text.trim().endsWith("?")) return { type: "none" };
@@ -239,6 +259,21 @@ export function readAccountAnswer(
 
   const rest = words.filter((word) => !ANSWER_FILLER.has(word));
   if (rest.length === 0) return { type: "none" };
+
+  // "4521", "card ending 4521": the last four digits of one of them.
+  const lastFour = rest.filter((word) => /^\d{4}$/.test(word));
+  if (
+    lastFour.length === 1 &&
+    rest.every((word) => word === lastFour[0] || KIND_WORDS.has(word)) &&
+    !/\$|\d[.,]\d/.test(text)
+  ) {
+    const matches = accounts.filter(
+      (account) => account.maskLast4 === lastFour[0],
+    );
+    return matches.length === 1
+      ? { type: "account", account: matches[0]! }
+      : { type: "unclear" };
+  }
 
   // "2", "#2", "number 2": the place in the list. Written as money ("$2",
   // "2.50") it is not an answer.

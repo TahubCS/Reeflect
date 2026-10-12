@@ -1,4 +1,5 @@
 import { APP_NAME } from "@/config/app";
+import { CHAT_REPLIES, mentionsMoney } from "./chat";
 import { ACCOUNT_KINDS, type BudgetStanding, type Facts } from "./summary";
 import { type Topic, topicOf } from "./topic";
 
@@ -11,8 +12,9 @@ const NO_ACCOUNTS = `You're linked, but ${APP_NAME} has no accounts for you yet.
 const AVERAGES =
   "Based on the last {days_covered} days, about {take_home} comes in and {spending} goes out a month.";
 
+// No number in words: the reply built by code keeps the model's rules too.
 const QUIET =
-  "There are no transactions in the last thirty days, so that is all I can say for now.";
+  "There are no recent transactions, so that is all I can say for now.";
 
 const THIS_MONTH_ONLY = "I only have this month so far.";
 
@@ -154,9 +156,14 @@ function accountsReply(facts: Facts, picked: number[]): string {
  * without it, or when nothing is recognised, it is the general summary.
  */
 export function fallbackDraft(facts: Facts, text?: string): string {
+  const topic = text === undefined ? null : topicOf(text, facts);
+  // Not about money at all: decline politely rather than send a summary
+  // nobody asked for (AGENTS.md section 2). No labels, so nothing to fill.
+  if (text !== undefined && topic?.type === "summary" && !mentionsMoney(text)) {
+    return CHAT_REPLIES.offTopic;
+  }
   if (facts.state === "no_accounts") return NO_ACCOUNTS;
 
-  const topic = text === undefined ? null : topicOf(text, facts);
   if (topic?.type === "categories") return categoriesReply(facts, topic);
   if (topic?.type === "payments") return paymentsReply(facts);
   if (topic?.type === "accounts") return accountsReply(facts, topic.picked);

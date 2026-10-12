@@ -1,9 +1,9 @@
-import type { TurnRequest } from "@reeflect/agent-protocol";
+import type { TurnRequestInput } from "@reeflect/agent-protocol";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FALLBACK_REPLY, relayTurn } from "./relay.ts";
+import { FALLBACK_REPLY, SLOW_REPLY, relayTurn } from "./relay.ts";
 
 const TOKEN = "worker-test-token-0123456789-0123456789";
-const turn: TurnRequest = {
+const turn: TurnRequestInput = {
   platform: "imessage",
   handle: "+15551234567",
   spaceId: "any;-;+15551234567",
@@ -43,7 +43,9 @@ describe("relayTurn", () => {
     expect(new Headers(init?.headers).get("authorization")).toBe(
       `Bearer ${TOKEN}`,
     );
-    expect(JSON.parse(String(init?.body))).toEqual(turn);
+    expect(JSON.parse(String(init?.body))).toEqual({ ...turn, kind: "text" });
+    // A redirect would drop the token or send it elsewhere.
+    expect(init?.redirect).toBe("error");
   });
 
   it("ignores a path on the app URL", async () => {
@@ -110,7 +112,7 @@ describe("relayTurn", () => {
     expect(await relay(fetchFake)).toBe(FALLBACK_REPLY);
   });
 
-  it("falls back when the app takes too long", async () => {
+  it("says it is slow, not to try again, when the app takes too long", async () => {
     const logged = errors();
     const fetchFake = vi.fn<typeof fetch>(
       (_url, init) =>
@@ -121,7 +123,9 @@ describe("relayTurn", () => {
         }),
     );
 
-    expect(await relay(fetchFake, 20)).toBe(FALLBACK_REPLY);
+    // The app may have saved a log already: "try again" could save it twice.
+    expect(await relay(fetchFake, 20)).toBe(SLOW_REPLY);
+    expect(SLOW_REPLY).not.toMatch(/try again/i);
     expect(logged).toHaveBeenCalledWith("relay: turn failed", {
       messageId: "message-1",
       reason: "TimeoutError",

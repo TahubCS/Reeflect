@@ -83,11 +83,17 @@ export function logTransactionId(
   ].join("-");
 }
 
-function dayOf(day: "today" | "yesterday", now: Date): string {
-  return isoDateIn(
-    day === "today" ? now : new Date(now.getTime() - DAY_MS),
-    DEFAULT_TIME_ZONE,
-  );
+/**
+ * The calendar date of "today" or "yesterday" in the app's time zone. The
+ * day before is counted on the calendar, not as 24 hours back, which lands
+ * on the wrong date around a daylight-saving change.
+ */
+export function dayOf(day: LogDay, now: Date): string {
+  const today = isoDateIn(now, DEFAULT_TIME_ZONE);
+  if (day === "today") return today;
+  const date = new Date(`${today}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
 }
 
 /** The category the saved rules and keywords give these words, or null. */
@@ -132,16 +138,16 @@ async function ask(
   spending: Spending,
   accounts: readonly LogAccount[],
   context: LogContext,
-  now: Date,
+  askedAt: Date,
 ): Promise<string> {
   const listed = accounts.filter(canHoldSpending).slice(0, MAX_LISTED_ACCOUNTS);
-  if (listed.length === 0) return LOG_REPLIES.loan;
+  if (listed.length === 0) return LOG_REPLIES.onlyLoans;
   await rememberPending(context, {
     amount: spending.amount,
     description: spending.description,
     day: spending.day,
     accountIds: listed.map((account) => account.id),
-    askedAt: now,
+    askedAt,
   });
   return whichAccountReply(
     spending.amount,
@@ -161,7 +167,11 @@ async function save(
   if (!choice.ok) {
     if (choice.reason === "none") return LOG_REPLIES.noAccounts;
     if (choice.reason === "loan") return LOG_REPLIES.loan;
-    return ask(command, accounts, context, now);
+    if (choice.reason === "only_loans") return LOG_REPLIES.onlyLoans;
+    // "lunch on card" with two cards: the question is about "lunch".
+    const rest = trimFiller(choice.rest ?? "");
+    const description = /\p{L}/u.test(rest) ? rest : command.description;
+    return ask({ ...command, description }, accounts, context, now);
   }
   const description = trimFiller(choice.rest);
   // Only the account's name was there: "12 on card".
@@ -219,15 +229,19 @@ async function saveOn(
 
   // From here on the spending is saved. The category and the budget line
   // are extras: if either fails, the reply still confirms the log.
-  const extras = await categoryAndBudget(context, id, description, now).catch(
-    (error: unknown) => {
-      console.warn("agent: log saved without its category", {
-        messageId: context.messageId,
-        reason: error instanceof Error ? error.name : "unknown",
-      });
-      return { category: null, budgetLeft: null };
-    },
-  );
+  const extras = await categoryAndBudget(
+    context,
+    id,
+    description,
+    how.postedOn,
+    now,
+  ).catch((error: unknown) => {
+    console.warn("agent: log saved without its category", {
+      messageId: context.messageId,
+      reason: error instanceof Error ? error.name : "unknown",
+    });
+    return { category: null, budgetLeft: null };
+  });
 
   return loggedReply({
     amount: spending.amount,
@@ -243,6 +257,7 @@ async function categoryAndBudget(
   context: LogContext,
   transactionId: string,
   description: string,
+  postedOn: string,
   now: Date,
 ): Promise<{ category: string | null; budgetLeft: Cents | null }> {
   const { workspaceId } = context;
@@ -268,13 +283,15 @@ async function categoryAndBudget(
   }
   const category = categories.find((candidate) => candidate.id === categoryId);
   if (category === undefined) return { category: null, budgetLeft: null };
+  const today = isoDateIn(now, DEFAULT_TIME_ZONE);
+  // The line says "this month": spending on the last day of last month,
+  // logged as "yesterday", does not touch this month's budget.
+  if (postedOn.slice(0, 7) !== today.slice(0, 7)) {
+    return { category: category.name, budgetLeft: null };
+  }
   return {
     category: category.name,
-    budgetLeft: await budgetLeft(
-      workspaceId,
-      category.id,
-      isoDateIn(now, DEFAULT_TIME_ZONE),
-    ),
+    budgetLeft: await budgetLeft(workspaceId, category.id, today),
   };
 }
 
@@ -330,17 +347,33 @@ export async function answerPending(
 
   const all = await listAccounts(context.workspaceId);
   const accounts = all.filter(canHoldSpending);
-  const listed = pending.accountIds.flatMap(
-    (id) => accounts.find((account) => account.id === id) ?? [],
+  // A deleted account keeps its place as null, so "2" still means the
+  // account that was listed second, not the one after it.
+  const listed = pending.accountIds.map(
+    (id) => accounts.find((account) => account.id === id) ?? null,
   );
   const answer = readAccountAnswer(text, listed, accounts);
   if (answer.type === "none") return null;
 
+  // Asked again: the spending keeps the day and the time it was first
+  // texted, so the question cannot be kept open past its window.
+  if (answer.type === "unclear") {
+    try {
+      return await ask(pending, all, context, pending.askedAt);
+    } catch (error) {
+      console.error("agent: log failed", {
+        messageId: context.messageId,
+        reason: error instanceof Error ? error.name : "unknown",
+      });
+      return LOG_REPLIES.notSaved;
+    }
+  }
+
+  // Taken first: the same answer arriving twice is acted on once.
+  if (!(await takePending(context, now))) return null;
+  let reply: string;
   try {
-    if (answer.type === "unclear") return await ask(pending, all, context, now);
-    // Taken first: the same answer arriving twice is acted on once.
-    if (!(await takePending(context, now))) return null;
-    return await saveOn(pending, answer.account, {
+    reply = await saveOn(pending, answer.account, {
       postedOn: dayOf(pending.day, pending.askedAt),
       nameAccount: all.length > 1,
       context,
@@ -352,6 +385,11 @@ export async function answerPending(
       messageId: context.messageId,
       reason: error instanceof Error ? error.name : "unknown",
     });
-    return LOG_REPLIES.notSaved;
+    reply = LOG_REPLIES.notSaved;
   }
+  // Not saved: the question is put back, so answering again works.
+  if (reply === LOG_REPLIES.notSaved) {
+    await rememberPending(context, pending).catch(() => {});
+  }
+  return reply;
 }

@@ -13,7 +13,11 @@ describe("parseCommand", () => {
       "LINK 482193.",
       "link 482193!",
     ]) {
-      expect(parseCommand(text)).toEqual({ type: "link", code: "482193" });
+      expect(parseCommand(text)).toEqual({
+        type: "link",
+        code: "482193",
+        bare: false,
+      });
     }
   });
 
@@ -21,31 +25,58 @@ describe("parseCommand", () => {
     expect(parseCommand("LINK 482 193")).toEqual({
       type: "link",
       code: "482 193",
+      bare: false,
     });
     expect(parseCommand("link 482-193")).toEqual({
       type: "link",
       code: "482-193",
+      bare: false,
+    });
+    expect(parseCommand("LINK code 482 193")).toEqual({
+      type: "link",
+      code: "482 193",
+      bare: false,
     });
   });
 
-  it("treats LINK with a bad or missing code as a link attempt", () => {
-    expect(parseCommand("LINK")).toEqual({ type: "link", code: "" });
-    expect(parseCommand("link 123")).toEqual({ type: "link", code: "123" });
-    expect(parseCommand("LINK my phone")).toEqual({
+  it("treats LINK with a short or missing code as a link attempt", () => {
+    expect(parseCommand("LINK")).toEqual({
       type: "link",
-      code: "my phone",
+      code: "",
+      bare: false,
     });
+    expect(parseCommand("link 123")).toEqual({
+      type: "link",
+      code: "123",
+      bare: false,
+    });
+  });
+
+  it("does not take a sentence that starts with link for a code (HO-115)", () => {
+    for (const text of [
+      "LINK my phone",
+      "link my chase account",
+      "Link to my budget?",
+    ]) {
+      expect(parseCommand(text)).toEqual({ type: "none" });
+    }
   });
 
   it("reads a six-digit code sent on its own", () => {
-    expect(parseCommand("482193")).toEqual({ type: "link", code: "482193" });
+    expect(parseCommand("482193")).toEqual({
+      type: "link",
+      code: "482193",
+      bare: true,
+    });
     expect(parseCommand(" 482 193 ")).toEqual({
       type: "link",
       code: "482 193",
+      bare: true,
     });
     expect(parseCommand("482-193.")).toEqual({
       type: "link",
       code: "482-193",
+      bare: true,
     });
   });
 

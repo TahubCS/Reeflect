@@ -44,10 +44,12 @@ const echoApp = vi.fn<typeof fetch>(async (_url, init) => {
 const run = (
   pairs: [ReplySpace, IncomingMessage][],
   app: typeof fetch = echoApp,
+  platformTimeoutMs?: number,
 ) =>
   runWorker(
     { messages: stream(pairs) },
     { appUrl: "https://app.example.com", serviceToken: TOKEN, fetch: app },
+    platformTimeoutMs,
   );
 
 afterEach(() => {
@@ -89,7 +91,7 @@ describe("runWorker", () => {
     expect(sentIn("bob")).toEqual(['bob: sent "re: hi"']);
   });
 
-  it("ignores its own messages, group chats and non-text content", async () => {
+  it("ignores its own messages, group chats and tapbacks", async () => {
     const log: string[] = [];
     const dm = fakeSpace("alice", log, "dm");
     const group = fakeSpace("family", log, "group");
@@ -99,12 +101,61 @@ describe("runWorker", () => {
       [group, text("m2", "+15551230001", "in a group")],
       [
         dm,
-        { ...text("m3", "+15551230001", ""), content: { type: "attachment" } },
+        { ...text("m3", "+15551230001", ""), content: { type: "reaction" } },
       ],
     ]);
 
     expect(log).toEqual([]);
     expect(echoApp).not.toHaveBeenCalled();
+  });
+
+  it("answers a swipe reply as the text inside it (HO-074)", async () => {
+    const log: string[] = [];
+    const space = fakeSpace("alice", log, "dm");
+
+    await run([
+      [
+        space,
+        {
+          ...text("m1", "+15551230001", ""),
+          content: { type: "reply", content: { type: "text", text: "2" } },
+        },
+      ],
+    ]);
+
+    expect(log).toContain('alice: sent "re: 2"');
+  });
+
+  it("does not let a send that hangs hold up the next text", async () => {
+    const errorsLogged = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const log: string[] = [];
+    let sends = 0;
+    const space: ReplySpace = {
+      ...fakeSpace("alice", log, "dm"),
+      async send(content) {
+        sends += 1;
+        // The first send never settles, as a stuck platform call would.
+        if (sends === 1) return new Promise(() => {});
+        log.push(`alice: sent "${content}"`);
+      },
+    };
+
+    await run(
+      [
+        [space, text("m1", "+15551230001", "one")],
+        [space, text("m2", "+15551230001", "two")],
+      ],
+      echoApp,
+      20,
+    );
+
+    expect(log).toContain('alice: sent "re: two"');
+    expect(errorsLogged).toHaveBeenCalledWith("worker: reply not sent", {
+      messageId: "m1",
+      reason: "TimeoutError",
+    });
   });
 
   it("sends the fallback when the app fails", async () => {

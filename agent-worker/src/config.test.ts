@@ -81,4 +81,27 @@ describe("parseConfig", () => {
     expect(() => parseConfig({ ...BASE, PORT: "70000" })).toThrow(/PORT/);
     expect(() => parseConfig({ ...BASE, PORT: "abc" })).toThrow(/PORT/);
   });
+
+  it("refuses an app URL that would send the token in clear (HO-115)", () => {
+    expect(() =>
+      parseConfig({ ...BASE, REEFLECT_URL: "http://reeflect.example.com" }),
+    ).toThrow(/REEFLECT_URL: must use https/);
+    for (const url of [
+      "https://reeflect.example.com",
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+    ]) {
+      expect(parseConfig({ ...BASE, REEFLECT_URL: url }).REEFLECT_URL).toBe(
+        url,
+      );
+    }
+  });
+
+  it("trims the token as the app does, so a pasted newline still matches", () => {
+    const token = BASE.AGENT_SERVICE_TOKEN;
+    expect(
+      parseConfig({ ...BASE, AGENT_SERVICE_TOKEN: ` ${token}\n` })
+        .AGENT_SERVICE_TOKEN,
+    ).toBe(token);
+  });
 });

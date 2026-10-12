@@ -4,6 +4,7 @@ export {
   type LinkState,
   type Platform,
   type VerifiedIdentity,
+  cancelClaimByHandle,
   claimLinkCode,
   findIdentity,
   getLinkState,

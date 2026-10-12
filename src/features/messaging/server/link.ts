@@ -188,7 +188,15 @@ export async function claimLinkCode(
     // One statement, so two phones texting the same code cannot both win.
     const claimed = await db
       .update(agentLinkCode)
-      .set({ platform, handle, spaceId, claimedAt: now })
+      // The person now has to find the website and press Approve: the code
+      // stays live for a full window from the text, not from its creation.
+      .set({
+        platform,
+        handle,
+        spaceId,
+        claimedAt: now,
+        expiresAt: new Date(now.getTime() + LINK_CODE_TTL_MS),
+      })
       .where(
         and(
           eq(agentLinkCode.codeHash, hashLinkCode(code)),
@@ -313,6 +321,31 @@ export async function revokeByHandle(
     .where(activeIdentityAt(platform, normalizeHandle(rawHandle)))
     .returning({ id: messagingIdentity.id });
   return revoked.length > 0;
+}
+
+/**
+ * STOP from a phone that texted a code but is not approved yet: the code is
+ * spent, so a later Approve on the website cannot text a phone that said
+ * STOP. True when a request was waiting.
+ */
+export async function cancelClaimByHandle(
+  platform: Platform,
+  rawHandle: string,
+  now: Date = new Date(),
+): Promise<boolean> {
+  const cancelled = await db
+    .update(agentLinkCode)
+    .set({ usedAt: now })
+    .where(
+      and(
+        eq(agentLinkCode.platform, platform),
+        eq(agentLinkCode.handle, normalizeHandle(rawHandle)),
+        isNull(agentLinkCode.usedAt),
+        gt(agentLinkCode.expiresAt, now),
+      ),
+    )
+    .returning({ id: agentLinkCode.id });
+  return cancelled.length > 0;
 }
 
 /**

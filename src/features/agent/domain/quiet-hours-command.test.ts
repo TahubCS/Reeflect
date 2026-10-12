@@ -33,6 +33,11 @@ describe("parseQuietHoursCommand: what is set", () => {
     ["quiet hours 00:00 to 06:30", set(0, at(6, 30))],
     // A range inside one day is allowed.
     ["quiet hours 1pm to 3pm", set(at(13), at(15))],
+    // Found by the agent review (HO-115).
+    ["set quiet hours to 10pm to 6am", set(at(22), at(6))],
+    ["change my quiet hours to 11pm-7am", set(at(23), at(7))],
+    ["quiet hours between 10pm and 6am", set(at(22), at(6))],
+    ["quiet hours between 10 pm and 6 am", set(at(22), at(6))],
   ])("%s", (text, expected) => {
     expect(parseQuietHoursCommand(text)).toEqual(expected);
   });
@@ -63,12 +68,16 @@ describe("parseQuietHoursCommand: what is not sure", () => {
 });
 
 describe("parseQuietHoursCommand: questions and other texts", () => {
-  it.each(["quiet hours", "Quiet hours?", "what are my quiet hours?"])(
-    "shows them for %s",
-    (text) => {
-      expect(parseQuietHoursCommand(text)).toEqual({ type: "show" });
-    },
-  );
+  it.each([
+    "quiet hours",
+    "Quiet hours?",
+    "what are my quiet hours?",
+    "what time are my quiet hours?",
+    "when are my quiet hours",
+    "what are my current quiet hours?",
+  ])("shows them for %s", (text) => {
+    expect(parseQuietHoursCommand(text)).toEqual({ type: "show" });
+  });
 
   it.each(["12 lunch", "how am I doing?", "UNDO", "it was quiet at 11pm", ""])(
     "leaves %s alone",

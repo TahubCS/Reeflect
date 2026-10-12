@@ -1,6 +1,7 @@
 import "server-only";
 import { fill } from "@/lib/ai/fill";
 import { type AiRequest, generateText } from "@/lib/ai/client";
+import { CHAT_REPLIES } from "../domain/chat";
 import { completeDraft } from "../domain/draft";
 import { fallbackDraft } from "../domain/fallback";
 import { SYSTEM_INSTRUCTION, buildUserInput } from "../domain/prompt";
@@ -34,7 +35,17 @@ export async function answer(
   workspaceId: string,
   options: AnswerOptions = {},
 ): Promise<string> {
-  const facts = await getSummary(workspaceId, options.now);
+  let facts: Facts;
+  try {
+    facts = await getSummary(workspaceId, options.now);
+  } catch (error) {
+    // No figures to give: say so, rather than fail the whole turn.
+    console.error("agent: summary not read", {
+      workspaceId,
+      reason: error instanceof Error ? error.name : "unknown",
+    });
+    return CHAT_REPLIES.summaryUnavailable;
+  }
   try {
     const draft = await (options.generate ?? generateText)({
       system: SYSTEM_INSTRUCTION,

@@ -18,12 +18,16 @@ export const UNCLEAR_REPLIES: Record<Unclear, string> = {
   too_large: `That's more than I log by text. Add it on the ${APP_NAME} website. Nothing was logged.`,
   not_usd: `${APP_NAME} works in US dollars only. Send the amount in dollars. Nothing was logged.`,
   income: `I can only log spending by text. Add money coming in on the ${APP_NAME} website. Nothing was logged.`,
+  direction: `Was that money coming in or going out? If you spent it, send it like ${EXAMPLE}. Money coming in is added on the website. Nothing was logged.`,
+  transfer: `Card payments and moves between your own accounts aren't spending, so I don't log them by text. Nothing was logged.`,
+  setting: `I can't change budgets or goals by text yet. Set them on the ${APP_NAME} website. Nothing was logged.`,
   other_day: `I can log for today or yesterday. Add other days on the ${APP_NAME} website. Nothing was logged.`,
 };
 
 export const LOG_REPLIES = {
   noAccounts: `Add an account on the ${APP_NAME} website first, then I can log spending.`,
   loan: "Spending can't be logged on a loan. Name a checking, savings or card account. Nothing was logged.",
+  onlyLoans: `Spending can't be logged on a loan, and loans are all I see for you. Add a checking, savings or card account on the ${APP_NAME} website first. Nothing was logged.`,
   tooMany: `That's a lot for one day. Add the rest on the ${APP_NAME} website. Nothing was logged.`,
   notSaved:
     "I couldn't save that, so nothing was logged. Try again in a minute.",

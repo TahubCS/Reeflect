@@ -22,7 +22,7 @@ const TRIGGER = /\bquiet[\s-]*hours?\b/;
 
 /** Words around the times that say nothing about them. */
 const FILLER = new RegExp(
-  `\\b(?:${APP_NAME.toLowerCase()}|please|pls|register|set|change|update|make|new|my|the|to be|are|is|from|what|whats|what's|show|me|now)\\b`,
+  `\\b(?:${APP_NAME.toLowerCase()}|please|pls|register|set|change|update|make|new|my|the|to be|are|is|from|what|whats|what's|show|me|now|time|times|when|do|i|have|current|currently|right)\\b`,
   "g",
 );
 
@@ -70,7 +70,11 @@ export function parseQuietHoursCommand(text: string): QuietHoursCommand {
     .replace(FILLER, " ")
     .replace(/[,:;?!]+(?=\s|$)/g, " ")
     .replace(/^[\s,:;.?!]+|[\s,:;.?!]+$/g, "")
-    .replace(/\s+/g, " ");
+    .replace(/\s+/g, " ")
+    // "set my quiet hours to 10pm to 6am", "quiet hours between 10pm and
+    // 6am": the first word before the times only joins the sentence.
+    .replace(/^(?:to|for|as|at|between)\s+/, "")
+    .replace(/^(\S+(?:\s*[ap]\.?m\.?)?)\s+and\s+/, "$1 to ");
   if (rest === "") return { type: "show" };
 
   const match = RANGE.exec(rest);

@@ -14,6 +14,26 @@ export type MessageSource = {
   readonly messages: AsyncIterable<readonly [ReplySpace, IncomingMessage]>;
 };
 
+/** How long one call to the platform may take before it is given up. */
+export const PLATFORM_TIMEOUT_MS = 15_000;
+
+/**
+ * The platform call, or a TimeoutError after `ms`. A call that hangs
+ * instead of failing would otherwise hold up every later text in that
+ * conversation, since one conversation is answered in order.
+ */
+export function within<T>(call: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      const error = new Error("platform call timed out");
+      error.name = "TimeoutError";
+      reject(error);
+    }, ms);
+  });
+  return Promise.race([call, timeout]).finally(() => clearTimeout(timer));
+}
+
 /**
  * Why something failed, for the log: the error's name and, when the
  * platform gives one, its code (a fixed word such as `preconditionFailed`).
@@ -37,6 +57,7 @@ export function failure(error: unknown): { reason: string; code?: string } {
 export async function runWorker(
   source: MessageSource,
   relay: RelayOptions,
+  platformTimeoutMs: number = PLATFORM_TIMEOUT_MS,
 ): Promise<void> {
   const enqueue = createKeyedQueue();
   const pending = new Set<Promise<void>>();
@@ -49,14 +70,17 @@ export async function runWorker(
     const answered = enqueue(space.id, async () => {
       // The indicator is a nicety: a platform that refuses it must not
       // cost the person their answer.
-      await space.startTyping().catch((error: unknown) => {
-        console.error("worker: typing indicator refused", {
-          messageId,
-          ...failure(error),
-        });
-      });
+      await within(space.startTyping(), platformTimeoutMs).catch(
+        (error: unknown) => {
+          console.error("worker: typing indicator refused", {
+            messageId,
+            ...failure(error),
+          });
+        },
+      );
       try {
-        await space.send(await relayTurn(turn, relay));
+        const reply = await relayTurn(turn, relay);
+        await within(space.send(reply), platformTimeoutMs);
       } catch (error) {
         // Ids only: never the handle or the text.
         console.error("worker: reply not sent", {
@@ -64,7 +88,7 @@ export async function runWorker(
           ...failure(error),
         });
       } finally {
-        await space.stopTyping().catch(() => {});
+        await within(space.stopTyping(), platformTimeoutMs).catch(() => {});
       }
     });
     pending.add(answered);

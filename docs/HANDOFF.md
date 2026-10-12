@@ -60,10 +60,10 @@ Update this table when work is assigned or finished. Features are listed in
 | F-24 Phone linking | C | Muhammad Tahub Khatri | `feat/photon-agent` | Built (HO-032); the phone is texted when the link is approved (HO-061, ADR-062) |
 | F-25 "How am I doing?" + week-ahead image | C | Muhammad Tahub Khatri | `feat/agent-payday-answer` | Answers built (HO-050, HO-061): balances, the last 30 days, and what is owed before payday with the calendar's per-day figure. The image is not built |
 | F-26 Subscription alerts | C | Unassigned | — | Not started |
-| F-27 Log spending by text | C | Muhammad Tahub Khatri | `feat/agent-log-spending` | Built (HO-071, ADR-064): log, ask when unsure, UNDO. The account question is remembered and answered in the next text (HO-073, ADR-065). Not built: money in, days before yesterday, receipts |
+| F-27 Log spending by text | C | Muhammad Tahub Khatri | `feat/agent-log-spending` | Built (HO-071, ADR-064): log, ask when unsure, UNDO. The account question is remembered and answered in the next text (HO-073, ADR-065). Review fixes (HO-115, ADR-066): statements, intentions, income, transfers and other days are never logged. Not built: money in, days before yesterday, receipts |
 | F-28 Category and balance questions | C | Muhammad Tahub Khatri | `feat/agent-questions` | Built (HO-072, ADR-059): this month's spending and budgets by category, the next payments before payday, each account's balance. Not built: any period other than this month so far |
 | F-33 Quiet hours settings | B + C | Simon Ormond | `feat/quiet-hours` | Built (HO-096, ADR-104 Proposed): Settings → Notifications and by text, with UNDO. Nothing sends proactive texts yet |
-| F-32 Agent worker | C | Muhammad Tahub Khatri | `feat/agent-worker` | Done, replies only (HO-039, PR #17); live on Render (HO-049) |
+| F-32 Agent worker | C | Muhammad Tahub Khatri | `feat/agent-worker` | Done, replies only (HO-039, PR #17); live on Render (HO-049). Swipe replies, effects, edits, photos and voice notes answered (HO-115, ADR-066) |
 | F-22 Bill reminders (P1) | A + C | Unassigned | — | Not started |
 | F-15 Gemini summary on the website (P1, ADR-045) | C | Unassigned | — | Not started |
 | F-35 Compare with people like you (Later, ADR-056) | A + B | Jacob Heminway | `feat/insights` | Built: the Insights page, stored sample figures and `pnpm batch rollup` (HO-043); ADR-056 and ADR-057 Proposed |
@@ -3989,3 +3989,103 @@ rows", transactions 2 "show more" in steps of 20, plus a view-only list.
 - The e2e run retook the Bills, Budgets and Recurring screenshots in
   `docs/screenshots/` in the new style; other docs images may still show the
   old look.
+
+## HO-115: Agent review: no more silence, fewer wrong logs, help by text (ADR-066)
+
+- **Date:** 2026-10-11 (EDT)
+- **Author:** Muhammad Tahub Khatri with Claude (Claude Code, cloud session)
+- **Branch / PR:** `claude/intelligent-albattani-bmsc25` / not opened
+
+### What changed
+The agent was run locally against Postgres with a terminal chat, and a
+scripted replay of about 40 texts was recorded before and after the fixes.
+The rules are in ADR-066.
+
+- **Worker** (`agent-worker/src/turn.ts`, `relay.ts`, `worker.ts`,
+  `config.ts`):
+  - Swipe replies and texts with an effect are now read as the text inside
+    them (this fixes HO-074's dropped answer).
+  - Edits, photos (with or without a caption) and voice notes are forwarded
+    with a `kind`. Only chats known to be one-to-one are answered.
+  - A slow app gets a "check before sending again" reply.
+  - Platform calls time out after 15 s.
+  - The worker now requires an https app URL (http only for localhost),
+    refuses redirects, and trims its token.
+- **Protocol:** turns carry an optional `kind` and `spaceType`. Both default
+  safely for an older worker.
+- **Turn router** (`runAgentTurn.ts`):
+  - It rate-limits each phone to 20 texts a minute and refuses group chats.
+  - STOP also cancels a link request that is waiting for approval.
+  - LINK must be followed by a code; six digits on their own count only from
+    a phone that is not linked.
+  - Photos, voice notes and edits get fixed replies.
+  - HELP, hello and thanks are answered by code (`domain/chat.ts`).
+  - Only new spending or UNDO closes an open "which account?" question.
+- **Parser** (`domain/log.ts`): these are no longer saved as spending:
+  - Statements, negations and intentions.
+  - Money coming in, said in other ways.
+  - Card payments and moves to savings.
+  - Budget and goal settings.
+  - Days in words.
+  - Amounts like "12,50" and "-12".
+- **Logging** (`tools/logSpending.ts`, `domain/log-account.ts`):
+  - Yesterday is the calendar day before, which fixes daylight saving.
+  - Asking which account again keeps the original day.
+  - A failed save puts the question back.
+  - A listed account that is deleted keeps its number.
+  - Account words are taken out of the question.
+  - The last four digits answer the question.
+  - A merchant named like an account stays the merchant.
+  - A workspace with only loans gets its own reply.
+  - The budget line is left out when the spending was last month.
+- **Answers** (`answer.ts`, `domain/draft.ts`, `domain/fallback.ts`):
+  - A failed summary read gets a fixed reply instead of a 500.
+  - Model drafts are rejected for a "$" next to a label, numbers in words,
+    or claiming to have logged something.
+  - Without a model, off-topic texts get a polite decline.
+- **Quiet hours by text:** these now work: "to 10pm to 6am", "between 10pm
+  and 6am", and "what time are my quiet hours?". The confirmation says
+  Eastern time (ADR-104).
+- **Linking** (`messaging/server/link.ts`): a claimed code stays valid for
+  10 minutes from the text, and there is a new `cancelClaimByHandle`.
+- **Turn route:** logs the error's name only, because a failed query's
+  message holds the phone number.
+- **New** `src/lib/security/rate-limit.ts`, with tests.
+- AGENTS.md section 9 has a second block for Muhammad (ADR 122–141, HO
+  115–134), because 055–074 was full.
+
+### Verified
+- `pnpm lint`, `format:check`, `typecheck` and `build` pass.
+- `pnpm test:unit`: 2385 pass. The 8 that fail are the storage and import
+  tests that need `.env.storage-tests`, which this container lacks; those
+  files are untouched.
+- The agent, messaging, worker, protocol and route tests (710) all pass. New
+  cases cover every text the review found.
+- Scripted replay against `pnpm dev`, before and after: the replies and the
+  database agree that nothing was logged that should not have been.
+- Interactive terminal chat through the real worker covered: sign-up reply,
+  LINK, approve, help, "how am I doing?", the account question, a budget
+  question, UNDO, an off-topic decline, and STOP.
+- Playwright, full run: 111 pass. 9 CSV and PDF import specs fail because
+  there is no storage bucket. `recurring.spec.ts` "retains invalid form
+  input" failed in the full run and passes on its own. The agent, linking
+  and quiet-hours specs all pass, including the new HO-115 case.
+
+### What's next
+- Muhammad reviews ADR-066 (Proposed).
+- Try a swipe reply, an edit and a photo on a real iPhone. Only the content
+  shapes from Spectrum's typings were tested.
+- F-26 and F-22 still need the proactive job tick (HO-096).
+
+### Open problems
+- UNDO is not idempotent per message: a redelivered UNDO removes two logs.
+  Fixing it needs a schema change; the worker never retries, so it is rare.
+- Spectrum handles SIGTERM itself and may cut off replies in flight during
+  a Render redeploy. Not tested.
+- The same person texting from an email address and a phone number looks
+  like two handles. This needs to be checked against what Spectrum sends.
+- The rate limit is per server instance (in memory).
+- Restoring the question after a failed save has no automated test: a
+  database failure is hard to force in the integration tests.
+- Playwright here needs the container's Chromium (`launchOptions.executablePath`
+  `/opt/pw-browsers/chromium`); the pinned headless shell is not installed.

@@ -11,4 +11,6 @@ export const REPLIES = {
   alreadyLinked: "This phone is already linked. Text STOP to unlink it first.",
   stopped: `Done. This phone is unlinked and ${APP_NAME} won't text it. You can link again from Settings.`,
   notLinked: "This phone isn't linked, so there is nothing to stop.",
+  requestCancelled: `Done. This phone's link request is cancelled. You can start again from ${APP_NAME} settings.`,
+  linkHow: `Send LINK followed by the six-digit code from ${APP_NAME} settings.`,
 } as const;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  MESSAGE_KINDS,
   PLATFORMS,
   sendRequestSchema,
   turnRequestSchema,
@@ -16,7 +17,23 @@ const valid = {
 
 describe("turnRequestSchema", () => {
   it("accepts a well-formed turn", () => {
-    expect(turnRequestSchema.parse(valid)).toEqual(valid);
+    expect(turnRequestSchema.parse(valid)).toEqual({ ...valid, kind: "text" });
+  });
+
+  it("reads a turn without a kind as plain text, from an older worker", () => {
+    expect(turnRequestSchema.parse(valid).kind).toBe("text");
+    expect(turnRequestSchema.parse(valid).spaceType).toBeUndefined();
+  });
+
+  it("accepts every message kind and space type in the lists", () => {
+    for (const kind of MESSAGE_KINDS) {
+      expect(turnRequestSchema.parse({ ...valid, kind }).kind).toBe(kind);
+    }
+    for (const spaceType of ["direct", "group"]) {
+      expect(turnRequestSchema.parse({ ...valid, spaceType }).spaceType).toBe(
+        spaceType,
+      );
+    }
   });
 
   it("accepts every platform in the list, and no other", () => {
@@ -47,6 +64,8 @@ describe("turnRequestSchema", () => {
       { ...valid, messageId: undefined },
       { ...valid, text: 42 },
       { ...valid, text: "x".repeat(4001) },
+      { ...valid, kind: "reaction" },
+      { ...valid, spaceType: "dm" },
     ];
     for (const input of bad) {
       expect(turnRequestSchema.safeParse(input).success).toBe(false);

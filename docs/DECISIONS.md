@@ -1942,6 +1942,88 @@ Rules:
     the first text, because the number reads as a second amount; its place
     in the list works.
 
+### ADR-066: Nothing someone texts is met with silence or a guess (refines ADR-032, ADR-034, ADR-064, ADR-065)
+
+- **Status:** Proposed (2026-10-11)
+- **Owner to confirm:** Muhammad Tahub Khatri
+- **Context:** A review of the agent, run against a local copy with a
+  terminal chat (HO-115), found texts that got silence and texts that saved
+  the wrong thing:
+  - The worker dropped swipe replies, texts sent with an effect, edits,
+    photos and voice notes without a word (HO-074).
+  - "I have 500", "credit score 720" and "got 100 from mom" were read as
+    spending.
+  - "hi", "help", "thanks" and "what's the weather?" all got the full
+    balance summary when no model answered.
+- **Decision:**
+  - **The worker reads a swipe reply and a text with an effect as the text
+    inside them.** It forwards edits, photos (or a photo with a caption)
+    and voice notes as a turn with a `kind`. Tapbacks, typing and read
+    receipts still get nothing.
+  - **The worker answers only chats known to be one-to-one:** iMessage's
+    `dm`, or the terminal's untyped chat. It sends `spaceType`, and the app
+    refuses a `group` turn with a fixed reply. A turn without a `kind` or a
+    `spaceType` (an older worker) is plain text in a direct chat.
+  - **The app answers each kind with a fixed reply written by code:** "I
+    can only read text", "I can't listen to voice notes yet", and, for an
+    edit, "I go by the first version; text UNDO and send it again". An edit
+    is never read again, because logging it twice would be worse.
+  - **HELP, hello and thanks are answered by code** with a menu of what the
+    agent reads, with or without a model. When no model answers, a text
+    with no money words gets a polite decline instead of a summary
+    (AGENTS.md section 2).
+  - **Logging asks rather than guesses in more cases** (ADR-064's rule):
+    - These are never spending: statements about what someone has or owes,
+      negations, and intentions ("need to", "want to").
+    - Money coming in said other ways ("paid me", "sold", "bonus") gets the
+      income reply.
+    - "got … from" with no amount right after "got" asks whether money came
+      in or went out.
+    - Card payments and moves to savings are never logged (ADR-020).
+    - Budgets and goals are not changed by text.
+    - Days in words ("the day before yesterday", "on the 3rd", month names)
+      get the other-day reply.
+    - "12,50" and "-12" get the unreadable-amount reply.
+  - **Yesterday is the calendar day before today in Eastern time,** not 24
+    hours back.
+  - **The open "which account?" question (ADR-065) changes in these ways:**
+    - A text that only looks like spending ("4521") no longer closes it.
+    - The last four digits of an account answer it.
+    - Asking again keeps the day and time it was first asked.
+    - A failed save puts the question back.
+    - A listed account that is deleted keeps its number.
+  - **LINK means a code:** LINK followed by digits, or LINK on its own,
+    which gets an explanation and costs no attempt. Six digits on their own
+    are a code only from a phone that is not linked.
+  - **STOP from a phone waiting for approval cancels the request.**
+  - **A claimed code stays valid for 10 minutes from the text,** so the
+    person has time to press Approve.
+  - **One phone may send 20 texts a minute.** After that it gets a fixed
+    "slow down" reply. The count is kept in memory per server instance.
+  - **When the app takes longer than the worker waits,** the reply says not
+    to resend spending without checking, because the app may already have
+    saved it.
+  - **Smaller rules:**
+    - The worker requires an https app URL (http only for localhost),
+      refuses redirects, and trims its token as the app does.
+    - Model drafts may not put a currency sign next to a label, spell a
+      number out, or claim to have logged or saved something.
+    - The turn route logs an error's name only, never its message, because
+      a failed query's message holds the phone number.
+- **Alternatives considered:**
+  - Sending non-text content to the app as an attachment for a model to
+    read: that is F-29 (receipts), which is planned separately.
+  - Reading edits as new texts: they would double-log spending.
+  - Rate limiting in the database: it costs a write per text, and the
+    in-memory limit is enough to stop a loop.
+- **Consequences:**
+  - "got 5 tacos from chipotle" is now asked about instead of saved; "5
+    tacos chipotle" still logs.
+  - Over several server instances the rate limit is per instance, not
+    exact.
+  - The worker no longer answers a chat type it does not recognise. A new
+    Spectrum type for direct chats would need adding to the allow-list.
+
 ### ADR-084: Reserved ADR and handoff numbers for each developer
 
 - **Status:** Accepted (2026-10-11)

@@ -1,5 +1,5 @@
 import {
-  type TurnRequest,
+  type TurnRequestInput,
   turnRequestSchema,
   turnResponseSchema,
 } from "@reeflect/agent-protocol";
@@ -7,6 +7,14 @@ import {
 /** What the person sees when the app cannot be reached or answers badly. */
 export const FALLBACK_REPLY =
   "Something went wrong on our side. Please try again in a minute.";
+
+/**
+ * What the person sees when the app is too slow to answer. The app may
+ * still finish, and a log may already be saved, so this does not say "try
+ * again": sending it again could log the same spending twice.
+ */
+export const SLOW_REPLY =
+  "That's taking longer than usual. If you logged spending, check the app before sending it again; UNDO removes the last one.";
 
 export const TURN_TIMEOUT_MS = 20_000;
 
@@ -29,7 +37,7 @@ function logFailure(messageId: string, reason: string): void {
  * answer) is logged by message id and becomes the fallback reply.
  */
 export async function relayTurn(
-  turn: TurnRequest,
+  turn: TurnRequestInput,
   options: RelayOptions,
 ): Promise<string> {
   const { messageId } = turn;
@@ -54,6 +62,9 @@ export async function relayTurn(
         },
         body: JSON.stringify(request.data),
         signal: AbortSignal.timeout(options.timeoutMs ?? TURN_TIMEOUT_MS),
+        // A redirect would drop the token (or carry it somewhere else).
+        // Fail loudly instead, so a wrong REEFLECT_URL shows in the log.
+        redirect: "error",
       },
     );
     if (!response.ok) {
@@ -67,7 +78,8 @@ export async function relayTurn(
     }
     return body.data.reply;
   } catch (error) {
-    logFailure(messageId, error instanceof Error ? error.name : "unknown");
-    return FALLBACK_REPLY;
+    const reason = error instanceof Error ? error.name : "unknown";
+    logFailure(messageId, reason);
+    return reason === "TimeoutError" ? SLOW_REPLY : FALLBACK_REPLY;
   }
 }

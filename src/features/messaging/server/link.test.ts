@@ -17,6 +17,7 @@ import {
   ATTEMPT_WINDOW_MS,
   MAX_FAILED_ATTEMPTS,
   approveLink,
+  cancelClaimByHandle,
   claimLinkCode,
   createLinkCode,
   findIdentity,
@@ -271,6 +272,22 @@ describe("approveLink", () => {
     expect(await findIdentity("imessage", handle)).toBeNull();
   });
 
+  it("gives the person a full window to approve from when the phone texted (HO-115)", async () => {
+    const { userId, workspaceId } = await newUser();
+    const made = new Date();
+    const code = await newCode(userId, made);
+    const handle = newPhone();
+
+    // Texted with twenty seconds left on the code.
+    const texted = new Date(made.getTime() + LINK_CODE_TTL_MS - 20_000);
+    expect(await claimLinkCode(from(handle, code), texted)).toBe("pending");
+
+    // Past the code's first expiry, but inside the window from the text.
+    const later = new Date(made.getTime() + LINK_CODE_TTL_MS + 60_000);
+    expect(await approveLink(userId, workspaceId, later)).not.toBeNull();
+    expect(await findIdentity("imessage", handle)).not.toBeNull();
+  });
+
   it("never links one phone to two users", async () => {
     const first = await newUser();
     const second = await newUser();
@@ -355,6 +372,28 @@ describe("revoking", () => {
     expect(await findIdentity("imessage", mine.handle)).toBeNull();
     expect(await findIdentity("imessage", theirs.handle)).not.toBeNull();
     expect(await revokeForUser(mine.userId)).toBeNull();
+  });
+});
+
+describe("cancelClaimByHandle", () => {
+  it("spends a waiting request, so Approve cannot text that phone (HO-115)", async () => {
+    const { userId, workspaceId } = await newUser();
+    const handle = newPhone();
+    await claimLinkCode(from(handle, await newCode(userId)));
+
+    expect(await cancelClaimByHandle("imessage", handle)).toBe(true);
+    expect(await approveLink(userId, workspaceId)).toBeNull();
+    expect(await getLinkState(userId)).toEqual({ status: "none" });
+    expect(await cancelClaimByHandle("imessage", handle)).toBe(false);
+  });
+
+  it("touches no other phone's request", async () => {
+    const { userId, workspaceId } = await newUser();
+    const handle = newPhone();
+    await claimLinkCode(from(handle, await newCode(userId)));
+
+    expect(await cancelClaimByHandle("imessage", newPhone())).toBe(false);
+    expect(await approveLink(userId, workspaceId)).not.toBeNull();
   });
 });
 

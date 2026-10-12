@@ -27,6 +27,7 @@ import {
   MAX_LOGS_PER_DAY,
   type LogContext,
   answerPending,
+  dayOf,
   logSpending,
   logTransactionId,
 } from "./logSpending";
@@ -687,5 +688,31 @@ describe("limits and failures", () => {
         messageId: "m",
       }),
     ).toBe(UNCLEAR_REPLIES.several_amounts);
+  });
+});
+
+describe("dayOf (HO-115)", () => {
+  it("counts yesterday on the calendar, across daylight-saving changes", () => {
+    // Clocks go back on Sunday, November 1 2026: 23:30 EST that night is
+    // 04:30 UTC on Monday. Yesterday is Sunday, not Sunday again.
+    expect(dayOf("today", new Date("2026-11-02T04:30:00Z"))).toBe("2026-11-01");
+    expect(dayOf("yesterday", new Date("2026-11-02T04:30:00Z"))).toBe(
+      "2026-10-31",
+    );
+    // Clocks go forward on Sunday, March 8 2026: 00:30 EDT on Monday is
+    // 04:30 UTC. Yesterday is Sunday, not Saturday.
+    expect(dayOf("today", new Date("2026-03-09T04:30:00Z"))).toBe("2026-03-09");
+    expect(dayOf("yesterday", new Date("2026-03-09T04:30:00Z"))).toBe(
+      "2026-03-08",
+    );
+  });
+
+  it("crosses month and year ends", () => {
+    expect(dayOf("yesterday", new Date("2026-03-01T17:00:00Z"))).toBe(
+      "2026-02-28",
+    );
+    expect(dayOf("yesterday", new Date("2027-01-01T17:00:00Z"))).toBe(
+      "2026-12-31",
+    );
   });
 });

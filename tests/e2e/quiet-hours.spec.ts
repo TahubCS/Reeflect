@@ -89,7 +89,7 @@ test("quiet hours are set by text, and UNDO puts them back", async ({
   await expect(page.getByText(/^Connected: phone ending/)).toBeVisible();
 
   expect(await text("quiet hours 10pm to 6:30am")).toBe(
-    "Quiet hours set: 10:00 PM to 6:30 AM. Reply UNDO to go back.",
+    "Quiet hours set: 10:00 PM to 6:30 AM, Eastern time. Reply UNDO to go back.",
   );
   expect(await text("quiet hours 10 to 6")).toContain(
     "I couldn't read those times.",

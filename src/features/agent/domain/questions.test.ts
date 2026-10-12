@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { hasOwnDigits } from "@/lib/ai/digitScan";
 import { labelsIn, withoutLabels } from "@/lib/ai/fill";
 import { cents } from "@/lib/money";
+import { CHAT_REPLIES } from "./chat";
 import { completeDraft } from "./draft";
 import { fallbackDraft } from "./fallback";
 import { SYSTEM_INSTRUCTION, buildUserInput } from "./prompt";
@@ -436,9 +437,20 @@ describe("the code-built reply to a question", () => {
   it("is the general summary, exactly as before, for anything else", () => {
     const all = facts();
 
-    for (const text of ["how am I doing?", "hello", "what can I spend?"]) {
+    for (const text of ["how am I doing?", "what can I spend?", "status"]) {
       expect(fallbackDraft(all, text)).toBe(fallbackDraft(all));
     }
+  });
+
+  it("declines a text that is not about money, without any figure (HO-115)", () => {
+    const all = facts();
+    for (const text of ["what's the weather?", "tell me a joke", "who won"]) {
+      expect(fallbackDraft(all, text)).toBe(CHAT_REPLIES.offTopic);
+    }
+    // Even with no accounts yet, an off-topic text is declined.
+    expect(fallbackDraft(facts({ accounts: [] }), "tell me a joke")).toBe(
+      CHAT_REPLIES.offTopic,
+    );
   });
 
   it("says what was spent on a category, and what is left of its budget", () => {
@@ -558,5 +570,30 @@ describe("the code-built reply to a question", () => {
     });
 
     expect(fallbackDraft(none, "how much on food?")).toBe(fallbackDraft(none));
+  });
+});
+
+describe("completeDraft: what a model may not write (HO-115)", () => {
+  it.each([
+    ["You have ${cash_total} in checking.", "currency_sign"],
+    ["You have {cash_total}$ in checking.", "currency_sign"],
+    ["You spent about three hundred dollars this month.", "number_words"],
+    ["That is twice what you spent this month.", "number_words"],
+    ["About half of {month_spent} went to food this month.", "number_words"],
+    ["Got it, I logged that for you.", "claims_action"],
+    ["I've saved it to your account.", "claims_action"],
+    ["Done, I removed it.", "claims_action"],
+  ])("%j is rejected: %s", (draft, reason) => {
+    expect(completeDraft(draft, facts())).toEqual({ ok: false, reason });
+  });
+
+  it("still accepts ordinary sentences with those words in them", () => {
+    for (const draft of [
+      "You have {cash_total} in checking and savings.",
+      "You owe {owed_total}; the next one to pay is on the website.",
+      "No one can see this but you.",
+    ]) {
+      expect(completeDraft(draft, facts()).ok).toBe(true);
+    }
   });
 });
