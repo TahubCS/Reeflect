@@ -346,6 +346,7 @@ after the highest block to this table, in their own commit.
 | Muhammad Tahub Khatri | 062–081 | 055–074 |
 | Jacob Heminway | 082–101 | 075–094 |
 | Simon Ormond | 102–121 | 095–114 |
+| Muhammad Tahub Khatri | 122–141 | 115–134 |
 
 ARCH and TEST sections are rarely added and stay shared: take the next
 number after the highest one on `main`.
